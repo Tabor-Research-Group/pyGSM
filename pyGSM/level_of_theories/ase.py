@@ -21,26 +21,38 @@ except ModuleNotFoundError:
 from .base_lot import Lot, LoTError
 
 
+class Constraint_custom_forces:
+    def __init__(self, a, direction):
+        self.a = a
+        self.dir = direction
+
+    def adjust_positions(self, atoms, newpositions):
+        pass
+
+    def adjust_forces(self, atoms, forces):
+        forces[self.a] = forces[self.a] + self.dir
+
 class ASELoT(Lot):
     """
     Warning:
         multiplicity is not implemented, the calculator ignores it
     """
 
-    def __init__(self, calculator: Calculator, options):
+    def __init__(self, calculator: Calculator, constraints_forces, options):
         super(ASELoT, self).__init__(options)
 
         self.ase_calculator = calculator
+        self.constraints_forces = constraints_forces
 
     @classmethod
-    def from_options(cls, calculator: Calculator, **kwargs):
+    def from_options(cls, calculator: Calculator, constraints_forces, **kwargs):
         """ Returns an instance of this class with default options updated from values in kwargs"""
-        return cls(calculator, cls.default_options().set_values(kwargs))
+        return cls(calculator, constraints_forces, cls.default_options().set_values(kwargs))
 
     @classmethod
     def copy(cls, lot, options, copy_wavefunction=True):
         assert isinstance(lot, ASELoT)
-        return cls(lot.ase_calculator, lot.options.copy().set_values(options))
+        return cls(lot.ase_calculator, lot.constraints_forces, lot.options.copy().set_values(options))
 
     @classmethod
     def from_calculator_string(cls, calculator_import: str, calculator_kwargs: dict = dict(), **kwargs):
@@ -76,6 +88,10 @@ class ASELoT(Lot):
     def run_ase_atoms(self, atoms: Atoms, mult, ad_idx, runtype='gradient'):
         # set the calculator
         atoms.set_calculator(self.ase_calculator)
+        if self.constraints_forces.any() != None:
+            atom_indices = [x for x in range(len(atoms))]
+            constraint = Constraint_custom_forces(atom_indices, self.constraints_forces)
+            atoms.set_constraint(constraint)
 
         # perform gradient calculation if needed
         if runtype == "gradient":
@@ -89,13 +105,12 @@ class ASELoT(Lot):
 
         # energy is always calculated -> cached if force calculation was done
         self._Energies[(mult, ad_idx)] = self.Energy(
-            atoms.get_potential_energy() / units.Ha, 'Hartree')
+            atoms.get_potential_energy()[0] / units.Ha, 'Hartree')
 
         # write E to scratch
         self.write_E_to_file()
 
         self.hasRanForCurrentCoords = True
-
 
 def xyz_to_ase(xyz):
     """

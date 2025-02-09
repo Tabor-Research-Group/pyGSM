@@ -128,6 +128,12 @@ class Lot(object):
         )
 
         opt.add_option(
+            key='constraints_file',
+            required=False,
+            value=None
+        )
+
+        opt.add_option(
             key="lot_inp_file",
             required=False,
             value=None,
