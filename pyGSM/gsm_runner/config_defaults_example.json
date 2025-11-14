@@ -1,0 +1,60 @@
+{
+    "xyzfile": "geom.xyz",
+    "mode": "DE_GSM",
+    "EST_Package": "ase",
+    "lot_inp_file": null,
+    "ID": 0,
+    "num_nodes": 9,
+    "PES_type": "PES",
+    "adiabatic_index": [
+        0
+    ],
+    "multiplicity": [
+        1
+    ],
+    "states": [
+        [
+            1,
+            0
+        ]
+    ],
+    "charge": 0,
+    "optimizer": "eigenvector_follow",
+    "opt_print_level": 1,
+    "gsm_print_level": 1,
+    "linesearch": "NoLineSearch",
+    "DMAX": 0.1,
+    "ADD_NODE_TOL": 0.01,
+    "DQMAG_MAX": 0.8,
+    "BDIST_RATIO": 0.5,
+    "CONV_TOL": 1e-06,
+    "conv_Ediff": 100.0,
+    "conv_dE": 1.0,
+    "conv_gmax": 100.0,
+    "max_gsm_iters": 10000,
+    "max_opt_steps": null,
+    "growth_direction": 0,
+    "only_climb": false,
+    "no_climb": false,
+    "reactant_geom_fixed": false,
+    "product_geom_fixed": false,
+    "restart_file": null,
+    "reparametrize": false,
+    "start_climb_immediately": false,
+    "only_drive": false,
+    "coordinate_type": "TRIC",
+    "isomers_file": null,
+    "xTB_Hamiltonian": "GFN2-xTB",
+    "xTB_accuracy": 1.0,
+    "xTB_electronic_temperature": 300.0,
+    "solvent": null,
+    "xyz_output_format": "molden",
+    "ase_class": null,
+    "ase_kwargs": null,
+    "constraints_file": null,
+    "nproc": 1,
+    "mp_cores": 1,
+    "interp_method": "DLC",
+    "rtype": null,
+    "setup_DE_from_SE": false
+}

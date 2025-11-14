@@ -1,0 +1,23 @@
+{
+    "xyzfile": "geom.xyz",
+    "mode": "SE_GSM",
+    "EST_Package": "ase",
+    "setup_DE_from_SE": true,
+    "isomers_file": "isomers.txt",
+    "ID": 0,
+    "num_nodes": 20,
+    "ADD_NODE_TOL": 0.01,
+    "DQMAG_MAX": 0.8,
+    "CONV_TOL": 1e-06,
+    "conv_Ediff": 100.0,
+    "conv_dE": 1.0,
+    "conv_gmax": 100.0,
+    "max_gsm_iters": 50,
+    "max_opt_steps": 20,
+    "only_climb": false,
+    "no_climb": false,
+    "reparametrize": false,
+    "start_climb_immediately": false,
+    "constraints_file": null,
+    "nproc": 1
+}

@@ -11,6 +11,7 @@ try:
     from ase.calculators.calculator import Calculator
     from ase.data import atomic_numbers
     from ase import units
+    import numpy as np
 except ModuleNotFoundError:
     Atoms = None
     Calculator = None
@@ -88,11 +89,11 @@ class ASELoT(Lot):
     def run_ase_atoms(self, atoms: Atoms, mult, ad_idx, runtype='gradient'):
         # set the calculator
         atoms.set_calculator(self.ase_calculator)
-        if self.constraints_forces.any() != None:
+        if self.constraints_forces[0][0] != None:
             atom_indices = [x for x in range(len(atoms))]
             constraint = Constraint_custom_forces(atom_indices, self.constraints_forces)
             atoms.set_constraint(constraint)
-
+        
         # perform gradient calculation if needed
         if runtype == "gradient":
             self._Gradients[(mult, ad_idx)] = self.Gradient(- atoms.get_forces() / units.Ha * units.Bohr,

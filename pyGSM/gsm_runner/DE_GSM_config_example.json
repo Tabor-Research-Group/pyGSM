@@ -1,0 +1,15 @@
+{
+    "xyzfile": "conf_continue.xyz",
+    "mode": "DE_GSM",
+    "EST_Package": "ase",
+    "ID": 0,
+    "num_nodes": 9,
+    "CONV_TOL": 1e-06,
+    "conv_Ediff": 100.0,
+    "conv_dE": 1.0,
+    "conv_gmax": 100.0,
+    "max_opt_steps": 3,
+    "restart_file": "opt_converged_000.xyz",
+    "constraints_file": null,
+    "nproc": 1
+}
