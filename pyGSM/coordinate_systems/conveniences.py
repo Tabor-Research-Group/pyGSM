@@ -50,12 +50,41 @@ def construct_internal(spec):
         cls = slots.coordinate_mapping[cls]
     return cls(**spec)
 
+coordinate_type_definitions = {
+    "TRIC": {
+        "internals": "auto",
+        "connect": False,
+        "addtr": True,
+        "addcart": False
+    },
+    "DLC": {
+        "primitives": "auto",
+        "connect": True,
+        "addtr": True,
+        "addcart": False
+    },
+    "HDLC": {
+        "primitives": "auto",
+        "connect": False,
+        "addtr": False,
+        "addcart": True
+    }
+}
+
 def construct_coordinate_system(atoms, xyz,
                                 bonds='auto',
                                 primitives=None,
                                 internals=None,
+                                coordinate_type=None,
                                 **opts
                                 ) -> InternalCoordinates:
+    if coordinate_type is not None:
+        new_opts = coordinate_type_definitions[coordinate_type]
+        opts = dict(new_opts, **opts)
+        if primitives is None:
+            primitives = opts.pop("primitives", None)
+        if internals is None:
+            internals = opts.pop("internals", None)
 
     if internals is not None:
         form_topology = dev.str_is(internals, 'auto')

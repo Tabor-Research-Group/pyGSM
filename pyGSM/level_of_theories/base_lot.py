@@ -1,29 +1,17 @@
 # standard library imports
+import abc
 from collections import namedtuple
 import os
 
 # third party
 import numpy as np
+import tempfile as tmp
 
 # local application imports
 from ..utilities import manage_xyz, options, elements, nifty, units
 from .file_options import File_Options
 
 ELEMENT_TABLE = elements.ElementData()
-
-# TODO take out all job-specific data -- encourage external files since those are most customizable
-# TODO fix tuple searches
-# TODO Make energies,grada dictionaries
-
-
-      
-
-def copy_file(path1, path2):
-    cmd = 'cp -r ' + path1 + ' ' + path2
-    print(" copying scr files\n {}".format(cmd))
-    os.system(cmd)
-    os.system('wait')
-
 
 class LoTError(Exception):
     pass
@@ -32,31 +20,18 @@ Energy = namedtuple('Energy','value unit')
 Gradient = namedtuple('Gradient','value unit')
 Coupling = namedtuple('Coupling','value unit')
 
-class Lot(object):
+class Lot(metaclass=abc.ABCMeta):
     """ Lot object for level of theory calculators """
 
-    @staticmethod
-    def default_options():
+    _default_options = None
+    @classmethod
+    def default_options(cls):
         """ Lot default options. """
 
-        if hasattr(Lot, '_default_options'):
-            return Lot._default_options.copy()
+        if cls._default_options is not None:
+            return cls._default_options.copy()
+
         opt = options.Options()
-
-        opt.add_option(
-            key='fnm',
-            value=None,
-            required=False,
-            allowed_types=[str],
-            doc='File name to create the LOT object from. Only used if geom is none.'
-        )
-
-        opt.add_option(
-            key='geom',
-            value=None,
-            required=False,
-            doc='geometry object required to get the atom names and initial coords'
-        )
 
         opt.add_option(
             key='states',
@@ -86,17 +61,9 @@ class Lot(object):
             doc='charge of molecule')
 
         opt.add_option(
-            key='nproc',
-            required=False,
-            value=1,
-            allowed_types=[int],
-            doc="number of processors",
-        )
-
-        opt.add_option(
             key='do_coupling',
             required=False,
-            value=False,
+            value=None,
             doc='derivative coupling'
         )
 
@@ -119,15 +86,9 @@ class Lot(object):
         opt.add_option(
             key="calc_grad",
             required=False,
-            value=True,
+            value=None,
             allowed_types=[bool],
             doc=' calculate gradient or not'
-        )
-
-        opt.add_option(
-            key='constraints_file',
-            required=False,
-            value=None
         )
 
         opt.add_option(
@@ -159,120 +120,84 @@ class Lot(object):
                         require'
         )
 
-        opt.add_option(
-                key='xTB_Hamiltonian',
-                value='GFN2-xTB',
-                required=False,
-                allowed_types=[str],
-                doc='xTB hamiltonian'
-                )
+        cls._default_options = opt
+        return cls._default_options.copy()
 
-        opt.add_option(
-                key='xTB_accuracy',
-                value=1.0,
-                required=False,
-                allowed_types=[float],
-                doc='xTB accuracy'
-                )
-
-        opt.add_option(
-                key='xTB_electronic_temperature',
-                value=300,
-                required=False,
-                allowed_types=[float],
-                doc='xTB electronic_temperature'
-                )
-
-        opt.add_option(
-            key='solvent',
-            value=None,
-            required=False,
-            allowed_types=[str],
-            doc='xTB solvent'
-        )
-
-        Lot._default_options = opt
-        return Lot._default_options.copy()
-
+    Energy = Energy
+    Gradient = Gradient
+    Coupling = Coupling
+    default_states = [(0,1)]
     def __init__(self,
-                 options,
+                 states=None,
+                 gradient_states=None,
+                 coupling_states=None,
+                 charge=0,
+                 calc_grad=None,
+                 do_coupling=None,
+                 atoms=None
                  ):
         """ Constructor """
-        self.options = options
-        # properties
-        self.Energy = Energy
-        self.Gradient = Gradient
-        self.Coupling = Coupling
-        self._Energies={}
-        self._Gradients={}
-        self._Couplings={}
+        # self.options = options
 
-        # count number of states
-        singlets = self.search_tuple(self.states, 1)
-        doublets = self.search_tuple(self.states, 2)
-        triplets = self.search_tuple(self.states, 3)
-        quartets = self.search_tuple(self.states, 4)
-        quintets = self.search_tuple(self.states, 5)
+        if states is None: states = self.default_states
+        self.charge = charge
+        self.atoms = atoms
 
-        # TODO do this for all states, since it catches if states are put in lazy e.g [(1,1)]
-        if singlets:
-            len_singlets = max(singlets, key=lambda x: x[1])[1]+1
-        else:
-            len_singlets = 0
-        len_doublets = len(doublets)
-        len_triplets = len(triplets)
-        len_quartets = len(quartets)
-        len_quintets = len(quintets)
+        if calc_grad is None:
+            calc_grad = gradient_states is not None
+        if do_coupling is None:
+            do_coupling = coupling_states is not None
+        self.states, self.gradient_states, self.coupling_states = self._resolve_state_data(
+            states, gradient_states, coupling_states,
+            calc_grad=calc_grad,
+            do_coupling=do_coupling,
+        )
+        self.check_num_electrons_and_mults(
+            self.atoms,
+            self.charge,
+            [m for m,_ in self.states]
+        )
+        self.calc_grad = calc_grad
+        self.do_coupling = calc_grad
 
-        # DO this before fixing states if put in lazy
-        if self.options['gradient_states'] is None and self.calc_grad:
-            print(" Assuming gradient states are ", self.states)
-            self.options['gradient_states'] = self.options['states']
+    def _resolve_state_data(self, states, gradient_states, coupling_states,
+                            *,
+                            calc_grad,
+                            do_coupling,
+                            max_multiplicity=5,
+                            complete_state_data=True,
+                            ):
 
-        if len(self.states) < len_singlets+len_doublets+len_triplets+len_quartets+len_quintets:
-            print('fixing states to be proper length')
-            tmp = []
-            # TODO put in rest of fixed states
-            for i in range(len_singlets):
-                tmp.append((1, i))
-            for i in range(len_triplets):
-                tmp.append((3, i))
-            self.states = tmp
-            print(' New states ', self.states)
+        if gradient_states is None and calc_grad:
+            gradient_states = states
 
-        self.geom = self.options['geom']
-        if self.geom is not None:
-            print(" initializing LOT from geom")
-        elif self.options['fnm'] is not None:
-            print(" initializing LOT from file")
-            if not os.path.exists(self.options['fnm']):
-                # logger.error('Tried to create LOT object from a file that does not exist: %s\n' % self.options['fnm'])
-                raise IOError
-            self.geom = manage_xyz.read_xyz(self.options['fnm'], scale=1.)
-        else:
-            raise RuntimeError("Need to initialize LOT object")
+        if coupling_states is None and do_coupling:
+            coupling_states = states
 
-        # Cache some useful atributes - other useful attributes are properties
-        self.currentCoords = manage_xyz.xyz_to_np(self.geom)
-        self.atoms = manage_xyz.get_atoms(self.geom)
-        self.ID = self.options['ID']
-        self.nproc = self.options['nproc']
-        self.charge = self.options['charge']
-        self.node_id = self.options['node_id']
-        self.lot_inp_file = self.options['lot_inp_file']
-        self.xTB_Hamiltonian = self.options['xTB_Hamiltonian']
-        self.xTB_accuracy = self.options['xTB_accuracy']
-        self.xTB_electronic_temperature = self.options['xTB_electronic_temperature']
-        self.solvent = self.options['solvent']
+        if complete_state_data:
+            # count number of states
+            tuple_search_data = self.search_tuple(states)
 
-        # Bools for running
-        self.hasRanForCurrentCoords = False
-        self.has_nelectrons = False
+            state_vecs = [
+                tuple_search_data.get(i+1, [])
+                for i in range(max_multiplicity)
+            ]
+            state_lens = [
+                0
+                    if len(s) == 0 else
+                max([j for m,j in s])
+                for s in state_vecs
+            ]
 
-        # Read file options if they exist and not already set
-        if self.file_options is None:
-            self.file_options = File_Options(self.lot_inp_file)
+            states = [
+                (m, j)
+                for m,s in zip(range(max_multiplicity), state_lens)
+                for j in range(s)
+            ]
 
+        return states, gradient_states, coupling_states
+
+    def _setup_job_dat(self):
         # package  specific implementation
         # TODO MOVE to specific package !!!
         # tc cloud
@@ -288,125 +213,117 @@ class Lot(object):
         """ Returns an instance of this class with default options updated from values in kwargs"""
         return cls(cls.default_options().set_values(kwargs))
 
-    @property
-    def Energies(self):
-        '''
-        A list of tuples with multiplicity, state and energy
-        '''
-        # assert type(self._E) is dict,"E must be dictionary"
-        return self._Energies
-
-    @Energies.setter
-    def Energies(self, value):
-        # assert type(value) is dict,"E must be dictionary"
-        self._Energies = value
-
-    @property
-    def Gradients(self):
-        '''
-        A list of tuples with multiplicity, state and energy 
-        '''
-
-        # assert type(self._) is dict,"grada must be dictionary"
-        return self._Gradients
-
-    @Gradients.setter
-    def Gradients(self, value):
-        assert type(value) is dict, "grada must be dictionary"
-        self._Gradients = value
-
-    @property
-    def Couplings(self):
-        '''
-        '''
-        return self._Couplings
-
-    @Couplings.setter
-    def Couplings(self, value):
-        self._Couplings = value
-
-    @property
-    def file_options(self):
-        return self.options['file_options']
-
-    @file_options.setter
-    def file_options(self, value):
-        assert type(value) == File_Options, "incorrect type for file options"
-        self.options['file_options'] = value
-
-    @property
-    def do_coupling(self):
-        return self.options['do_coupling']
-
-    @do_coupling.setter
-    def do_coupling(self, value):
-        assert type(value) == bool, "incorrect type for do_coupling"
-        self.options['do_coupling'] = value
-
-    @property
-    def coupling_states(self):
-        return self.options['coupling_states']
-
-    @coupling_states.setter
-    def coupling_states(self, value):
-        assert type(value) == tuple, "incorrect type for coupling,currently only support a tuple"
-        self.options['coupling_states'] = value
-
-    @property
-    def gradient_states(self):
-        return self.options['gradient_states']
-
-    @gradient_states.setter
-    def gradient_states(self, value):
-        assert type(value) == list, "incorrect type for gradient"
-        self.options['gradient_states'] = value
-
-    @property
-    def states(self):
-        return self.options['states']
-
-    @states.setter
-    def states(self, value):
-        assert type(value) == list, "incorrect type for gradient"
-        self.options['states'] = value
-
-    @property
-    def calc_grad(self):
-        return self.options['calc_grad']
-
-    @calc_grad.setter
-    def calc_grad(self, value):
-        assert type(value) == bool, "incorrect type for calc_grad"
-        self.options['calc_grad'] = value
+    def copy(self, copy_wavefunction=None):
+        return type(self)(
+            states=self.states,
+            gradient_states=self.gradient_states,
+            coupling_states=self.coupling_states,
+            charge=self.charge,
+            atoms=self.atoms
+        )
 
     @classmethod
-    def copy(cls, lot, options={}, copy_wavefunction=True):
-        return cls(lot.options.copy().set_values(options))
-
-    def check_multiplicity(self, multiplicity):
-        if multiplicity > self.n_electrons + 1:
+    def check_multiplicity(cls, n_electrons, multiplicity):
+        if multiplicity > n_electrons + 1:
             raise ValueError("Spin multiplicity too high.")
-            print(self.n_electrons)
-            print(multiplicity)
-            raise ValueError("Inconsistent charge/multiplicity.")
 
-    def get_nelec(self, geom, multiplicity):
-        atoms = manage_xyz.get_atoms(geom)
+    @classmethod
+    def check_num_electrons_and_mults(cls, atoms, charge, multiplicitities):
         elements = [ELEMENT_TABLE.from_symbol(atom) for atom in atoms]
         atomic_num = [ele.atomic_num for ele in elements]
-        self.n_electrons = sum(atomic_num) - self.charge
-        if self.n_electrons < 0:
+        n_electrons = sum(atomic_num) - charge
+        if n_electrons < 0:
             raise ValueError("Molecule has fewer than 0 electrons!!!")
-        self.check_multiplicity(multiplicity)
+        for m in multiplicitities:
+            cls.check_multiplicity(n_electrons, m)
+        return n_electrons
+
+    @abc.abstractmethod
+    def run(self, atoms, coords, mult, ad_idx, *, runtypes):
+        ...
+
+    def runall(self, coords, *, ID, node_id, atoms=None, runtype="energy"):
+        results = {}
+        if atoms is None:
+            atoms = self.atoms
+        if isinstance(runtype, str):
+            runtype = [runtype]
+        for state in self.states:
+            mult, ad_idx = state
+            runtypes = set(runtype)
+            if state in self.gradient_states:
+                runtypes.add('energy')
+            if state in self.coupling_states:
+                runtypes.add('coupling')
+            results[(mult, ad_idx)] = self.run(atoms, coords, mult, ad_idx, runtypes=runtypes)
+        return LoTResults(ID, node_id, results)
+
+    def search_PES_tuple(self, tups, multiplicity, state):
+        '''returns tuple in list of tuples that matches multiplicity and state'''
+        return [tup for tup in tups if multiplicity == tup[0] and state == tup[1]]
+
+    def search_tuple(self, tups, multiplicity=None):
+        if multiplicity is None:
+            tup_data = {}
+            for tup in tup_data:
+                mult = tup[0]
+                if mult not in tup_data: tup_data[mult] = []
+                tup_data[mult].append(tup)
+            return tup_data
+        else:
+            return [tup for tup in tups if multiplicity == tup[0]]
+
+    @classmethod
+    def rmsd(cls, geom1, geom2):
+        total = 0
+        flat_geom1 = np.array(geom1).flatten()
+        flat_geom2 = np.array(geom2).flatten()
+        for i in range(len(flat_geom1)):
+            total += (flat_geom1[i] - flat_geom2[i]) ** 2
+        return total
+
+    def pick_best_orb_from_lots(self, lots):
+        '''
+        The idea is that this would take a list of lots and pick the best one for a node
+        Untested!
+        '''
+        rmsds = []
+        xyz1 = manage_xyz.xyz_to_np(self.geom)
+        for lot in lots:
+            rmsds.append(lot.rmsd(xyz1, lot.self.currentCoords))
+        minnode = rmsds.index(min(rmsds))
+        self.lot = self.lot.copy(lots[minnode])
+
         return
 
+class LoTResults:
+    default_id_format = "{:03}"
+    default_node_id_format = "{:03}"
+    def __init__(self,
+                 ID,
+                 node_id,
+                 result_data,
+                 scratch_dir="scratch",
+                 id_format=None,
+                 node_id_format=None,
+                 ):
+        self.results = result_data
+        self.scratch_dir = scratch_dir
+        self.ID = ID
+        if id_format is None:
+            id_format = self.default_id_format
+        self.id_format = id_format
+        self.node_id = node_id
+        if node_id_format is None:
+            node_id_format = self.default_node_id_format
+        self.node_id_format = node_id_format
     def get_energy(self, coords, multiplicity, state, runtype=None):
         if self.hasRanForCurrentCoords is False or (coords != self.currentCoords).any():
             self.currentCoords = coords.copy()
             geom = manage_xyz.np_to_xyz(self.geom,self.currentCoords)
             self.runall(geom,runtype)
             self.hasRanForCurrentCoords=True
-        
+
         Energy = self.Energies[(multiplicity,state)]
         if Energy.unit=="Hartree":
             return Energy.value*units.KCAL_MOL_PER_AU
@@ -455,86 +372,74 @@ class Lot(object):
             return None
         # return np.reshape(self.coup,(3*len(self.geom),1))*units.ANGSTROM_TO_AU
 
-    def write_E_to_file(self):
-        with open('scratch/{:03}/E_{}.txt'.format(self.ID, self.node_id), 'w') as f:
-            for key, Energy in self.Energies.items():
-                f.write('{} {} {:9.7f} Hartree\n'.format(key[0], key[1], Energy.value))
+    def get_energy_file(self,
+                        id_format=None,
+                        node_id_format=None,
+                        base_file_format='E_{node_id_fmt}.txt'):
+        if id_format is None:
+            id_format = self.id_format
+        if node_id_format is None:
+            node_id_format = self.node_id_format
 
-    def run(self, geom, mult, ad_idx, runtype='gradient'):
-        raise NotImplementedError
+        return os.path.join(
+            self.scratch_dir,
+            id_format.format(self.ID),
+            base_file_format.format(
+                node_id_format.format(self.node_id)
+            )
+        )
+    def write_E_to_file(self, file=None, energy_format='{mult} {state} {eng:9.7f} Hartree'):
+        if file is None:
+            file = self.get_energy_file()
+        if hasattr(file, 'write'):
+            for (mult, state), Energy in self.Energies.items():
+                file.write(energy_format.format(mult=mult, state=state, eng=Energy.value) + "\n")
+        else:
+            with open(file, 'w') as f:
+                self.write_E_to_file(f)
+        return file
 
-    def runall(self, geom, runtype=None):
-        self.Gradients = {}
-        self.Energies = {}
-        self.Couplings = {}
-        for state in self.states:
-            mult, ad_idx = state
-            if state in self.gradient_states or runtype == "gradient":
-                self.run(geom, mult, ad_idx)
-            elif state in self.coupling_states:
-                self.run(geom, mult, ad_idx, 'coupling')
-            else:
-                self.run(geom, mult, ad_idx, 'energy')
-
-    #    self.E=[]
-    #    self.grada = []
-    #    singlets=self.search_tuple(self.states,1)
-    #    len_singlets=len(singlets)
-    #    if len_singlets is not 0:
-    #        self.run(geom,1)
-    #    triplets=self.search_tuple(self.states,3)
-    #    len_triplets=len(triplets)
-    #    if len_triplets is not 0:
-    #        self.run(geom,3)
-    #    doublets=self.search_tuple(self.states,2)
-    #    len_doublets=len(doublets)
-    #    if len_doublets is not 0:
-    #        self.run(geom,2)
-    #    quartets=self.search_tuple(self.states,4)
-    #    len_quartets=len(quartets)
-    #    if len_quartets is not 0:
-    #        self.run(geom,4)
-    #    pentets=self.search_tuple(self.states,5)
-    #    len_pentets=len(pentets)
-    #    if len_pentets is not 0:
-    #        self.run(geom,5)
-    #    hextets=self.search_tuple(self.states,6)
-    #    len_hextets=len(hextets)
-    #    if len_hextets is not 0:
-    #        self.run(geom,6)
-    #    septets=self.search_tuple(self.states,7)
-    #    len_septets=len(septets)
-    #    if len_septets is not 0:
-    #        self.run(geom,7)
-    #    self.hasRanForCurrentCoords=True
-
-    def search_PES_tuple(self, tups, multiplicity, state):
-        '''returns tuple in list of tuples that matches multiplicity and state'''
-        return [tup for tup in tups if multiplicity == tup[0] and state == tup[1]]
-
-    def search_tuple(self, tups, multiplicity):
-        return [tup for tup in tups if multiplicity == tup[0]]
-
-
+class FileBasedLoT(Lot):
+    _default_options = None
     @classmethod
-    def rmsd(cls, geom1, geom2):
-        total = 0
-        flat_geom1 = np.array(geom1).flatten()
-        flat_geom2 = np.array(geom2).flatten()
-        for i in range(len(flat_geom1)):
-            total += (flat_geom1[i] - flat_geom2[i]) ** 2
-        return total
+    def default_options(cls):
+        """ Lot default options. """
+        if cls._default_options is not None:
+            return cls._default_options.copy()
 
-    def pick_best_orb_from_lots(self, lots):
-        '''
-        The idea is that this would take a list of lots and pick the best one for a node
-        Untested!
-        '''
-        rmsds = []
-        xyz1 = manage_xyz.xyz_to_np(self.geom)
-        for lot in lots:
-            rmsds.append(lot.rmsd(xyz1, lot.self.currentCoords))
-        minnode = rmsds.index(min(rmsds))
-        self.lot = self.lot.copy(lots[minnode])
+        opt = super().default_options()
 
-        return
+        opt.add_option(
+            key="lot_inp_file",
+            required=False,
+            value=None,
+            doc='file name storing LOT input section. Used for custom basis sets,\
+                         custom convergence criteria, etc. Will override nproc, basis and\
+                         functional. Do not specify charge or spin in this file. Charge \
+                         and spin should be specified in charge and states options.\
+                         for QChem, include $molecule line. For ORCA, do not include *xyz\
+                         line.'
+        )
+
+        opt.add_option(
+            key='file_options',
+            value=None,
+            allowed_types=[File_Options],
+            doc='A specialized dictionary containing lot specific options from file\
+                            including checks on dependencies and clashes. Not all packages\
+                            require'
+        )
+
+        cls._default_options = opt
+        return cls._default_options.copy()
+
+    def __init__(self,
+                 *,
+                 lot_inp_file,
+                 file_options=None,
+                 **base_kwargs):
+        super().__init__(**base_kwargs)
+        self.lot_inp_file = lot_inp_file
+        if file_options is None:
+            file_options = File_Options(lot_inp_file)
+        self.file_options = file_options

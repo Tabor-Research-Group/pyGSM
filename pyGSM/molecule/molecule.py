@@ -7,7 +7,7 @@ import numpy as np
 import os
 # from collections import Counter
 
-from ..coordinate_systems import construct_coordinate_system
+from ..coordinate_systems import InternalCoordinates, construct_coordinate_system, CartesianCoordinates
 from ..potential_energy_surfaces import PES, Penalty_PES, Avg_PES
 from ..utilities import manage_xyz, elements, options, block_matrix, Devutils as dev, units
 
@@ -29,30 +29,8 @@ class Molecule:
     def default_options(cls):
         if cls._default_options is not None:
             return cls._default_options.copy()
+
         opt = options.Options()
-
-        opt.add_option(
-            key='fnm',
-            value=None,
-            required=False,
-            allowed_types=[str],
-            doc='File name to create the Molecule object from. Only used if geom is none.'
-        )
-        opt.add_option(
-            key='ftype',
-            value=None,
-            required=False,
-            allowed_types=[str],
-            doc='filetype (optional) will attempt to read filetype if not given'
-        )
-
-        opt.add_option(
-            key='coordinate_type',
-            required=False,
-            value='Cartesian',
-                allowed_values=['Cartesian', 'DLC', 'HDLC', 'TRIC'],
-            doc='The type of coordinate system to build'
-        )
 
         opt.add_option(
             key='coord_obj',
@@ -74,19 +52,6 @@ class Molecule:
             required=False,
             allowed_types=[np.ndarray],
             doc='The Cartesian coordinates in Angstrom'
-        )
-
-        opt.add_option(
-            key='PES',
-            required=True,
-            # allowed_types=[PES,Avg_PES,Penalty_PES,potential_energy_surfaces.pes.PES,potential_energy_surfaces.Penalty_PES,potential_energy_surfaces.Avg_PES],
-            doc='potential energy surface object to evaulate energies, gradients, etc. Pes is defined by charge, state, multiplicity,etc. '
-        )
-        opt.add_option(
-            key='copy_wavefunction',
-            value=True,
-            doc='When copying the level of theory object, sometimes it is not helpful to copy the lot data as this will over write data \
-                        (e.g. at the beginning of DE-GSM)'
         )
 
         opt.add_option(
@@ -168,28 +133,25 @@ class Molecule:
         }))
 
     def __init__(self,
+                 coord_obj:InternalCoordinates,
                  *,
-                 coord_obj,
                  node_id=None,
                  comment="",
-                 geom=None,
                  frozen_atoms=None,
-                 fnm=None,
-                 ftype=None,
                  logger=None,
-                 PES=None,
+                 energy=None,
+                 gradient=None,
+                 derivative_coupling=None,
+                 energy_evaluator=None,
                  hessian=None,
                  primitive_hessian=None,
-                 pes_options=None
+                 energy_evaluator_options=None
                  ):
 
+        atoms = coord_obj.atoms
+        self.xyz = coord_obj.xyz
+
         self.logger = dev.Logger.lookup(logger)
-        atoms, self._coords = self.load_coordinates(
-            logger=logger,
-            geom=geom,
-            filename=fnm,
-            file_type=ftype
-        )
         if not np.issubdtype(atoms.dtype, np.str_):
             raise ValueError(f"list of atom strings required, got {atoms}")
 
@@ -201,11 +163,9 @@ class Molecule:
         self.atoms = [ELEMENT_TABLE.from_symbol(atom) for atom in atoms]
         self.frozen_atoms = frozen_atoms
 
-        self._PES = None
-        self._base_pes = PES
-        if pes_options is None:
-            pes_options = {'copy_wavefunction':True}
-        self.pes_options = pes_options
+        self._lot = energy_evaluator
+        self._lot_options = energy_evaluator_options
+        self._energy_expansion = None
 
         self.comment = comment
         self.node_id = node_id
@@ -219,23 +179,43 @@ class Molecule:
 
         self._hessian = hessian
         self._primitive_hessian = primitive_hessian
+        self._energy = None
+        self._gradient = None
+        self._derivative_coupling = None
+
+    # @classmethod
+    # def construct(cls, coord_sys, **opts):
+    #     full_dict = cls.default_options()
+    #     full_dict.update(opts)
+    #     return cls(coord_sys, **full_dict)
 
     @classmethod
-    def create_coord_obj(cls, atoms, xyz):
-        ...
-
-    @classmethod
-    def from_xyz(cls, atoms, xyz,
-                 bonds=None,
+    def from_xyz(cls,
+                 atoms, xyz,
+                 bonds='auto',
                  primitives=None,
+                 internals=None,
+                 coordinate_type=None,
+                 coordinate_system_options=None,
                  **opts):
-        return cls(
-            construct_coordinate_system(atoms, xyz,
-                                        primitives=primitives
-                                        )
+        if coordinate_system_options is None:
+            coordinate_system_options = {}
+        coord_sys = construct_coordinate_system(atoms, xyz,
+                                                bonds=bonds,
+                                                primitives=primitives,
+                                                internals=internals,
+                                                coordinate_type=coordinate_type,
+                                                **coordinate_system_options
+                                                )
 
+        return cls(coord_sys, **opts)
+
+    @classmethod
+    def from_file(cls, filename, **opts):
+        atoms, xyz = cls.load_coordinates(
+            filename=filename
         )
-
+        return cls.from_xyz(atoms, xyz, **opts)
 
     @property
     def Hessian(self):
@@ -252,40 +232,41 @@ class Molecule:
         self._hessian = hess
 
     @classmethod
-    def load_coordinates(cls, *, logger, geom=None, filename=None, file_type=None):
-        t0 = time()
-        if geom is not None:
-            logger.log_print(" getting cartesian coordinates from geom")
-            atoms = manage_xyz.get_atoms(geom)
-            xyz = manage_xyz.xyz_to_np(geom)
-        elif filename is not None:
-            logger.log_print(" reading cartesian coordinates from file")
-            if file_type is None:
-                file_type = os.path.splitext(filename)[1][1:]
-            if not os.path.exists(filename):
-                # logger.error('Tried to create Molecule object from a file that does not exist: %s\n' % self.Data['fnm'])
-                raise IOError(f"file {filename} doesn't exist")
-            geom = manage_xyz.read_xyz(filename, scale=1.)
-            xyz = manage_xyz.xyz_to_np(geom)
-            atoms = manage_xyz.get_atoms(geom)
-
-        else:
-            raise RuntimeError
-
-        t1 = time()
-        logger.log_print(" Time to get coords= %.3f" % (t1 - t0))
+    def load_coordinates(cls, *, atoms=None, xyz=None, geom=None, filename=None, file_type=None):
+        if atoms is None:
+            if xyz is not None: raise ValueError("if `xyz` is supplied, `atoms` must be too")
+            if geom is not None:
+                atoms = manage_xyz.get_atoms(geom)
+                xyz = manage_xyz.xyz_to_np(geom)
+            elif filename is not None:
+                if not os.path.exists(filename):
+                    raise IOError(f"file {filename} doesn't exist")
+                if file_type is None:
+                    file_type = os.path.splitext(filename)[1][1:]
+                if file_type != "xyz":
+                    raise ValueError(f"currently only support xyz files (got `{file_type}`)")
+                geom = manage_xyz.read_xyzs(filename, scale=1.)[0]
+                xyz = manage_xyz.xyz_to_np(geom)
+                atoms = manage_xyz.get_atoms(geom)
+            else:
+                raise ValueError("`geom` or `filename` is required")
+        elif xyz is None:
+            if xyz is not None: raise ValueError("if `atoms` are supplied, `xyz` must be too")
 
         return np.asanyarray(atoms), xyz
 
-    @property
-    def PES(self):
-        if self._PES is None:
-            self._PES = type(self._base_pes).create_pes_from(
-                PES=self._base_pes,
-                options={'node_id': self.node_id},
-                copy_wavefunction=self.pes_options["copy_wavefunction"]
-            )
-        return self._PES
+    # @property
+    # def PES(self):
+    #     if self._PES is None:
+    #         if self._base_pes is not None:
+    #             self._PES = self.resolve_PES(self._base_pes, **self.pes_options)
+    #     return self._PES
+    #
+    # @classmethod
+    # def resolve_PES(cls):
+    #     type(self._base_pes).create_pes_from(
+    #         PES=self._base_pes,
+    #     )
 
     def center(self, center_mass=False):
         """ Move geometric center to the origin. """
@@ -360,7 +341,7 @@ class Molecule:
 
     @property
     def energy(self):
-        return self.PES.get_energy(self.xyz)
+        return self.evaluator.get_energy(self.xyz)
         #return 0.
 
     @property
@@ -388,10 +369,10 @@ class Molecule:
         dgradx = self.PES.get_dgrad(self.xyz, frozen_atoms=self.frozen_atoms)
         return self.coord_obj.calcGrad(self.xyz, dgradx)
 
-    @property
-    def difference_energy(self):
-        self.energy # this is embarrassingly bad
-        return self.PES.dE
+    # @property
+    # def difference_energy(self):
+    #     self.energy # this is embarrassingly bad
+    #     return self.PES.dE
 
     @property
     def Primitive_Hessian(self):
@@ -438,7 +419,12 @@ class Molecule:
     @xyz.setter
     def xyz(self, newxyz):
         if newxyz is not None:
+            #TODO: check whether or not I should actually invalidate the cache
             self._coords = newxyz
+            self._energy = None
+            self._gradient = None
+            self._primitive_hessian = None
+            self._hessian = None
 
     @property
     def num_frozen_atoms(self):

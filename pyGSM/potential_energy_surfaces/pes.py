@@ -15,11 +15,11 @@ ELEMENT_TABLE = elements.ElementData()
 class PES(object):
     """ PES object """
 
-    @staticmethod
-    def default_options():
-
-        if hasattr(PES, '_default_options'):
-            return PES._default_options.copy()
+    _default_options = None
+    @classmethod
+    def default_options(cls):
+        if cls._default_options is not None:
+            return cls._default_options.copy()
         opt = options.Options()
 
         opt.add_option(
@@ -61,37 +61,42 @@ class PES(object):
             doc='Mass is sometimes required'
         )
 
-        PES._default_options = opt
-        return PES._default_options.copy()
+        cls._default_options = opt
+        return cls._default_options.copy()
 
     @classmethod
-    def from_options(cls, **kwargs):
-        """ Returns an instance of this class with default options updated from values in kwargs"""
-        return cls(cls.default_options().set_values(kwargs))
-
-    # TODO make kwargs
-    @classmethod
-    def create_pes_from(cls, PES, options={}, copy_wavefunction=True):
-        lot = type(PES.lot).copy(PES.lot, options, copy_wavefunction)
-
-        return cls(PES.options.copy().set_values({
-            "lot": lot,
-        }))
+    def construct(cls, **opts):
+        full_dict = cls.default_options().update(opts)
+        return cls(**full_dict)
 
     def __init__(self,
-                 options,
+                 *,
+                 lot,
+                 ad_idx=None,
+                 multiplicity=1,
+                 FORCE=None,
+                 RESTRAINTS=None,
+                 mass=None
                  ):
-        """ Constructor """
-        self.options = options
-
-        self.lot = self.options['lot']
-        self.ad_idx = self.options['ad_idx']
-        self.multiplicity = self.options['multiplicity']
-        self.FORCE = self.options['FORCE']
-        self.RESTRAINTS = self.options['RESTRAINTS']
+        self.lot = lot
+        self.ad_idx = ad_idx
+        self.multiplicity = multiplicity
+        self.FORCE = FORCE
+        self.RESTRAINTS =RESTRAINTS
+        self.mass = mass
+        self._current_energy = None
         self._dE = 1000.
         # print ' PES object parameters:'
         # print ' Multiplicity:',self.multiplicity,'ad_idx:',self.ad_idx
+
+    def copy(self, copy_wavefunction=True):
+        return type(self)(
+            lot=self.lot.copy(copy_wavefunction=copy_wavefunction),
+            ad_idx=self.ad_idx,
+            FORCE=self.FORCE,
+            RESTRAINTS=self.RESTRAINTS,
+            mass=self.mass
+        )
 
     @property
     def dE(self):
@@ -100,17 +105,6 @@ class PES(object):
     @dE.setter
     def dE(self, value):
         self._dE = value
-
-    @property
-    def energy(self):
-        return self.get_energy(self.lot.currentCoords)
-
-    #def energy(self):
-    #    if self.lot.Energies:
-    #        # if E is property and a dictionary
-    #        return self.lot.Energies[(self.multiplicity,self.ad_idx)].value
-    #    else:
-    #        return 0.
 
     def create_2dgrid(self,
                       xyz,
@@ -233,62 +227,6 @@ class PES(object):
         grad_bwd = self.get_gradient(bwd_coords)/units.ANGSTROM_TO_AU
 
         return (grad_fwd-grad_bwd)/(FD_STEP_LENGTH*2)
-
-    @staticmethod
-    def normal_modes(
-            geom,       # Optimized geometry in au
-            hess,       # Hessian matrix in au
-            masses,     # Masses in au
-    ):
-        """
-        Params:
-            geom ((natoms,4) np.ndarray) - atoms symbols and xyz coordinates
-            hess ((natoms*3,natoms*3) np.ndarray) - molecule hessian
-            masses ((natoms) np.ndarray) - masses
-        Returns:
-            w ((natoms*3 - 6) np.ndarray)  - normal frequencies
-            Q ((natoms*3, natoms*3 - 6) np.ndarray)  - normal modes
-        """
-
-        # masses repeated 3x for each atom (unravels)
-        m = np.ravel(np.outer(masses, [1.0]*3))
-
-        # mass-weight hessian
-        hess2 = hess / np.sqrt(np.outer(m, m))
-
-        # Find normal modes (project translation/rotations before)
-        # B = 3N,3N-6
-        B = rotate.vibrational_basis(geom, masses)
-        h, U3 = np.linalg.eigh(np.dot(B.T, np.dot(hess2, B)))
-        # U3 = (3N-6,3N)(3N,3N)(3N-6,3N) = 3N-6,3N
-        U = np.dot(B, U3)
-        # U = (3N,3N-6),(3N-6,3N)
-
-        # # TEST: Find normal modes (without projection translations/rotations)
-        # # RMP: Matches TC output for PYP - same differences before/after projection
-        # h2, U2 = np.linalg.eigh(hess2)
-        # h3 = h2[:6]
-        # for hval in h3:
-        #    print(hval)
-
-        # h2 = h2[6:]
-        # U2 = U2[:,6:]
-        # for hval, hval2 in zip(h,h2):
-        #    #wval = np.sqrt(hval) / units['au_per_cminv']
-        #    wval = np.sqrt(hval) * units.INV_CM_PER_AU
-        #    #wval2 = np.sqrt(hval2) / units['au_per_cminv']
-        #    wval2 = np.sqrt(hval2) *units.INV_CM_PER_AU
-        #    print('%10.6E %10.6E %11.3E' % (wval, wval2, np.abs(wval - wval2)))
-
-        # Normal frequencies
-        w = np.sqrt(h)
-        # Imaginary frequencies
-        w[h < 0.0] = -np.sqrt(-h[h < 0.0])
-
-        # Normal modes
-        Q = U / np.outer(np.sqrt(m), np.ones((U.shape[1],)))
-
-        return w, Q
 
     def get_gradient(self, xyz, frozen_atoms=None):
 

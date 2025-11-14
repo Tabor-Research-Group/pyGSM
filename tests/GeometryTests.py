@@ -40,6 +40,12 @@ class GeometryTests(unittest.TestCase):
 
         coords.GMatrix(coords.xyz)
 
+        mol = Molecule.from_file(
+            test_data('diels_alder.xyz'),
+            PES="ase",
+            coordinate_type='TRIC'
+        )
+
 if __name__ == '__main__':
     os.chdir(root)
     unittest.main('tests.GeometryTests')

@@ -17,6 +17,7 @@ from .base_lot import Lot
 
 class OpenMM(Lot):
     def __init__(self, options):
+        raise NotImplementedError("dead code")
 
         super(OpenMM, self).__init__(options)
 

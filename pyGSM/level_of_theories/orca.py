@@ -5,9 +5,11 @@ import os
 import numpy as np
 
 # local application imports
-from .base_lot import Lot
+from .base_lot import FileBasedLoT
 
-class Orca(Lot):
+class Orca(FileBasedLoT):
+    def __init__(self):
+        raise NotImplementedError("dead code")
 
     def write_input_file(self, geom, multiplicity):
         if self.lot_inp_file is False:
