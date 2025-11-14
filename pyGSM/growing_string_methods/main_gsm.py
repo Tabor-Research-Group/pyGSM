@@ -1,24 +1,19 @@
 from __future__ import print_function
+
+import abc
+
 import numpy as np
-import sys
 import os
-from os import path
+from .gsm import GSM
 
-# local application imports
-sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
-
-try:
-    from .gsm import GSM
-except:
-    from gsm import GSM
-
-from molecule.molecule import Molecule
-from utilities.nifty import printcool
-from utilities.manage_xyz import xyz_to_np
-from utilities import units
-from utilities import block_matrix
-from coordinate_systems import rotate
-from optimizers import eigenvector_follow
+# from molecule.molecule import Molecule
+# from utilities.nifty import printcool
+# from utilities.manage_xyz import xyz_to_np
+# from utilities import units
+# from utilities import block_matrix
+# from coordinate_systems import rotate
+# from optimizers import eigenvector_follow
+from ..utilities import Devutils as dev
 import multiprocessing as mp
 from itertools import chain
 from copy import deepcopy
@@ -34,7 +29,16 @@ def worker(arg):
 
 
 class MainGSM(GSM):
-    def grow_string(self, max_iters=30, max_opt_steps=3, nconstraints=1):
+    @abc.abstractmethod
+    def make_difference_node_list(self):
+        ...
+
+    def grow_string(self,
+                    max_iters=30,
+                    max_opt_steps=3,
+                    nconstraints=1,
+                    logger=True
+                    ):
         '''
         Grow the string
 
@@ -46,75 +50,76 @@ class MainGSM(GSM):
         optsteps : int
             Maximum number of optimization steps per node of string
         '''
-        printcool("In growth_iters")
+        self.logger = dev.Logger.lookup(logger)
+        with self.logger.block("In growth_iters"):
 
-        ncurrent, nlist = self.make_difference_node_list()
-        self.ictan, self.dqmaga = self.get_tangents_growing()
-        self.refresh_coordinates()
-        self.set_active(self.nR-1, self.nnodes-self.nP)
-
-        isGrown = False
-        iteration = 0
-        while not isGrown:
-            if iteration > max_iters:
-                print(" Ran out of iterations")
-                return
-                # raise Exception(" Ran out of iterations")
-            printcool("Starting growth iteration %i" % iteration)
-            self.optimize_iteration(max_opt_steps)
-            totalgrad, gradrms, sum_gradrms = self.calc_optimization_metrics(self.nodes)
-            self.xyz_writer('scratch/growth_iters_{:03}_{:03}.xyz'.format(self.ID, iteration), self.geometries, self.energies, self.gradrmss, self.dEs)
-            print(" gopt_iter: {:2} totalgrad: {:4.3} gradrms: {:5.4} max E: {:5.4}\n".format(iteration, float(totalgrad), float(gradrms), float(self.emax)))
-
-            try:
-                self.grow_nodes()
-            except Exception as error:
-                print("can't add anymore nodes, bdist too small")
-
-                if self.__class__.__name__ == "SE_GSM":  # or self.__class__.__name__=="SE_Cross":
-                    # Don't do SE_cross because that already does optimization later
-                    if self.nodes[self.nR-1].PES.lot.do_coupling:
-                        opt_type = 'MECI'
-                    else:
-                       opt_type = 'UNCONSTRAINED'
-                    print(" optimizing last node")
-                    self.optimizer[self.nR-1].conv_grms = self.CONV_TOL
-                    print(self.optimizer[self.nR-1].conv_grms)
-                    path = os.path.join(os.getcwd(), 'scratch/{:03d}/{}'.format(self.ID, self.nR-1))
-                    self.optimizer[self.nR-1].optimize(
-                        molecule=self.nodes[self.nR-1],
-                        refE=self.nodes[0].V0,
-                        opt_steps=50,
-                        opt_type=opt_type,
-                        path=path,
-                    )
-                elif self.__class__.__name__ == "SE_Cross":
-                    print(" Will do extra optimization of this node in SE-Cross")
-                else:
-                    raise RuntimeError
-                break
-
-            self.set_active(self.nR-1, self.nnodes-self.nP)
-            self.ic_reparam_g()
+            ncurrent, nlist = self.make_difference_node_list()
             self.ictan, self.dqmaga = self.get_tangents_growing()
             self.refresh_coordinates()
+            self.set_active(self.nR-1, self.nnodes-self.nP)
 
-            iteration += 1
-            isGrown = self.check_if_grown()
+            isGrown = False
+            iteration = 0
+            while not isGrown:
+                if iteration > max_iters:
+                    print(" Ran out of iterations")
+                    return
+                    # raise Exception(" Ran out of iterations")
+                printcool("Starting growth iteration %i" % iteration)
+                self.optimize_iteration(max_opt_steps)
+                totalgrad, gradrms, sum_gradrms = self.calc_optimization_metrics(self.nodes)
+                self.xyz_writer('scratch/growth_iters_{:03}_{:03}.xyz'.format(self.ID, iteration), self.geometries, self.energies, self.gradrmss, self.dEs)
+                print(" gopt_iter: {:2} totalgrad: {:4.3} gradrms: {:5.4} max E: {:5.4}\n".format(iteration, float(totalgrad), float(gradrms), float(self.emax)))
 
-        # create newic object
-        print(" creating newic molecule--used for ic_reparam")
-        self.newic = Molecule.copy_from_options(self.nodes[0])
+                try:
+                    self.grow_nodes()
+                except Exception as error:
+                    print("can't add anymore nodes, bdist too small")
 
-        # TODO should something be done for growthdirection 2?
-        if self.growth_direction == 1:
-            print("Setting LOT of last node")
-            self.nodes[-1] = Molecule.copy_from_options(
-                MoleculeA=self.nodes[-2],
-                xyz=self.nodes[-1].xyz,
-                new_node_id=self.nnodes-1
-            )
-        return
+                    if self.__class__.__name__ == "SE_GSM":  # or self.__class__.__name__=="SE_Cross":
+                        # Don't do SE_cross because that already does optimization later
+                        if self.nodes[self.nR-1].PES.lot.do_coupling:
+                            opt_type = 'MECI'
+                        else:
+                           opt_type = 'UNCONSTRAINED'
+                        print(" optimizing last node")
+                        self.optimizer[self.nR-1].conv_grms = self.CONV_TOL
+                        print(self.optimizer[self.nR-1].conv_grms)
+                        path = os.path.join(os.getcwd(), 'scratch/{:03d}/{}'.format(self.ID, self.nR-1))
+                        self.optimizer[self.nR-1].optimize(
+                            molecule=self.nodes[self.nR-1],
+                            refE=self.nodes[0].V0,
+                            opt_steps=50,
+                            opt_type=opt_type,
+                            path=path,
+                        )
+                    elif self.__class__.__name__ == "SE_Cross":
+                        print(" Will do extra optimization of this node in SE-Cross")
+                    else:
+                        raise RuntimeError
+                    break
+
+                self.set_active(self.nR-1, self.nnodes-self.nP)
+                self.ic_reparam_g()
+                self.ictan, self.dqmaga = self.get_tangents_growing()
+                self.refresh_coordinates()
+
+                iteration += 1
+                isGrown = self.check_if_grown()
+
+            # create newic object
+            print(" creating newic molecule--used for ic_reparam")
+            self.newic = Molecule.copy_from_options(self.nodes[0])
+
+            # TODO should something be done for growthdirection 2?
+            if self.growth_direction == 1:
+                print("Setting LOT of last node")
+                self.nodes[-1] = Molecule.copy_from_options(
+                    MoleculeA=self.nodes[-2],
+                    xyz=self.nodes[-1].xyz,
+                    new_node_id=self.nnodes-1
+                )
+            return
 
     def optimize_string(self, max_iter=30, nconstraints=1, opt_steps=1, rtype=2):
         '''

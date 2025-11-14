@@ -1,10 +1,7 @@
 import numpy as np
 
-try:
-    from . import units
-except:
-    import units
-
+from . import Devutils as dev
+from . import units
 import re
 #import openbabel as ob
 
@@ -24,7 +21,7 @@ def read_xyz(
 
     """
 
-    lines = open(filename).readlines()
+    lines = dev.read_file(filename).splitlines()
     lines = lines[2:]
     geom = []
     for line in lines:
@@ -52,7 +49,7 @@ def read_xyzs(
 
     """
 
-    lines = open(filename).readlines()
+    lines = dev.read_file(filename).splitlines()
     natoms = int(lines[0])
     total_lines = len(lines)
     num_geoms = total_lines/(natoms+2)
@@ -80,7 +77,7 @@ def read_molden_geoms(
     scale=1.
 ):
 
-    lines = open(filename).readlines()
+    lines = dev.read_file(filename).splitlines()
     natoms = int(lines[2])
     nlines = len(lines)
 
@@ -205,16 +202,16 @@ def write_xyz(
         geom ((natoms,4) np.ndarray) - system geometry (atom symbol, x,y,z)
 
     """
-    fh = open(filename, 'w')
-    fh.write('%d\n' % len(geom))
-    fh.write('{}\n'.format(comment))
-    for atom in geom:
-        fh.write('%-2s %14.6f %14.6f %14.6f\n' % (
-            atom[0],
-            scale*atom[1],
-            scale*atom[2],
-            scale*atom[3],
-        ))
+    with open(filename, 'w') as fh:
+        fh.write('%d\n' % len(geom))
+        fh.write('{}\n'.format(comment))
+        for atom in geom:
+            fh.write('%-2s %14.6f %14.6f %14.6f\n' % (
+                atom[0],
+                scale*atom[1],
+                scale*atom[2],
+                scale*atom[3],
+            ))
 
 
 def write_xyzs(
@@ -232,16 +229,16 @@ def write_xyzs(
 
     """
 
-    fh = open(filename, 'w')
-    for geom in geoms:
-        fh.write('%d\n\n' % len(geom))
-        for atom in geom:
-            fh.write('%-2s %14.6f %14.6f %14.6f\n' % (
-                atom[0],
-                scale*atom[1],
-                scale*atom[2],
-                scale*atom[3],
-            ))
+    with open(filename, 'w') as fh:
+        for geom in geoms:
+            fh.write('%d\n\n' % len(geom))
+            for atom in geom:
+                fh.write('%-2s %14.6f %14.6f %14.6f\n' % (
+                    atom[0],
+                    scale*atom[1],
+                    scale*atom[2],
+                    scale*atom[3],
+                ))
 
 
 def write_std_multixyz(
@@ -270,15 +267,15 @@ def write_amber_xyz(
 ):
 
     count = 0
-    fh = open(filename, 'w')
-    fh.write("default name\n")
-    fh.write('  %d\n' % len(geom))
-    for line in geom:
-        for elem in line[1:]:
-            fh.write(" {:11.7f}".format(float(elem)))
-            count += 1
-        if count % 6 == 0:
-            fh.write("\n")
+    with open(filename, 'w') as fh:
+        fh.write("default name\n")
+        fh.write('  %d\n' % len(geom))
+        for line in geom:
+            for elem in line[1:]:
+                fh.write(" {:11.7f}".format(float(elem)))
+                count += 1
+            if count % 6 == 0:
+                fh.write("\n")
 
 
 def write_xyzs_w_comments(
@@ -297,17 +294,17 @@ def write_xyzs_w_comments(
 
     """
 
-    fh = open(filename, 'w')
-    for geom, comment in zip(geoms, comments):
-        fh.write('%d\n' % len(geom))
-        fh.write('%s\n' % comment)
-        for atom in geom:
-            fh.write('%-2s %14.6f %14.6f %14.6f\n' % (
-                atom[0],
-                scale*atom[1],
-                scale*atom[2],
-                scale*atom[3],
-            ))
+    with open(filename, 'w') as fh:
+        for geom, comment in zip(geoms, comments):
+            fh.write('%d\n' % len(geom))
+            fh.write('%s\n' % comment)
+            for atom in geom:
+                fh.write('%-2s %14.6f %14.6f %14.6f\n' % (
+                    atom[0],
+                    scale*atom[1],
+                    scale*atom[2],
+                    scale*atom[3],
+                ))
 
 
 def xyz_to_np(
@@ -398,25 +395,24 @@ def write_fms90(
             (atom symbol, px, py, pz)
 
     """
-
-    fh = open(filename, 'w')
-    fh.write('UNITS=BOHR\n')
-    fh.write('%d\n' % len(geomx))
-    for atom in geomx:
-        fh.write('%-2s %14.6f %14.6f %14.6f\n' % (
-            atom[0],
-            atom[1],
-            atom[2],
-            atom[3],
-        ))
-    if geomp:
-        fh.write('# momenta\n')
-        for atom in geomp:
-            fh.write('  %14.6f %14.6f %14.6f\n' % (
+    with open(filename, 'w') as fh:
+        fh.write('UNITS=BOHR\n')
+        fh.write('%d\n' % len(geomx))
+        for atom in geomx:
+            fh.write('%-2s %14.6f %14.6f %14.6f\n' % (
+                atom[0],
                 atom[1],
                 atom[2],
                 atom[3],
             ))
+        if geomp:
+            fh.write('# momenta\n')
+            for atom in geomp:
+                fh.write('  %14.6f %14.6f %14.6f\n' % (
+                    atom[1],
+                    atom[2],
+                    atom[3],
+                ))
 
 
 XYZ_WRITERS = {

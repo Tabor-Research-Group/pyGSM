@@ -13,8 +13,6 @@ import lightspeed as ls
 import est
 import json
 
-# local application imports
-sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 #TODO get rid of get_energy, get_gradient
 

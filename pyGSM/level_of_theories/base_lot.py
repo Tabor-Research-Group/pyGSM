@@ -6,11 +6,8 @@ import os
 import numpy as np
 
 # local application imports
-from utilities import manage_xyz, options, elements, nifty, units
-try:
-    from .file_options import File_Options
-except:
-    from file_options import File_Options
+from ..utilities import manage_xyz, options, elements, nifty, units
+from .file_options import File_Options
 
 ELEMENT_TABLE = elements.ElementData()
 

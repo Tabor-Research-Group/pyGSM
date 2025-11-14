@@ -14,12 +14,8 @@ import glob
 ## local application imports
 #from Definitions import *
 
-sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
-from utilities import manage_xyz, nifty, units
-try:
-    from .base_lot import Lot
-except:
-    from base_lot import Lot
+from ..utilities import manage_xyz, nifty, units
+from .base_lot import Lot
 
 
 class pDynamo(Lot):

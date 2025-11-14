@@ -5,21 +5,14 @@ from os import path
 # third party
 import numpy as np
 
-try:
-    from xtb.interface import Calculator
-    from xtb.utils import get_method, get_solvent
-    from xtb.interface import Environment
-    from xtb.libxtb import VERBOSITY_FULL
-except:
-    print('xtb is not imported')
+from xtb.interface import Calculator
+from xtb.utils import get_method, get_solvent
+from xtb.interface import Environment
+from xtb.libxtb import VERBOSITY_FULL
 
 # local application imports
-sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
-from utilities import manage_xyz, units, elements
-try:
-    from .base_lot import Lot
-except:
-    from base_lot import Lot
+from ..utilities import manage_xyz, units, elements
+from .base_lot import Lot
 
 
 class xTB_lot(Lot):

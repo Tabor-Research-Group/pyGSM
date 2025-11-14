@@ -1,25 +1,20 @@
 # standard library imports
 # local application imports
-sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
-from utilities import manage_xyz
-import sys
+from ..utilities import manage_xyz
 import os
-from os import path
 import subprocess
 import re
 
 # third party
 import numpy as np
 
-try:
-    from .base_lot import Lot
-except:
-    from base_lot import Lot
+from .base_lot import Lot
 
 
 class DFTB(Lot):
 
     def __init__(self, options):
+        raise NotImplementedError("dead code")
         super(DFTB, self).__init__(options)
         os.system('rm -f dftb_jobs.txt')
         print(" making folder scratch/{}".format(self.node_id))

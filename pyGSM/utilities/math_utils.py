@@ -206,8 +206,9 @@ def orthogonalize(vecs, numCvecs=0):
             except:
                 print("this vector should be vanishing, exiting")
                 print("norm=", wnorm)
+                raise
                 # print(w)
-                exit(1)
+                # exit(1)
     dots = np.matmul(basis.T, basis)
     if not (np.allclose(dots, np.eye(dots.shape[0], dtype=float), atol=1e-4)):
         print("np.dot(b.T,b)")

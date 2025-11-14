@@ -1,32 +1,14 @@
 from __future__ import print_function
-# standard library imports
-import sys
-from os import path
-from utilities import manage_xyz, nifty
 
-# local application imports
-sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
+import traceback as tb
 
-
-from pyGSM.molecule import Molecule
-
-try:
-    from .main_gsm import MainGSM
-except:
-    from main_gsm import MainGSM
+# from ..utilities import manage_xyz, nifty
+# from ..molecule import Molecule
+from .main_gsm import MainGSM
+# from ..utilities import Devutils as dev
 
 
 class DE_GSM(MainGSM):
-
-    def __init__(
-            self,
-            options,
-    ):
-
-        super(DE_GSM, self).__init__(options)
-
-        print(" Assuming primitives are union!")
-        print(" number of primitives is", self.nodes[0].num_primitives)
 
     # TODO Change rtype to a more meaningful argument name
     def go_gsm(self, max_iters=50, opt_steps=3, rtype=2):
@@ -37,54 +19,54 @@ class DE_GSM(MainGSM):
         """
         self.set_V0()
 
-        if not self.isRestarted:
-            if self.growth_direction == 0:
-                self.add_GSM_nodes(2)
-            elif self.growth_direction == 1:
-                self.add_GSM_nodeR(1)
-            elif self.growth_direction == 2:
-                self.add_GSM_nodeP(1)
+        with self.logger.block(tag="Running GSM"):
+            if not self.isRestarted:
+                if self.growth_direction == 0:
+                    self.add_GSM_nodes(2)
+                elif self.growth_direction == 1:
+                    self.add_GSM_nodeR(1)
+                elif self.growth_direction == 2:
+                    self.add_GSM_nodeP(1)
 
-            # Grow String
-            self.grow_string(max_iters=max_iters, max_opt_steps=opt_steps)
-            nifty.printcool("Done Growing the String!!!")
-            self.done_growing = True
+                # Grow String
+                self.grow_string(max_iters=max_iters, max_opt_steps=opt_steps)
+                self.logger.log_print("Done Growing the String!!!")
+                self.done_growing = True
 
-            # nifty.printcool("initial ic_reparam")
-            self.reparameterize()
-            self.xyz_writer('grown_string_{:03}.xyz'.format(self.ID), self.geometries, self.energies, self.gradrmss, self.dEs)
+                # nifty.printcool("initial ic_reparam")
+                self.reparameterize()
+                self.xyz_writer('grown_string_{:03}.xyz'.format(self.ID), self.geometries, self.energies, self.gradrmss, self.dEs)
 
-        # Can check for intermediate at beginning but not doing that now.
-        # else:
-        #    if self.has_intermediate(self.noise):
-        #        nifty.printcool(f" WARNING THIS REACTION HAS AN INTERMEDIATE within noise {self.noise}, opting out")
-        #        try:
-        #            self.optimize_string(max_iter=3,opt_steps=opt_steps,rtype=0)
-        #        except Exception as error:
-        #            print(" Done optimizing 3 times, checking if intermediate still exists")
-        #            if self.has_intermediate(self.noise):
-        #                self.tscontinue=False
+            # Can check for intermediate at beginning but not doing that now.
+            # else:
+            #    if self.has_intermediate(self.noise):
+            #        nifty.printcool(f" WARNING THIS REACTION HAS AN INTERMEDIATE within noise {self.noise}, opting out")
+            #        try:
+            #            self.optimize_string(max_iter=3,opt_steps=opt_steps,rtype=0)
+            #        except Exception as error:
+            #            print(" Done optimizing 3 times, checking if intermediate still exists")
+            #            if self.has_intermediate(self.noise):
+            #                self.tscontinue=False
 
-        if self.tscontinue:
-            try:
-                self.optimize_string(max_iter=max_iters, opt_steps=opt_steps, rtype=rtype)
-            except Exception as error:
-                if str(error) == "Ran out of iterations":
-                    print(error)
-                    self.end_early = True
-                else:
-                    print(error)
-                    self.end_early = True
-        else:
-            print("Exiting early")
-            self.end_early = True
+            if self.tscontinue:
+                try:
+                    self.optimize_string(max_iter=max_iters, opt_steps=opt_steps, rtype=rtype)
+                except Exception as error:
+                    self.logger.log_print(tb.format_exc())
+                    if str(error) == "Ran out of iterations":
+                        self.end_early = True
+                    else:
+                        self.end_early = True
+            else:
+                self.logger.log_print("Exiting early")
+                self.end_early = True
 
-        filename = "opt_converged_{:03d}.xyz".format(self.ID)
-        print(" Printing string to " + filename)
-        self.xyz_writer(filename, self.geometries, self.energies, self.gradrmss, self.dEs)
-        print("Finished GSM!")
+            filename = "opt_converged_{:03d}.xyz".format(self.ID)
+            self.logger.log_print(" Printing string to " + filename)
+            self.xyz_writer(filename, self.geometries, self.energies, self.gradrmss, self.dEs)
+            self.logger.log_print("Finished GSM!")
 
-        return
+            return
 
     def add_GSM_nodes(self, newnodes=1):
         if self.current_nnodes+newnodes > self.nnodes:
@@ -111,10 +93,10 @@ class DE_GSM(MainGSM):
         for i in range(self.nnodes):
             if self.nodes[i] is not None:
                 self.optimizer[i].conv_grms = self.CONV_TOL*2.
-        self.optimizer[nR].conv_grms = self.options['ADD_NODE_TOL']
-        self.optimizer[nP].conv_grms = self.options['ADD_NODE_TOL']
-        print(" conv_tol of node %d is %.4f" % (nR, self.optimizer[nR].conv_grms))
-        print(" conv_tol of node %d is %.4f" % (nP, self.optimizer[nP].conv_grms))
+        self.optimizer[nR].conv_grms = self.tolerances['ADD_NODE_TOL']
+        self.optimizer[nP].conv_grms = self.tolerances['ADD_NODE_TOL']
+        self.logger.log_print(" conv_tol of node %d is %.4f" % (nR, self.optimizer[nR].conv_grms))
+        self.logger.log_print(" conv_tol of node %d is %.4f" % (nP, self.optimizer[nP].conv_grms))
         self.active[nR] = True
         self.active[nP] = True
         if self.growth_direction == 1:
@@ -136,11 +118,11 @@ class DE_GSM(MainGSM):
         Grow nodes
         '''
 
-        if self.nodes[self.nR-1].gradrms < self.gaddmax and self.growth_direction != 2:
+        if self.nodes[self.nR-1].gradrms < self.tolerances['ADD_NODE_TOL'] and self.growth_direction != 2:
             if self.nodes[self.nR] is None:
                 self.add_GSM_nodeR()
                 print(" getting energy for node %d: %5.4f" % (self.nR-1, self.nodes[self.nR-1].energy - self.nodes[0].V0))
-        if self.nodes[self.nnodes-self.nP].gradrms < self.gaddmax and self.growth_direction != 1:
+        if self.nodes[self.nnodes-self.nP].gradrms < self.tolerances['ADD_NODE_TOL'] and self.growth_direction != 1:
             if self.nodes[-self.nP-1] is None:
                 self.add_GSM_nodeP()
                 print(" getting energy for node %d: %5.4f" % (self.nnodes-self.nP, self.nodes[-self.nP].energy - self.nodes[0].V0))

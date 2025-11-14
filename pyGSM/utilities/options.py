@@ -91,7 +91,7 @@ class Option(object):
         return s
 
 
-class Options(object):
+class Options(collections.abc.MutableMapping):
 
     """ Class Options represents a dict of key, value Option objects, including
         restrictions on type, value, etc. Users should interact only with the
@@ -120,15 +120,11 @@ class Options(object):
         """
 
         if options is None:
-            self.options = collections.OrderedDict()
-        else:
-            self.options = options
+            options = collections.OrderedDict()
+        self.options = options
 
     def keys(self):
-        keys = []
-        for opt in self.options:
-            keys.append(opt)
-        return keys
+        return self.options.keys()
 
     def add_option(
         self,
@@ -197,6 +193,11 @@ class Options(object):
             raise ValueError("Key %s is not in Options" % key)
         return self.options[key].set_value(value)
 
+    def __delitem__(self, key):
+        if key not in self.options:
+            raise ValueError("Key %s is not in Options" % key)
+        del self.options[key]
+
     def set_values(
         self,
         options,
@@ -224,6 +225,11 @@ class Options(object):
         for k, v in self.options.items():
             options2[k] = Option(**v.__dict__)
         return Options(options=options2)
+
+    def __iter__(self):
+        return iter(self.options)
+    def __len__(self):
+        return len(self.options)
 
     def __str__(self):
         """ Return the string representations of all Option objects in this Options, in insertion order. """

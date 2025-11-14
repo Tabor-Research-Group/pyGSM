@@ -1,6 +1,6 @@
 # standard library imports
-from coordinate_systems import Dihedral
-from utilities import manage_xyz, nifty
+from ..coordinate_systems import Dihedral
+from ..utilities import manage_xyz, nifty
 import sys
 from os import path
 
@@ -12,11 +12,7 @@ import simtk.openmm as openmm
 from parmed import load_file
 
 # local application imports
-sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
-try:
-    from .base_lot import Lot
-except:
-    from base_lot import Lot
+from .base_lot import Lot
 
 
 class OpenMM(Lot):

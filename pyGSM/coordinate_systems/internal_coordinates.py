@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+import abc
 # standard library imports
 import time
 
@@ -8,21 +8,20 @@ from collections import OrderedDict
 import numpy as np
 from numpy.linalg import multi_dot
 
-from pyGSM.utilities import elements, options, nifty, block_matrix
+from ..utilities import elements, options, nifty, block_matrix
 
 ELEMENT_TABLE = elements.ElementData()
 
 CacheWarning = False
 
+class InternalCoordinates(metaclass=abc.ABCMeta):
 
-class InternalCoordinates(object):
+    _default_options = None
+    @classmethod
+    def default_options(cls):
+        if cls._default_options is not None:
+            return cls._default_options.copy()
 
-    @staticmethod
-    def default_options():
-        ''' InternalCoordinates default options.'''
-
-        if hasattr(InternalCoordinates, '_default_options'):
-            return InternalCoordinates._default_options.copy()
         opt = options.Options()
 
         opt.add_option(
@@ -34,66 +33,8 @@ class InternalCoordinates(object):
         opt.add_option(
             key='atoms',
             required=True,
-            #allowed_types=[],
-                doc='atom element named tuples/dictionary must be of type list[elements].'
-        )
-
-        opt.add_option(
-            key='connect',
-            value=False,
-            allowed_types=[bool],
-            doc="Connect the fragments/residues together with a minimum spanning bond,\
-                    use for DLC, Don't use for TRIC, or HDLC.",
-        )
-
-        opt.add_option(
-            key='addcart',
-            value=False,
-            allowed_types=[bool],
-            doc="Add cartesian coordinates\
-                    use to form HDLC ,Don't use for TRIC, DLC.",
-        )
-
-        opt.add_option(
-            key='addtr',
-            value=False,
-            allowed_types=[bool],
-            doc="Add translation and rotation coordinates\
-                    use for TRIC.",
-        )
-
-        opt.add_option(
-            key='constraints',
-            value=None,
-            allowed_types=[list],
-            doc='A list of Distance,Angle,Torsion constraints (see slots.py),\
-                    This is only useful if doing a constrained geometry optimization\
-                    since GSM will handle the constraint automatically.'
-        )
-        opt.add_option(
-            key='cVals',
-            value=None,
-            allowed_types=[list],
-            doc='List of Distance,Angle,Torsion constraints values'
-        )
-
-        opt.add_option(
-            key='form_topology',
-            value=True,
-            doc='A lazy argument for forming the topology on the fly, dont use this',
-        )
-
-        opt.add_option(
-            key='primitives',
-            value=None,
-            doc='This is a Primitive internal coordinates object -- can be used instead \
-                        of creating new primitive object'
-        )
-
-        opt.add_option(
-            key='topology',
-            value=None,
-            doc='This is the molecule topology, used for building primitives'
+            # allowed_types=[],
+            doc='atom element named tuples/dictionary must be of type list[elements].'
         )
 
         opt.add_option(
@@ -103,58 +44,62 @@ class InternalCoordinates(object):
             allowed_types=[int],
             doc='0-- no printing, 1-- printing')
 
-        InternalCoordinates._default_options = opt
-        return InternalCoordinates._default_options.copy()
+        cls._default_options = opt
+        return cls._default_options.copy()
 
-    @classmethod
-    def from_options(cls, **kwargs):
-        """ Returns an instance of this class with default options updated from values in kwargs"""
-        return cls(cls.default_options().set_values(kwargs))
-
-    def __init__(self,
-                 options
-                 ):
-
-        self.options = options
+    def __init__(self, atoms, xyz):
+        self.atoms = atoms
+        self.xyz = xyz
         self.stored_wilsonB = OrderedDict()
 
-    def addConstraint(self, cPrim, cVal):
+    @classmethod
+    def construct(cls, **opts):
+        full_dict = cls.default_options().update(opts)
+        return cls(**full_dict)
+
+    @abc.abstractmethod
+    def derivatives(self, xyz):
+        ...
+
+    @abc.abstractmethod
+    def addConstraint(self, cPrim, cVal, xyz):
         raise NotImplementedError("Constraints not supported with Cartesian coordinates")
 
+    @abc.abstractmethod
     def haveConstraints(self):
         raise NotImplementedError("Constraints not supported with Cartesian coordinates")
 
-    def augmentGH(self, xyz, G, H):
-        raise NotImplementedError("Constraints not supported with Cartesian coordinates")
-
+    @abc.abstractmethod
     def calcGradProj(self, xyz, gradx):
         raise NotImplementedError("Constraints not supported with Cartesian coordinates")
 
     def clearCache(self):
         self.stored_wilsonB = OrderedDict()
 
-    def wilsonB(self, xyz):
+    def wilsonB(self, xyz, use_cache=False):
         """
         Given Cartesian coordinates xyz, return the Wilson B-matrix
         given by dq_i/dx_j where x is flattened (i.e. x1, y1, z1, x2, y2, z2)
         """
-        global CacheWarning
-        t0 = time.time()
-        xhash = hash(xyz.tostring())
-        ht = time.time() - t0
-        if xhash in self.stored_wilsonB:
-            ans = self.stored_wilsonB[xhash]
-            return ans
-        WilsonB = []
-        Der = self.derivatives(xyz)
-        for i in range(Der.shape[0]):
-            WilsonB.append(Der[i].flatten())
-        self.stored_wilsonB[xhash] = np.array(WilsonB)
-        if len(self.stored_wilsonB) > 1000 and not CacheWarning:
-            nifty.logger.warning("\x1b[91mWarning: more than 100 B-matrices stored, memory leaks likely\x1b[0m")
-            CacheWarning = True
-        ans = np.array(WilsonB)
-        return ans
+        if use_cache:
+            global CacheWarning
+            t0 = time.time()
+            xhash = hash(xyz.tostring())
+            ht = time.time() - t0
+            if xhash in self.stored_wilsonB:
+                ans = self.stored_wilsonB[xhash]
+                return ans
+            WilsonB = self.wilsonB(xyz, use_cache=False)
+            self.stored_wilsonB[xhash] = WilsonB
+            if len(self.stored_wilsonB) > 1000 and not CacheWarning:
+                nifty.logger.warning("\x1b[91mWarning: more than 100 B-matrices stored, memory leaks likely\x1b[0m")
+                CacheWarning = True
+        else:
+            WilsonB = []
+            Der = self.derivatives(xyz)
+            for i in range(Der.shape[0]):
+                WilsonB.append(Der[i].flatten())
+        return WilsonB
 
     def GMatrix(self, xyz, u=None):
         """

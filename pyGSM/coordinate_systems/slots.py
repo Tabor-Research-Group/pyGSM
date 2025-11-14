@@ -1,26 +1,21 @@
-
 # standard library imports
-from utilities import nifty, math_utils
+import abc
 import sys
 import os
 from os import path
 
-# third party
 import numpy as np
-
-# local application imports
-sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
-
-try:
-    from .rotate import get_expmap, get_expmap_der, is_linear, calc_rot_vec_diff
-except:
-    from rotate import get_expmap, get_expmap_der, is_linear, calc_rot_vec_diff
+from ..utilities import nifty, math_utils
+from .rotate import get_expmap, get_expmap_der, is_linear, calc_rot_vec_diff
 
 
-class PrimitiveCoordinate(object):
+class PrimitiveCoordinate(metaclass=abc.ABCMeta):
     """
     Parent class for primitive internal coordinate objects with common methods.
     """
+    @abc.abstractmethod
+    def value(self, coords):
+        ...
 
     def calcDiff(self, xyz1, xyz2=None, val2=None):
         """

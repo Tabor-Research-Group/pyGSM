@@ -9,16 +9,10 @@ import copy as cp
 # third party
 import numpy as np
 
-# local application imports
-sys.path.append(path.dirname( path.dirname( path.abspath(__file__))))
 
-try:
-    from .base_lot import Lot
-    from .file_options import File_Options
-except:
-    from base_lot import Lot
-    from file_options import File_Options
-from utilities import *
+from .base_lot import Lot
+from .file_options import File_Options
+from ..utilities import *
 
 '''
 '''
@@ -26,6 +20,7 @@ from utilities import *
 class nanoreactor_engine(Lot):
 
     def __init__(self,options):
+        raise NotImplementedError("dead code")
         super(nanoreactor_engine,self).__init__(options)
         # can we do a check here?
         self.engine=options['job_data']['engine']

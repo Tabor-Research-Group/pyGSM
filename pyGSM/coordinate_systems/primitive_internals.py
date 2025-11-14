@@ -1,63 +1,131 @@
 from __future__ import print_function
-from copy import deepcopy, copy
-from pyGSM.utilities import manage_xyz, nifty, block_matrix, block_tensor
-from collections import OrderedDict, defaultdict
-import itertools
-import networkx as nx
-import numpy as np
+from ..utilities import manage_xyz, nifty, block_matrix, block_tensor
 
 # standard library imports
 import time
-import sys
-from os import path
-
-# i don't know what this is doing
-sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 # third party
 from copy import deepcopy,copy
 import numpy as np
-import networkx as nx
-np.set_printoptions(precision=4,suppress=True)
+from .networkx_loader import nx
+
 import itertools
 from collections import OrderedDict, defaultdict
 from scipy.linalg import block_diag
 
-# local application imports
-
-try:
-    from .internal_coordinates import InternalCoordinates
-    from .topology import Topology, MyG
-    from .slots import Distance, Angle, Dihedral, OutOfPlane, RotationA, RotationB, RotationC, TranslationX, TranslationY, TranslationZ, CartesianX, CartesianY, CartesianZ, LinearAngle
-except:
-    from internal_coordinates import InternalCoordinates
-    from topology import Topology, MyG
-    from slots import Distance, Angle, Dihedral, OutOfPlane, RotationA, RotationB, RotationC, TranslationX, TranslationY, TranslationZ, CartesianX, CartesianY, CartesianZ, LinearAngle
+# local application import
+from .internal_coordinates import InternalCoordinates
+from .topology import Topology, MyG
+from .slots import Distance, Angle, Dihedral, OutOfPlane, RotationA, RotationB, RotationC, TranslationX, TranslationY, TranslationZ, CartesianX, CartesianY, CartesianZ, LinearAngle
 
 CacheWarning = False
 
 
 class PrimitiveInternalCoordinates(InternalCoordinates):
 
+    _default_options = None
+    @classmethod
+    def default_options(cls):
+        if cls._default_options is not None:
+            return cls._default_options.copy()
+
+        opt = super().default_options()
+
+        opt.add_option(
+            key='connect',
+            value=False,
+            allowed_types=[bool],
+            doc="Connect the fragments/residues together with a minimum spanning bond,\
+                            use for DLC, Don't use for TRIC, or HDLC.",
+        )
+
+        opt.add_option(
+            key='addcart',
+            value=False,
+            allowed_types=[bool],
+            doc="Add cartesian coordinates\
+                            use to form HDLC ,Don't use for TRIC, DLC.",
+        )
+
+        opt.add_option(
+            key='addtr',
+            value=False,
+            allowed_types=[bool],
+            doc="Add translation and rotation coordinates\
+                            use for TRIC.",
+        )
+
+        opt.add_option(
+            key='constraints',
+            value=None,
+            allowed_types=[list],
+            doc='A list of Distance,Angle,Torsion constraints (see slots.py),\
+                            This is only useful if doing a constrained geometry optimization\
+                            since GSM will handle the constraint automatically.'
+        )
+        opt.add_option(
+            key='cVals',
+            value=None,
+            allowed_types=[list],
+            doc='List of Distance,Angle,Torsion constraints values'
+        )
+
+        opt.add_option(
+            key='form_topology',
+            value=True,
+            doc='A lazy argument for forming the topology on the fly, dont use this',
+        )
+
+        opt.add_option(
+            key='topology',
+            value=None,
+            doc='This is the molecule topology, used for building primitives'
+        )
+
+        cls._default_options = opt
+        return cls._default_options.copy()
     def __init__(self,
-                 options
+                 atoms,
+                 xyz,
+                 topology,
+                 form_topology=True,
+                 connect=False,
+                 addcart=False,
+                 addtr=False,
+                 internals=None,
+                 hybrid_idx_start_stop=None,
+                 fragments=None,
+                 block_info=None
                  ):
 
-        super(PrimitiveInternalCoordinates, self).__init__(options)
+        super().__init__(atoms, xyz)
+
+        self.connect = connect
+        self.addcart = addcart
+        self.addtr = addtr
+        if addtr:
+            if connect:
+                raise RuntimeError(" Intermolecular displacements are defined by translation and rotations! \
+                                    Don't add connect!")
+        elif addcart:
+            if connect:
+                raise RuntimeError(" Intermolecular displacements are defined by cartesians! \
+                                    Don't add connect!")
+        else:
+            pass
 
         # Cache some useful attributes
-        self.options = options
-        self.atoms = options['atoms']
+        self.atoms = atoms
 
         # initialize
-        self.Internals = []
-        self.tmp_Internals = []
         self.cPrims = []
         self.cVals = []
         self.Rotators = OrderedDict()
         self.natoms = len(self.atoms)
         self.built_bonds = False
-        self.hybrid_idx_start_stop = []
+        if hybrid_idx_start_stop is None:
+            hybrid_idx_start_stop = []
+        self.hybrid_idx_start_stop = hybrid_idx_start_stop
 
         # # Topology settings  -- CRA 3/2019 leftovers from Lee-Ping's code
         # but maybe useful in the future
@@ -67,29 +135,50 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         #                     }
         # bondfile = extra_kwargs.get('bondfile',None)
 
-        xyz = options['xyz']
-        self.topology = self.options['topology']
+        self.topology = topology
         # make_prims = self.top_settings['make_primitives']
 
         # setup
-        if self.options['form_topology']:
+        if form_topology:
+            if internals is not None:
+                raise ValueError("`form_toplogy` will overwrite `internals`")
             if self.topology is None:
+                raise ValueError("`topology` can't be `None`")
                 print(" Warning it's better to build the topology before calling PrimitiveInternals\n Only the most basic option is enabled here \n You get better control of the topology by controlling extra bonds, angles etc.")
                 self.topology = Topology.build_topology(xyz, self.atoms)
                 print(" done making topology")
 
-            self.fragments = [self.topology.subgraph(c).copy() for c in nx.connected_components(self.topology)]
-            for g in self.fragments:
-                g.__class__ = MyG
+            self.fragments = [
+                MyG(self.topology.subgraph(c).copy())
+                for c in nx.connected_components(self.topology)
+            ]
 
             #ALEX CHANGE for lines 86-91
             self.get_hybrid_indices(xyz)
             #nifty.click()
-            self.newMakePrimitives(xyz)
+            self.Internals, self.block_info = self.newMakePrimitives(
+                atoms,
+                xyz,
+                self.topology,
+                self.fragments,
+                connect=connect,
+                addcart=addcart,
+                addtr=addtr,
+                hybrid_idx_start_stop=hybrid_idx_start_stop
+            )
             print(" done making primitives")
             #time_build = nifty.click()
             #print(" make prim %.3f" % time_build)
-
+        else:
+            if internals is None:
+                internals = []
+            self.Internals = internals
+            if fragments is None:
+                fragments = []
+            self.fragments = fragments
+            if block_info is None:
+                block_info = []
+            self.block_info = block_info
         # Reorder primitives for checking with cc's code in TC.
         # Note that reorderPrimitives() _must_ be updated with each new InternalCoordinate class written.
         # self.reorderPrimitives()
@@ -98,212 +187,24 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         # self.makeConstraints(xyz, constraints, cvals)
 
     @classmethod
-    def copy(cls, Prims):
-        newPrims = cls(Prims.options.copy().set_values({'form_topology': False}))
-        newPrims.hybrid_idx_start_stop = Prims.hybrid_idx_start_stop
-        newPrims.topology = deepcopy(Prims.topology)
-        newPrims.Internals = deepcopy(Prims.Internals)
-        newPrims.block_info = deepcopy(Prims.block_info)
-        newPrims.prim_only_block_info = copy(Prims.prim_only_block_info)
-        newPrims.atoms = newPrims.options['atoms']
-        newPrims.fragments = [Prims.topology.subgraph(c).copy() for c in nx.connected_components(Prims.topology)]
-        for g in newPrims.fragments:
-            g.__class__ = MyG
+    def copy(cls, Prims): # my god this is poorly written
+        newPrims = cls(
+            Prims.atoms,
+            Prims.xyz,
+            deepcopy(Prims.topology),
+            internals=deepcopy(Prims.Internals),
+            fragments=[
+                MyG(Prims.topology.subgraph(c).copy())
+                for c in nx.connected_components(Prims.topology)
+            ],
+            hybrid_idx_start_stop=Prims.hybrid_idx_start_stop,
+            form_topology=False,
+            connect=Prims.connect,
+            addcart=Prims.addcart,
+            addtr=Prims.addtr
+        )
 
         return newPrims
-
-    def makePrimitives(self, xyz):
-
-        self.Internals = []
-        connect = self.options['connect']
-        addcart = self.options['addcart']
-        addtr = self.options['addtr']
-
-        # LPW also uses resid from molecule . . .
-        frags = [m.nodes() for m in self.fragments]
-
-        # coordinates in Angstrom
-        coords = xyz.flatten()
-
-        # Build a list of noncovalent distances
-        noncov = []
-        # Connect all non-bonded fragments together
-        if connect:
-            # Make a distance matrix mapping atom pairs to interatomic distances
-            AtomIterator, dxij = Topology.distance_matrix(xyz, pbc=False)
-            D = {}
-            for i, j in zip(AtomIterator, dxij[0]):
-                assert i[0] < i[1]
-                D[tuple(i)] = j
-            dgraph = nx.Graph()
-            for i in range(self.natoms):
-                dgraph.add_node(i)
-            for k, v in list(D.items()):
-                dgraph.add_edge(k[0], k[1], weight=v)
-            mst = sorted(list(nx.minimum_spanning_edges(dgraph, data=False)))
-            for edge in mst:
-                if edge not in list(self.topology.edges()):
-                    print("Adding %s from minimum spanning tree" % str(edge))
-                    self.topology.add_edge(edge[0], edge[1])
-                    noncov.append(edge)
-        else:
-            if addcart:
-                for i in range(self.natoms):
-                    self.add(CartesianX(i, w=1.0))
-                    self.add(CartesianY(i, w=1.0))
-                    self.add(CartesianZ(i, w=1.0))
-            elif addtr:
-                for i in frags:
-                    if len(i) >= 2:
-                        self.add(TranslationX(i, w=np.ones(len(i))/len(i)))
-                        self.add(TranslationY(i, w=np.ones(len(i))/len(i)))
-                        self.add(TranslationZ(i, w=np.ones(len(i))/len(i)))
-                        sel = coords.reshape(-1, 3)[i, :]
-                        sel -= np.mean(sel, axis=0)
-                        # rg is sqrt(sum(x^2))
-                        rg = np.sqrt(np.mean(np.sum(sel**2, axis=1)))
-                        self.add(RotationA(i, coords, self.Rotators, w=rg))
-                        self.add(RotationB(i, coords, self.Rotators, w=rg))
-                        self.add(RotationC(i, coords, self.Rotators, w=rg))
-                    else:
-                        for j in i:
-                            self.add(CartesianX(j, w=1.0))
-                            self.add(CartesianY(j, w=1.0))
-                            self.add(CartesianZ(j, w=1.0))
-            else:
-                if len(frags) > 1:
-                    raise RuntimeError("need someway to define the intermolecular interaction")
-
-        # # Build a list of noncovalent distances
-        # Add an internal coordinate for all interatomic distances
-        for (a, b) in self.topology.edges():
-            self.add(Distance(a, b))
-
-        # Add an internal coordinate for all angles
-        # This number works best for the iron complex
-        LinThre = 0.95
-        AngDict = defaultdict(list)
-        for b in self.topology.nodes():
-            for a in self.topology.neighbors(b):
-                for c in self.topology.neighbors(b):
-                    if a < c:
-                        # if (a, c) in self.topology.edges() or (c, a) in self.topology.edges(): continue
-                        Ang = Angle(a, b, c)
-                        nnc = (min(a, b), max(a, b)) in noncov
-                        nnc += (min(b, c), max(b, c)) in noncov
-                        # if nnc >= 2: continue
-                        # logger.info("LPW: cosine of angle", a, b, c, "is", np.abs(np.cos(Ang.value(coords))))
-                        if np.abs(np.cos(Ang.value(coords))) < LinThre:
-                            self.add(Angle(a, b, c))
-                            AngDict[b].append(Ang)
-                        elif connect or not addcart:
-                            # logger.info("Adding linear angle")
-                            # Add linear angle IC's
-                            # LPW 2019-02-16: Linear angle ICs work well for "very" linear angles in selfs (e.g. HCCCN)
-                            # but do not work well for "almost" linear angles in noncovalent systems (e.g. H2O6).
-                            # Bringing back old code to use "translations" for the latter case, but should be investigated
-                            # more deeply in the future.
-                            if nnc == 0:
-                                self.add(LinearAngle(a, b, c, 0))
-                                self.add(LinearAngle(a, b, c, 1))
-                            else:
-                                # Unit vector connecting atoms a and c
-                                nac = xyz[c] - xyz[a]
-                                nac /= np.linalg.norm(nac)
-                                # Dot products of this vector with the Cartesian axes
-                                dots = [np.abs(np.dot(ei, nac)) for ei in np.eye(3)]
-                                # Functions for adding Cartesian coordinate
-                                # carts = [CartesianX, CartesianY, CartesianZ]
-                                # print("warning, adding translation, did you mean this?")
-                                trans = [TranslationX, TranslationY, TranslationZ]
-                                w = np.array([-1.0, 2.0, -1.0])
-                                # Add two of the most perpendicular Cartesian coordinates
-                                for i in np.argsort(dots)[:2]:
-                                    self.add(trans[i]([a, b, c], w=w))
-
-        for b in self.topology.nodes():
-            for a in self.topology.neighbors(b):
-                for c in self.topology.neighbors(b):
-                    for d in self.topology.neighbors(b):
-                        if a < c < d:
-                            nnc = (min(a, b), max(a, b)) in noncov
-                            nnc += (min(b, c), max(b, c)) in noncov
-                            nnc += (min(b, d), max(b, d)) in noncov
-                            # if nnc >= 1: continue
-                            for i, j, k in sorted(list(itertools.permutations([a, c, d], 3))):
-                                Ang1 = Angle(b, i, j)
-                                Ang2 = Angle(i, j, k)
-                                if np.abs(np.cos(Ang1.value(coords))) > LinThre:
-                                    continue
-                                if np.abs(np.cos(Ang2.value(coords))) > LinThre:
-                                    continue
-                                if np.abs(np.dot(Ang1.normal_vector(coords), Ang2.normal_vector(coords))) > LinThre:
-                                    self.delete(Angle(i, b, j))
-                                    self.add(OutOfPlane(b, i, j, k))
-                                    break
-
-        # Find groups of atoms that are in straight lines
-        atom_lines = [list(i) for i in self.topology.edges()]
-        while True:
-            # For a line of two atoms (one bond):
-            # AB-AC
-            # AX-AY
-            # i.e. AB is the first one, AC is the second one
-            # AX is the second-to-last one, AY is the last one
-            # AB-AC-...-AX-AY
-            # AB-(AC, AX)-AY
-            atom_lines0 = deepcopy(atom_lines)
-            for aline in atom_lines:
-                # Imagine a line of atoms going like ab-ac-ax-ay.
-                # Our job is to extend the line until there are no more
-                ab = aline[0]
-                ay = aline[-1]
-                for aa in self.topology.neighbors(ab):
-                    if aa not in aline:
-                        # If the angle that AA makes with AB and ALL other atoms AC in the line are linear:
-                        # Add AA to the front of the list
-                        if all([np.abs(np.cos(Angle(aa, ab, ac).value(coords))) > LinThre for ac in aline[1:] if ac != ab]):
-                            aline.insert(0, aa)
-                for az in self.topology.neighbors(ay):
-                    if az not in aline:
-                        if all([np.abs(np.cos(Angle(ax, ay, az).value(coords))) > LinThre for ax in aline[:-1] if ax != ay]):
-                            aline.append(az)
-            if atom_lines == atom_lines0:
-                break
-        atom_lines_uniq = []
-        for i in atom_lines:    #
-            if tuple(i) not in set(atom_lines_uniq):
-                atom_lines_uniq.append(tuple(i))
-        # TODO: Perhaps should reduce the times this is printed out in reaction paths
-        # lthree = [l for l in atom_lines_uniq if len(l) > 2]
-        # if len(lthree) > 0:
-        #     print "Lines of three or more atoms:", ', '.join(['-'.join(["%i" % (i+1) for i in l]) for l in lthree])
-
-        # Normal dihedral code
-        for aline in atom_lines_uniq:
-            # Go over ALL pairs of atoms in a line
-            for (b, c) in itertools.combinations(aline, 2):
-                if b > c:
-                    (b, c) = (c, b)
-                # Go over all neighbors of b
-                for a in self.topology.neighbors(b):
-                    # Go over all neighbors of c
-                    for d in self.topology.neighbors(c):
-                        # Make sure the end-atoms are not in the line and not the same as each other
-                        if a not in aline and d not in aline and a != d:
-                            nnc = (min(a, b), max(a, b)) in noncov
-                            nnc += (min(b, c), max(b, c)) in noncov
-                            nnc += (min(c, d), max(c, d)) in noncov
-                            # print aline, a, b, c, d
-                            Ang1 = Angle(a, b, c)
-                            Ang2 = Angle(b, c, d)
-                            # Eliminate dihedrals containing angles that are almost linear
-                            # (should be eliminated already)
-                            if np.abs(np.cos(Ang1.value(coords))) > LinThre:
-                                continue
-                            if np.abs(np.cos(Ang2.value(coords))) > LinThre:
-                                continue
-                            self.add(Dihedral(a, b, c, d))
 
     # overwritting parent internal coordinate wilsonB with a block matrix representation
     def wilsonB(self, xyz):
@@ -611,6 +512,22 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         # 9/2019 CRA what is the difference in performace/stability for SVD vs regular inverse?
         return self.GInverse_EIG(xyz)
 
+    @classmethod
+    def _addable_dof(cls, dof, internals):
+        return (
+            isinstance(dof, (CartesianX, CartesianY, CartesianZ))
+            or dof not in internals
+        )
+    @classmethod
+    def _dispatch_add(cls, dof, internals, verbose=False):
+        if cls._addable_dof(dof, internals):
+            if verbose:
+                print((" adding ", dof))
+            internals.append(dof)
+            return True
+        else:
+            return False
+
     def add(self, dof, verbose=False):
         if dof.__class__.__name__ in ['CartesianX', 'CartesianY', 'CartesianZ']:
             if verbose:
@@ -620,19 +537,6 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             if verbose:
                 print((" adding ", dof))
             self.Internals.append(dof)
-            return True
-        else:
-            return False
-
-    def tmp_add(self, dof, verbose=False):
-        if dof.__class__.__name__ in ['CartesianX', 'CartesianY', 'CartesianZ']:
-            if verbose:
-                print((" adding ", dof))
-            self.tmp_Internals.append(dof)
-        elif dof not in self.tmp_Internals:
-            if verbose:
-                print((" adding ", dof))
-            self.tmp_Internals.append(dof)
             return True
         else:
             return False
@@ -666,14 +570,6 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                 found = True
         return found
 
-    def tmp_delete(self, dof):
-        found = False
-        for ii in range(len(self.tmp_Internals))[::-1]:
-            if dof == self.tmp_Internals[ii]:
-                del self.tmp_Internals[ii]
-                found = True
-        return found
-
     def addConstraint(self, cPrim, cVal=None, xyz=None):
         if cVal is None and xyz is None:
             raise RuntimeError('Please provide either cval or xyz')
@@ -694,13 +590,14 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             self.cPrims.append(cPrim)
             self.cVals.append(cVal)
 
+    _primitive_ordering = [Distance, Angle, LinearAngle, OutOfPlane, Dihedral, CartesianX, CartesianY, CartesianZ, TranslationX, TranslationY, TranslationZ, RotationA, RotationB, RotationC]
     def reorderPrimitives(self):
         # Reorder primitives to be in line with cc's code
         newPrims = []
         for cPrim in self.cPrims:
             newPrims.append(cPrim)
 
-        for typ in [Distance, Angle, LinearAngle, OutOfPlane, Dihedral, CartesianX, CartesianY, CartesianZ, TranslationX, TranslationY, TranslationZ, RotationA, RotationB, RotationC]:
+        for typ in self._primitive_ordering:
             for p in self.Internals:
                 if type(p) is typ and p not in self.cPrims:
                     newPrims.append(p)
@@ -708,32 +605,42 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             raise RuntimeError("Not all internal coordinates have been accounted for. You may need to add something to reorderPrimitives()")
         self.Internals = newPrims
 
-        if not self.options['connect']:
+        if not self.connect:
             self.reorderPrimsByFrag()
         else:
             # all atoms are considered one "fragment"
             self.block_info = [(1, self.natoms, len(newPrims), 'P')]
 
-    def newMakePrimitives(self, xyz):
-        self.Internals = []
-        self.block_info = []
+    @classmethod
+    def newMakePrimitives(cls,
+                          atoms,
+                          xyz,
+                          topology,
+                          fragments:'list[MyG]',
+                          connect=False,
+                          addcart=False,
+                          addtr=False,
+                          hybrid_idx_start_stop=None
+                          ):
+        Internals = []
+        Rotators = OrderedDict()
+        block_info = []
+        if hybrid_idx_start_stop is None:
+            hybrid_idx_start_stop = []
         # coordinates in Angstrom
         coords = xyz.flatten()
-        connect = self.options['connect']
-        addcart = self.options['addcart']
-        addtr = self.options['addtr']
 
         print(" Creating block info")
         tmp_block_info = []
         # get primitive blocks
-        for frag in self.fragments:
+        for frag in fragments:
             nodes = frag.L()
             tmp_block_info.append((nodes[0], nodes[-1]+1, frag, 'reg'))
             # TODO can assert blocks are contiguous here
-        print(" number of primitive blocks is ", len(self.fragments))
+        print(" number of primitive blocks is ", len(fragments))
 
         # get hybrid blocks
-        for tup in self.hybrid_idx_start_stop:
+        for tup in hybrid_idx_start_stop:
             # Add primitive Cartesians for each atom in hybrid block
             sa = tup[0]
             ea = tup[1]
@@ -747,6 +654,8 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         # print(tmp_block_info)
         print(" Done creating block info,\n Now Making Primitives by block")
 
+        natoms = len(atoms)
+        tmp_internals = []
         sp = 0
         for info in tmp_block_info:
             nprims = 0
@@ -763,51 +672,51 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                         assert i[0] < i[1]
                         D[tuple(i)] = j
                     dgraph = nx.Graph()
-                    for i in range(self.natoms):
+                    for i in range(natoms):
                         dgraph.add_node(i)
                     for k, v in list(D.items()):
                         dgraph.add_edge(k[0], k[1], weight=v)
                     mst = sorted(list(nx.minimum_spanning_edges(dgraph, data=False)))
                     for edge in mst:
-                        if edge not in list(self.topology.edges()):
+                        if edge not in list(topology.edges()):
                             print("Adding %s from minimum spanning tree" % str(edge))
-                            self.topology.add_edge(edge[0], edge[1])
+                            topology.add_edge(edge[0], edge[1])
                             noncov.append(edge)
 
                 else:  # Add Cart or TR
                     if addcart:
                         for i in range(info[0], info[1]):
-                            self.tmp_add(CartesianX(i, w=1.0))
-                            self.tmp_add(CartesianY(i, w=1.0))
-                            self.tmp_add(CartesianZ(i, w=1.0))
+                            cls._dispatch_add(CartesianX(i, w=1.0), tmp_internals)
+                            cls._dispatch_add(CartesianY(i, w=1.0), tmp_internals)
+                            cls._dispatch_add(CartesianZ(i, w=1.0), tmp_internals)
                             nprims += 3
                     elif addtr:
                         nodes = frag.nodes()
                         # print(" Nodes")
                         # print(nodes)
                         if len(nodes) >= 2:
-                            self.tmp_add(TranslationX(nodes, w=np.ones(len(nodes))/len(nodes)))
-                            self.tmp_add(TranslationY(nodes, w=np.ones(len(nodes))/len(nodes)))
-                            self.tmp_add(TranslationZ(nodes, w=np.ones(len(nodes))/len(nodes)))
+                            cls._dispatch_add(TranslationX(nodes, w=np.ones(len(nodes))/len(nodes)), tmp_internals)
+                            cls._dispatch_add(TranslationY(nodes, w=np.ones(len(nodes))/len(nodes)), tmp_internals)
+                            cls._dispatch_add(TranslationZ(nodes, w=np.ones(len(nodes))/len(nodes)), tmp_internals)
                             sel = xyz.reshape(-1, 3)[nodes, :]
                             sel -= np.mean(sel, axis=0)
                             rg = np.sqrt(np.mean(np.sum(sel**2, axis=1)))
-                            self.tmp_add(RotationA(nodes, coords, self.Rotators, w=rg))
-                            self.tmp_add(RotationB(nodes, coords, self.Rotators, w=rg))
-                            self.tmp_add(RotationC(nodes, coords, self.Rotators, w=rg))
+                            cls._dispatch_add(RotationA(nodes, coords, Rotators, w=rg), tmp_internals)
+                            cls._dispatch_add(RotationB(nodes, coords, Rotators, w=rg), tmp_internals)
+                            cls._dispatch_add(RotationC(nodes, coords, Rotators, w=rg), tmp_internals)
                             nprims += 6
                         else:
                             for j in nodes:
-                                self.tmp_add(CartesianX(j, w=1.0))
-                                self.tmp_add(CartesianY(j, w=1.0))
-                                self.tmp_add(CartesianZ(j, w=1.0))
+                                cls._dispatch_add(CartesianX(j, w=1.0), tmp_internals)
+                                cls._dispatch_add(CartesianY(j, w=1.0), tmp_internals)
+                                cls._dispatch_add(CartesianZ(j, w=1.0), tmp_internals)
                                 nprims += 3
 
                 # # Build a list of noncovalent distances
                 # Add an internal coordinate for all interatomic distances
                 for (a, b) in frag.edges():
                     # if a in list(range(info[0],info[1])):
-                    if self.tmp_add(Distance(a, b)):
+                    if cls._dispatch_add(Distance(a, b), tmp_internals):
                         nprims += 1
 
                 # Add an internal coordinate for all angles
@@ -825,7 +734,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                                 # if nnc >= 2: continue
                                 # logger.info("LPW: cosine of angle", a, b, c, "is", np.abs(np.cos(Ang.value(coords))))
                                 if np.abs(np.cos(Ang.value(coords))) < LinThre:
-                                    if self.tmp_add(Angle(a, b, c)):
+                                    if cls._dispatch_add(Angle(a, b, c), tmp_internals):
                                         nprims += 1
                                     AngDict[b].append(Ang)
                                 elif connect or not addcart:
@@ -836,9 +745,9 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                                     # Bringing back old code to use "translations" for the latter case, but should be investigated
                                     # more deeply in the future.
                                     if nnc == 0:
-                                        if self.tmp_add(LinearAngle(a, b, c, 0)):
+                                        if cls._dispatch_add(LinearAngle(a, b, c, 0), tmp_internals):
                                             nprims += 1
-                                        if self.tmp_add(LinearAngle(a, b, c, 1)):
+                                        if cls._dispatch_add(LinearAngle(a, b, c, 1), tmp_internals):
                                             nprims += 1
                                     else:
                                         # Unit vector connecting atoms a and c
@@ -853,7 +762,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                                         w = np.array([-1.0, 2.0, -1.0])
                                         # Add two of the most perpendicular Cartesian coordinates
                                         for i in np.argsort(dots)[:2]:
-                                            if self.tmp_add(trans[i]([a, b, c], w=w)):
+                                            if cls._dispatch_add(trans[i]([a, b, c], w=w), tmp_internals):
                                                 nprims += 1
 
                 # Make Dihedrals
@@ -874,15 +783,15 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                                         if np.abs(np.cos(Ang2.value(coords))) > LinThre:
                                             continue
                                         if np.abs(np.dot(Ang1.normal_vector(coords), Ang2.normal_vector(coords))) > LinThre:
-                                            if self.tmp_delete(Angle(i, b, j)):
+                                            if cls._dispatch_add(Angle(i, b, j), tmp_internals):
                                                 nprims -= 1
-                                            if self.tmp_add(OutOfPlane(b, i, j, k)):
+                                            if cls._dispatch_add(OutOfPlane(b, i, j, k), tmp_internals):
                                                 nprims += 1
                                             break
 
                 # Find groups of atoms that are in straight lines
                 atom_lines = [list(i) for i in frag.edges()]
-                while True:
+                while True: # no reason to have an unconstrained loop here...really, really dumb
                     # For a line of two atoms (one bond):
                     # AB-AC
                     # AX-AY
@@ -941,45 +850,44 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                                         continue
                                     if np.abs(np.cos(Ang2.value(coords))) > LinThre:
                                         continue
-                                    if self.tmp_add(Dihedral(a, b, c, d)):
+                                    if cls._dispatch_add(Dihedral(a, b, c, d), tmp_internals):
                                         nprims += 1
 
             else:   # THIS ELSE CORRESPONS TO FRAGMENTS BUILT WITH THE HYBRID REGION (below)
-                self.tmp_add(CartesianX(info[0], w=1.0))
-                self.tmp_add(CartesianY(info[0], w=1.0))
-                self.tmp_add(CartesianZ(info[0], w=1.0))
+                cls._dispatch_add(CartesianX(info[0], w=1.0), tmp_internals)
+                cls._dispatch_add(CartesianY(info[0], w=1.0), tmp_internals)
+                cls._dispatch_add(CartesianZ(info[0], w=1.0), tmp_internals)
                 nprims = 3
 
             # Add all elements in tmp_Internals to Internals and then clear list
-            self.Internals += self.tmp_Internals
-            self.tmp_Internals = []
+            Internals += tmp_internals
+            tmp_internals = []
 
             ep = sp+nprims
-            self.block_info.append((info[0], info[1], sp, ep))
+            block_info.append((info[0], info[1], sp, ep))
             sp = ep
 
         # print(self.Internals)
-        self.prim_only_block_info = []
-        for info1, info2 in zip(tmp_block_info, self.block_info):
+        prim_only_block_info = []
+        for info1, info2 in zip(tmp_block_info, block_info):
             if info1[-1] == 'hyb':
                 pass
             else:
-                self.prim_only_block_info.append(info2)
+                prim_only_block_info.append(info2)
 
         print(" Done making primitives")
-        print(" Made a total of {} primitives".format(len(self.Internals)))
+        print(" Made a total of {} primitives".format(len(Internals)))
         # print(self.Internals)
         # print(" block info")
         # print(self.block_info)
-        print(" num blocks ", len(self.block_info))
-        print(" num prim blocks ", len(self.prim_only_block_info))
+        print(" num blocks ", len(block_info))
+        print(" num prim blocks ", len(prim_only_block_info))
         # print(self.prim_only_block_info)
         # if len(newPrims) != len(self.Internals):
         #    #print(np.setdiff1d(self.Internals,newPrims))
         #    raise RuntimeError("Not all internal coordinates have been accounted for. You may need to add something to reorderPrimitives()")
 
-        self.clearCache()
-        return
+        return Internals, block_info
 
     def insert_block_primitives(self, prims, reform_topology):
         '''
@@ -1074,25 +982,28 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
     def haveConstraints(self):
         return len(self.cPrims) > 0
 
-    def getConstraintViolation(self, xyz):
+    @classmethod
+    def calculate_constraint_violation(cls, xyz, primitive_set, target_values):
         maxdiff = 0.0
-        for ic, c in enumerate(self.cPrims):
+        for ic, c in enumerate(primitive_set):
             w = c.w if type(c) in [RotationA, RotationB, RotationC] else 1.0
-            current = c.value(xyz)/w
-            reference = self.cVals[ic]/w
+            current = c.value(xyz) / w
+            reference = target_values[ic] / w
             diff = (current - reference)
             if c.isPeriodic:
-                if np.abs(diff-2*np.pi) < np.abs(diff):
-                    diff -= 2*np.pi
-                if np.abs(diff+2*np.pi) < np.abs(diff):
-                    diff += 2*np.pi
+                if np.abs(diff - 2 * np.pi) < np.abs(diff):
+                    diff -= 2 * np.pi
+                if np.abs(diff + 2 * np.pi) < np.abs(diff):
+                    diff += 2 * np.pi
             if type(c) in [TranslationX, TranslationY, TranslationZ, CartesianX, CartesianY, CartesianZ, Distance]:
                 factor = 1.
             elif c.isAngular:
-                factor = 180.0/np.pi
-            if np.abs(diff*factor) > maxdiff:
-                maxdiff = np.abs(diff*factor)
+                factor = 180.0 / np.pi
+            if np.abs(diff * factor) > maxdiff:
+                maxdiff = np.abs(diff * factor)
         return maxdiff
+    def getConstraintViolation(self, xyz):
+        return self.calculate_constraint_violation(xyz, self.cPrims, self.cVals)
 
     def printConstraints(self, xyz, thre=1e-5):
         out_lines = []

@@ -3,10 +3,7 @@ from __future__ import print_function
 # standard library imports
 import sys
 import os
-try:
-    from io import StringIO
-except:
-    from StringIO import StringIO
+from io import StringIO
 
 # third party
 import numpy as np
@@ -14,7 +11,7 @@ import numpy as np
 # local application imports
 from ._linesearch import NoLineSearch
 from .base_optimizer import base_optimizer
-from utilities import units, block_matrix, manage_xyz
+from ..utilities import units, block_matrix, manage_xyz
 
 
 class eigenvector_follow(base_optimizer):

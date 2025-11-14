@@ -2,24 +2,14 @@
 This class is the combination of Martinez group and Lee Ping's molecule class.
 """
 
-# local application imports
-import sys
-import os
-from os import path
-sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
-
-# standard library imports
-from coordinate_systems import CartesianCoordinates
-from coordinate_systems import DelocalizedInternalCoordinates
-from potential_energy_surfaces import Penalty_PES
-from potential_energy_surfaces import Avg_PES
-from potential_energy_surfaces import PES
-from utilities import manage_xyz, elements, options, block_matrix
 from time import time
-
-# third party
 import numpy as np
-from collections import Counter
+import os
+# from collections import Counter
+
+from ..coordinate_systems import construct_coordinate_system
+from ..potential_energy_surfaces import PES, Penalty_PES, Avg_PES
+from ..utilities import manage_xyz, elements, options, block_matrix, Devutils as dev, units
 
 ELEMENT_TABLE = elements.ElementData()
 
@@ -33,12 +23,12 @@ and spin multiplicities.
 """
 
 
-class Molecule(object):
-
-    @staticmethod
-    def default_options():
-        if hasattr(Molecule, '_default_options'):
-            return Molecule._default_options.copy()
+class Molecule:
+    _default_options = None
+    @classmethod
+    def default_options(cls):
+        if cls._default_options is not None:
+            return cls._default_options.copy()
         opt = options.Options()
 
         opt.add_option(
@@ -89,9 +79,8 @@ class Molecule(object):
         opt.add_option(
             key='PES',
             required=True,
-            #allowed_types=[PES,Avg_PES,Penalty_PES,potential_energy_surfaces.pes.PES,potential_energy_surfaces.Penalty_PES,potential_energy_surfaces.Avg_PES],
-                doc='potential energy surface object to evaulate energies, gradients, etc. Pes is defined by charge, state, multiplicity,etc. '
-
+            # allowed_types=[PES,Avg_PES,Penalty_PES,potential_energy_surfaces.pes.PES,potential_energy_surfaces.Penalty_PES,potential_energy_surfaces.Avg_PES],
+            doc='potential energy surface object to evaulate energies, gradients, etc. Pes is defined by charge, state, multiplicity,etc. '
         )
         opt.add_option(
             key='copy_wavefunction',
@@ -146,19 +135,12 @@ class Molecule(object):
             value=None,
             doc='frozen atoms',
         )
+        cls._default_options = opt
+        return cls._default_options.copy()
 
-        Molecule._default_options = opt
-        return Molecule._default_options.copy()
-
-    @staticmethod
-    def from_options(**kwargs):
-        """ Returns an instance of this class with default options updated from values in kwargs"""
-        return Molecule(Molecule.default_options().set_values(kwargs))
-
-    def __repr__(self):
-        lines = [" molecule object"]
-        lines.append(self.Data.__str__())
-        return'\n'.join(lines)
+    @classmethod
+    def from_options(cls, options):
+        return cls(**options)
 
     @staticmethod
     def copy_from_options(MoleculeA, xyz=None, fnm=None, new_node_id=1, copy_wavefunction=True):
@@ -186,94 +168,48 @@ class Molecule(object):
         }))
 
     def __init__(self,
-                 options,
-                 **kwargs
+                 *,
+                 coord_obj,
+                 node_id=None,
+                 comment="",
+                 geom=None,
+                 frozen_atoms=None,
+                 fnm=None,
+                 ftype=None,
+                 logger=None,
+                 PES=None,
+                 hessian=None,
+                 primitive_hessian=None,
+                 pes_options=None
                  ):
 
-        self.Data = options
-
-        # => Read in the coordinates <= #
-        # important first try to read in geom
-
-        t0 = time()
-        if self.Data['geom'] is not None:
-            print(" getting cartesian coordinates from geom")
-            atoms = manage_xyz.get_atoms(self.Data['geom'])
-            xyz = manage_xyz.xyz_to_np(self.Data['geom'])
-        elif self.Data['fnm'] is not None:
-            print(" reading cartesian coordinates from file")
-            if self.Data['ftype'] is None:
-                self.Data['ftype'] = os.path.splitext(self.Data['fnm'])[1][1:]
-            if not os.path.exists(self.Data['fnm']):
-                #logger.error('Tried to create Molecule object from a file that does not exist: %s\n' % self.Data['fnm'])
-                raise IOError
-            geom = manage_xyz.read_xyz(self.Data['fnm'], scale=1.)
-            xyz = manage_xyz.xyz_to_np(geom)
-            atoms = manage_xyz.get_atoms(geom)
-
-        else:
-            raise RuntimeError
-
-        t1 = time()
-        print(" Time to get coords= %.3f" % (t1 - t0))
-        #resid=[]
-        #for a in ob.OBMolAtomIter(mol.OBMol):
-        #    res = a.GetResidue()
-        #    resid.append(res.GetName())
-        #self.resid = resid
-
-        # Perform all the sanity checks and cache some useful attributes
-
-        # TODO make PES property
-        self.PES = type(self.Data['PES']).create_pes_from(
-            PES=self.Data['PES'],
-            options={'node_id': self.Data['node_id']},
-            copy_wavefunction=self.Data['copy_wavefunction']
+        self.logger = dev.Logger.lookup(logger)
+        atoms, self._coords = self.load_coordinates(
+            logger=logger,
+            geom=geom,
+            filename=fnm,
+            file_type=ftype
         )
-        if not hasattr(atoms, "__getitem__"):
-            raise TypeError("atoms must be a sequence of atomic symbols")
+        if not np.issubdtype(atoms.dtype, np.str_):
+            raise ValueError(f"list of atom strings required, got {atoms}")
 
-        for a in atoms:
-            if not isinstance(a, str):
-                raise TypeError("atom symbols must be strings")
-
-        if type(xyz) is not np.ndarray:
-            raise TypeError("xyz must be a numpy ndarray")
-        if xyz.shape != (len(atoms), 3):
-            raise ValueError("xyz must have shape natoms x 3")
-        self.Data['xyz'] = xyz.copy()
+        if self.xyz.shape[-1] != 3 or len(atoms) != self.xyz.shape[-2]:
+            raise ValueError(f"expected `xyz` to be {len(atoms)}x3, got {self.xyz.shape}")
 
         # create a dictionary from atoms
         # atoms contain info you need to know about the atoms
         self.atoms = [ELEMENT_TABLE.from_symbol(atom) for atom in atoms]
+        self.frozen_atoms = frozen_atoms
 
-        tx = time()
-        print(" Time to create PES,elements %.3f" % (tx-t1))
-        t1 = tx
+        self._PES = None
+        self._base_pes = PES
+        if pes_options is None:
+            pes_options = {'copy_wavefunction':True}
+        self.pes_options = pes_options
 
-        if not isinstance(self.Data['comment'], str):
-            raise TypeError("comment for a Molecule must be a string")
-
-        # Create the coordinate system
-        if self.Data['coord_obj'] is not None:
-            print(" getting coord_object from options")
-            self.coord_obj = self.Data['coord_obj']
-        else:
-            print(" Disabling this feature, Molecule cannot create coordinate system")
-            raise NotImplementedError
-        #elif self.Data['coordinate_type'] == "Cartesian":
-        #    self.coord_obj = CartesianCoordinates.from_options(xyz=self.xyz,atoms=self.atoms)
-        #elif self.Data['coordinate_type'] == "DLC":
-        #    print(" building coordinate object")
-        #    self.coord_obj = DelocalizedInternalCoordinates.from_options(xyz=self.xyz,atoms=self.atoms,connect=True,extra_kwargs =self.Data['top_settings'])
-        #elif self.Data['coordinate_type'] == "HDLC":
-        #    self.coord_obj = DelocalizedInternalCoordinates.from_options(xyz=self.xyz,atoms=self.atoms,addcart=True,extra_kwargs =self.Data['top_settings'])
-        #elif self.Data['coordinate_type'] == "TRIC":
-        #    self.coord_obj = DelocalizedInternalCoordinates.from_options(xyz=self.xyz,atoms=self.atoms,addtr=True,extra_kwargs =self.Data['top_settings'])
-        self.Data['coord_obj'] = self.coord_obj
-
-        t2 = time()
-        print(" Time  to build coordinate system= %.3f" % (t2-t1))
+        self.comment = comment
+        self.node_id = node_id
+        self.coord_obj = coord_obj
 
         #TODO
         self.gradrms = 0.
@@ -281,47 +217,69 @@ class Molecule(object):
         self.bdist = 0.
         self.newHess = 5
 
-        if self.Data['Hessian'] is None and self.Data['Form_Hessian']:
-            if self.Data['Primitive_Hessian'] is None and type(self.coord_obj) is not CartesianCoordinates:
-                self.form_Primitive_Hessian()
-            t3 = time()
-            print(" Time to build Prim Hessian %.3f" % (t3-t2))
-            if self.Data['Primitive_Hessian'] is not None:
-                print(" forming Hessian in basis")
-                self.form_Hessian_in_basis()
+        self._hessian = hessian
+        self._primitive_hessian = primitive_hessian
+
+    @classmethod
+    def create_coord_obj(cls, atoms, xyz):
+        ...
+
+    @classmethod
+    def from_xyz(cls, atoms, xyz, **opts):
+        return cls(
+
+        )
+
+
+    @property
+    def Hessian(self):
+        if self._hessian is None:
+            if self.Primitive_Hessian is not None:
+                self.logger.log_print(" forming Hessian in basis")
+                self._hessian = self.form_Hessian_in_basis()
             else:
-                self.form_Hessian()
+                self._hessian = self.form_Hessian()
+                self.newHess = 5 #TODO: figure out why
+        return self._hessian
+    @Hessian.setter
+    def Hessian(self, hess):
+        self._hessian = hess
 
-        #logger.info("Molecule %s constructed.", repr(self))
-        #logger.debug("Molecule %s constructed.", repr(self))
-        print(" molecule constructed")
+    @classmethod
+    def load_coordinates(cls, *, logger, geom=None, filename=None, file_type=None):
+        t0 = time()
+        if geom is not None:
+            logger.log_print(" getting cartesian coordinates from geom")
+            atoms = manage_xyz.get_atoms(geom)
+            xyz = manage_xyz.xyz_to_np(geom)
+        elif filename is not None:
+            logger.log_print(" reading cartesian coordinates from file")
+            if file_type is None:
+                file_type = os.path.splitext(filename)[1][1:]
+            if not os.path.exists(filename):
+                # logger.error('Tried to create Molecule object from a file that does not exist: %s\n' % self.Data['fnm'])
+                raise IOError(f"file {filename} doesn't exist")
+            geom = manage_xyz.read_xyz(filename, scale=1.)
+            xyz = manage_xyz.xyz_to_np(geom)
+            atoms = manage_xyz.get_atoms(geom)
 
-    def __add__(self, other):
-        """ add method for molecule objects. Concatenates"""
-        raise NotImplementedError
+        else:
+            raise RuntimeError
 
-    def reorder(self, new_order):
-        """Reorder atoms in the molecule"""
-        #TODO doesn't work probably CRA 3/2019
-        for field in ["atoms", "xyz"]:
-            self.__dict__[field] = self.__dict__[field][list(new_order)]
-        self.atoms = [self.atoms[i] for i in new_order]
+        t1 = time()
+        logger.log_print(" Time to get coords= %.3f" % (t1 - t0))
 
-    def reorder_according_to(self, other):
-        """
+        return np.asanyarray(atoms), xyz
 
-        Reorder atoms according to some other Molecule object.  This
-        happens when we run a program like pdb2gmx or pdbxyz and it
-        scrambles our atom ordering, forcing us to reorder the atoms
-        for all frames in the current Molecule object.
-
-        Directions:
-        (1) Load up the scrambled file as a new Molecule object.
-        (2) Call this function: Original_Molecule.reorder_according_to(scrambled)
-        (3) Save Original_Molecule to a new file name.
-
-        """
-        raise NotImplementedError
+    @property
+    def PES(self):
+        if self._PES is None:
+            self._PES = type(self._base_pes).create_pes_from(
+                PES=self._base_pes,
+                options={'node_id': self.node_id},
+                copy_wavefunction=self.pes_options["copy_wavefunction"]
+            )
+        return self._PES
 
     def center(self, center_mass=False):
         """ Move geometric center to the origin. """
@@ -426,25 +384,27 @@ class Molecule(object):
 
     @property
     def difference_energy(self):
-        self.energy
+        self.energy # this is embarrassingly bad
         return self.PES.dE
 
     @property
-    def exactHessian(self):
-        raise NotImplementedError
-
-    @property
     def Primitive_Hessian(self):
-        return self.Data['Primitive_Hessian']
-
+        if self._primitive_hessian is None:
+            if not isinstance(self.coord_obj, CartesianCoordinates):
+                self.logger.log_print(" making primitive Hessian")
+                start = time()
+                self._primitive_hessian = self.form_Primitive_Hessian()
+                self.newHess = 10 #WTF is this...
+                stop = time()
+                self.logger.log_print(" Time to build Prim Hessian {e:.3f}s", e=stop - start)
+        return self._primitive_hessian
     @Primitive_Hessian.setter
-    def Primitive_Hessian(self, value):
-        self.Data['Primitive_Hessian'] = value
+    def Primitive_Hessian(self, prim):
+        self._primitive_hessian = prim
 
     def form_Primitive_Hessian(self):
-        print(" making primitive Hessian")
-        self.Data['Primitive_Hessian'] = self.coord_obj.Prims.guess_hessian(self.xyz)
-        self.newHess = 10
+        prim = self.coord_obj.Prims.guess_hessian(self.xyz)
+        return prim
 
     def update_Primitive_Hessian(self, change=None):
         print(" updating prim hess")
@@ -452,17 +412,9 @@ class Molecule(object):
             self.Primitive_Hessian += change
         return self.Primitive_Hessian
 
-    @property
-    def Hessian(self):
-        return self.Data['Hessian']
-
-    @Hessian.setter
-    def Hessian(self, value):
-        self.Data['Hessian'] = value
-
     def form_Hessian(self):
-        self.Data['Hessian'] = self.coord_obj.guess_hessian(self.xyz)
-        self.newHess = 5
+        hess = self.coord_obj.guess_hessian(self.xyz)
+        return hess
 
     def update_Hessian(self, change=None):
         #print " in update Hessian"
@@ -472,21 +424,15 @@ class Molecule(object):
 
     def form_Hessian_in_basis(self):
         # print " forming Hessian in current basis"
-        self.Hessian = block_matrix.dot(block_matrix.dot(block_matrix.transpose(self.coord_basis), self.Primitive_Hessian), self.coord_basis)
-        return self.Hessian
+        return block_matrix.dot(block_matrix.dot(block_matrix.transpose(self.coord_basis), self._primitive_hessian), self.coord_basis)
 
     @property
     def xyz(self):
-        return self.Data['xyz']
-
+        return self._coords
     @xyz.setter
-    def xyz(self, newxyz=None):
+    def xyz(self, newxyz):
         if newxyz is not None:
-            self.Data['xyz'] = newxyz
-
-    @property
-    def frozen_atoms(self):
-        return self.Data['frozen_atoms']
+            self._coords = newxyz
 
     @property
     def num_frozen_atoms(self):
@@ -544,8 +490,8 @@ class Molecule(object):
         self.coord_obj.Vecs = value
 
     def update_coordinate_basis(self, constraints=None):
-        if self.coord_obj.__class__.__name__ == 'CartesianCoordinates':
-            return
+        if isinstance(self.coord_obj, CartesianCoordinates):
+            return None
         # if constraints is not None:
         #     assert constraints.shape[0] == self.coord_basis.shape[0], '{} does not equal {} dimensions'.format(constraints.shape[0],self.coord_basis.shape[0])
 
@@ -597,11 +543,11 @@ class Molecule(object):
 
     @property
     def node_id(self):
-        return self.Data['node_id']
+        return self._node_id
 
     @node_id.setter
     def node_id(self, value):
-        self.Data['node_id'] = value
+        self._node_id = value
         self.PES.lot.node_id = value
 
 

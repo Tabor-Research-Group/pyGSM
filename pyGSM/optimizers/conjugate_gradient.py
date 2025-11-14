@@ -1,17 +1,14 @@
 from __future__ import print_function
 
-# standard library imports
-try:
-    from io import StringIO
-except:
-    from StringIO import StringIO
+
+from io import StringIO
 
 # third party
 import numpy as np
 
 # local application imports
 from .base_optimizer import base_optimizer
-from utilities import units
+from ..utilities import units
 
 
 class conjugate_gradient(base_optimizer):

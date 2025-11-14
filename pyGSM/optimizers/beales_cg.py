@@ -2,17 +2,14 @@ from __future__ import print_function
 
 # standard library imports
 import sys
-try:
-    from io import StringIO
-except:
-    from StringIO import StringIO
+from io import StringIO
 
 # third party
 import numpy as np
 
 # local application imports
 from .base_optimizer import base_optimizer
-from utilities import manage_xyz, block_matrix
+from ..utilities import manage_xyz, block_matrix
 
 
 class beales_cg(base_optimizer):

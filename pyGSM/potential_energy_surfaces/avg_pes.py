@@ -6,8 +6,7 @@ from os import path
 import numpy as np
 
 # local application imports
-sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
-from utilities import manage_xyz, units, nifty
+from ..utilities import manage_xyz, units, nifty
 from .pes import PES
 
 

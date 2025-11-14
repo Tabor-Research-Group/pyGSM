@@ -1,22 +1,10 @@
 from __future__ import print_function
-from utilities import manage_xyz, nifty
+from ..utilities import manage_xyz, nifty
 from collections import OrderedDict
 from pkg_resources import parse_version
 import itertools
 import numpy as np
-
-# standard library imports
-import sys
-from os import path
-
-# i don't know what this is doing
-sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
-
-
-try:
-    import networkx as nx
-except ImportError:
-    nifty.logger.warning("NetworkX cannot be imported (topology tools won't work).  Most functionality should still work though.")
+from .networkx_loader import nx
 
 
 #===========================#
@@ -25,45 +13,66 @@ except ImportError:
 #|     topology tricks     |#
 #===========================#
 
-class MyG(nx.Graph):
-    def __init__(self):
-        super(MyG, self).__init__()
-        self.Alive = True
+if nx is not None:
+    class MyG(nx.Graph):
+        def __init__(self, incoming_graph_data=None):
+            super().__init__(incoming_graph_data=incoming_graph_data)
+            self.Alive = True
 
-    # def __eq__(self, other):
-    #     # This defines whether two MyG objects are "equal" to one another.
-    #     if not self.Alive:
-    #         return False
-    #     if not other.Alive:
-    #         return False
-    #     return nx.is_isomorphic(self, other, node_match=nodematch)
+        # def __eq__(self, other):
+        #     # This defines whether two MyG objects are "equal" to one another.
+        #     if not self.Alive:
+        #         return False
+        #     if not other.Alive:
+        #         return False
+        #     return nx.is_isomorphic(self, other, node_match=nodematch)
 
-    def __hash__(self):
-        """ The hash function is something we can use to discard two things that are obviously not equal.  Here we neglect the hash. """
-        return 1
+        def __hash__(self):
+            """ The hash function is something we can use to discard two things that are obviously not equal.  Here we neglect the hash. """
+            return 1
 
-    def L(self):
-        """ Return a list of the sorted atom numbers in this graph. """
-        return sorted(list(self.nodes()))
+        def L(self):
+            """ Return a list of the sorted atom numbers in this graph. """
+            return sorted(list(self.nodes()))
 
-    def AStr(self):
-        """ Return a string of atoms, which serves as a rudimentary 'fingerprint' : '99,100,103,151' . """
-        return ','.join(['%i' % i for i in self.L()])
+        def AStr(self):
+            """ Return a string of atoms, which serves as a rudimentary 'fingerprint' : '99,100,103,151' . """
+            return ','.join(['%i' % i for i in self.L()])
 
-    def e(self):
-        """ Return an array of the elements.  For instance ['H' 'C' 'C' 'H']. """
-        elems = nx.get_node_attributes(self, 'e')
-        return [elems[i] for i in self.L()]
+        def e(self):
+            """ Return an array of the elements.  For instance ['H' 'C' 'C' 'H']. """
+            elems = nx.get_node_attributes(self, 'e')
+            return [elems[i] for i in self.L()]
 
-    def ef(self):
-        """ Create an Empirical Formula """
-        Formula = list(self.e())
-        return ''.join([('%s%i' % (k, Formula.count(k)) if Formula.count(k) > 1 else '%s' % k) for k in sorted(set(Formula))])
+        def ef(self):
+            """ Create an Empirical Formula """
+            Formula = list(self.e())
+            return ''.join([('%s%i' % (k, Formula.count(k)) if Formula.count(k) > 1 else '%s' % k) for k in sorted(set(Formula))])
 
-    def x(self):
-        """ Get a list of the coordinates. """
-        coors = nx.get_node_attributes(self, 'x')
-        return np.array([coors[i] for i in self.L()])
+        def x(self):
+            """ Get a list of the coordinates. """
+            coors = nx.get_node_attributes(self, 'x')
+            return np.array([coors[i] for i in self.L()])
+
+else:
+    class MyG:
+        def __init__(self):
+            raise ImportError("networkx has to be installed")
+
+        def L(self):
+            raise ImportError("networkx has to be installed")
+
+        def AStr(self):
+            raise ImportError("networkx has to be installed")
+
+        def e(self):
+            raise ImportError("networkx has to be installed")
+
+        def ef(self):
+            raise ImportError("networkx has to be installed")
+
+        def x(self):
+            raise ImportError("networkx has to be installed")
 
 
 def AtomContact(xyz, pairs, box=None, displace=False):
@@ -135,13 +144,9 @@ def AtomContact(xyz, pairs, box=None, displace=False):
         return dr
 
 
-class Topology():
-    def __init__(self, **kwargs):
-
-        return
-
-    @staticmethod
-    def build_topology(xyz, atoms, add_bond=None, hybrid_indices=None, bondlistfile=None, prim_idx_start_stop=None, **kwargs):
+class Topology:
+    @classmethod
+    def build_topology(cls, xyz, atoms, add_bond=None, hybrid_indices=None, bondlistfile=None, prim_idx_start_stop=None, **kwargs):
         """
         Create topology and fragments; these are graph
         representations of the individual molecule fragments
@@ -198,14 +203,14 @@ class Topology():
         if not bondlistfile:
             nifty.printcool(" building bonds")
             print(prim_idx_start_stop)
-            bonds = Topology.build_bonds(xyz, atoms, primitive_indices, prim_idx_start_stop)
+            bonds = cls.build_bonds(xyz, atoms, primitive_indices, prim_idx_start_stop)
             # print(" done")
             assert bondlistfile is None
         else:
             # bondlistfile:
             # prim_idx_start_stop = kwargs.get('prim_idx_start_stop',None)
             try:
-                bonds = Topology.read_bonds_from_file(bondlistfile)  # ,prim_idx_start_stop)
+                bonds = cls.read_bonds_from_file(bondlistfile)  # ,prim_idx_start_stop)
             except:
                 raise RuntimeError
 
@@ -563,58 +568,6 @@ class Topology():
         drij.append(drij_i)
         dxij.append(dxij_i)
         return AtomIterator, drij, dxij
-
-    # these aren't used
-    def find_angles(self):
-        """ Return a list of 3-tuples corresponding to all of the
-        angles in the system.  Verified for lysine and tryptophan
-        dipeptide when comparing to TINKER's analyze program. """
-
-        if not hasattr(self, 'topology'):
-            print("Need to have built a topology to find angles\n")
-            raise RuntimeError
-
-        angidx = []
-        # Iterate over separate molecules
-        for mol in self.fragments:
-            # Iterate over atoms in the molecule
-            for a2 in list(mol.nodes()):
-                # Find all bonded neighbors to this atom
-                friends = sorted(list(nx.neighbors(mol, a2)))
-                if len(friends) < 2:
-                    continue
-                # Double loop over bonded neighbors
-                for i, a1 in enumerate(friends):
-                    for a3 in friends[i+1:]:
-                        # Add bonded atoms in the correct order
-                        angidx.append((a1, a2, a3))
-        return angidx
-
-    # these aren't used
-    def find_dihedrals(self):
-        """ Return a list of 4-tuples corresponding to all of the
-        dihedral angles in the system.  Verified for alanine and
-        tryptophan dipeptide when comparing to TINKER's analyze
-        program. """
-
-        if not hasattr(self, 'topology'):
-            print("Need to have built a topology to find dihedrals\n")
-            raise RuntimeError
-
-        dihidx = []
-        # Iterate over separate molecules
-        for mol in self.fragments:
-            # Iterate over bonds in the molecule
-            for edge in list(mol.edges()):
-                # Determine correct ordering of atoms (middle atoms are ordered by convention)
-                a2 = edge[0] if edge[0] < edge[1] else edge[1]
-                a3 = edge[1] if edge[0] < edge[1] else edge[0]
-                for a1 in sorted(list(nx.neighbors(mol, a2))):
-                    if a1 != a3:
-                        for a4 in sorted(list(nx.neighbors(mol, a3))):
-                            if a4 != a2 and len({a1, a2, a3, a4}) == 4:
-                                dihidx.append((a1, a2, a3, a4))
-        return dihidx
 
     @staticmethod
     def distance_matrix(xyz, pbc=True):

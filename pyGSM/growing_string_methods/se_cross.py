@@ -1,14 +1,10 @@
 from __future__ import print_function
-import sys
-import os
-from os import path
-# local application imports
-sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
+import numpy as np
 
-from potential_energy_surfaces import Avg_PES, PES
+from ..potential_energy_surfaces import Avg_PES, PES, Penalty_PES
 from .se_gsm import SE_GSM
-from molecule import Molecule
-from utilities import nifty
+from ..molecule import Molecule
+from ..utilities import nifty
 # standard library imports
 
 
@@ -193,6 +189,17 @@ class SE_Cross(SE_GSM):
         #    isDone = True
         return isDone
 
+    @property
+    def TSnode(self):
+        if isinstance(self.nodes[0].PES, Penalty_PES):
+            energies = np.asarray([0.]*self.nnodes)
+            for i, node in enumerate(self.nodes):
+                if node is not None:
+                    energies[i] = (node.PES.PES1.energy + node.PES.PES2.energy)/2.
+            return int(np.argmax(energies))
+        else:
+            return super().TSnode
+
     def restart_string(self, xyzfile='restart.xyz'):
         super(SE_Cross, self).restart_string(xyzfile)
         self.done_growing = False
@@ -202,7 +209,7 @@ class SE_Cross(SE_GSM):
         _, self.nodes[0].bdist = self.get_tangent(self.nodes[0], None, driving_coords=self.driving_coords)
 
     def set_frontier_convergence(self, nR):
-        self.optimizer[nR].conv_grms = self.options['ADD_NODE_TOL']
+        self.optimizer[nR].conv_grms = self.tolerances['ADD_NODE_TOL']
         self.optimizer[nR].conv_gmax = 100.  # self.options['ADD_NODE_TOL'] # could use some multiplier times CONV_GMAX...
         self.optimizer[nR].conv_Ediff = 1000.  # 2.5
         print(" conv_tol of node %d is %.4f" % (nR, self.optimizer[nR].conv_grms))
