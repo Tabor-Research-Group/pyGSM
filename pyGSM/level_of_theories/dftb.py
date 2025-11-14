@@ -8,10 +8,10 @@ import re
 # third party
 import numpy as np
 
-from .base_lot import Lot
+from .base_lot import LoT
 
 
-class DFTB(Lot):
+class DFTB(LoT):
 
     def __init__(self, options):
         raise NotImplementedError("dead code")

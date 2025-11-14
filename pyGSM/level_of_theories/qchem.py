@@ -6,10 +6,10 @@ import os
 import numpy as np
 
 # local application imports
-from .base_lot import Lot
+from .base_lot import LoT
 
 
-class QChem(Lot):
+class QChem(LoT):
     def __init__(self, options):
         super(QChem, self).__init__(options)
 

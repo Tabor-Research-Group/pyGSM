@@ -15,10 +15,10 @@ import glob
 #from Definitions import *
 
 from ..utilities import manage_xyz, nifty, units
-from .base_lot import Lot
+from .base_lot import LoT
 
 
-class pDynamo(Lot):
+class pDynamo(LoT):
     """
     Level of theory is a wrapper object to do QM/MM DFT  calculations 
     Requires a system object. lot_inp_file must create  a pdynamo object

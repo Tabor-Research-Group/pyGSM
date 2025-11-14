@@ -8,105 +8,13 @@ import os
 # from collections import Counter
 
 from ..coordinate_systems import InternalCoordinates, construct_coordinate_system, CartesianCoordinates
-from ..potential_energy_surfaces import PES, Penalty_PES, Avg_PES
-from ..utilities import manage_xyz, elements, options, block_matrix, Devutils as dev, units
+from ..level_of_theories.base_lot import LoT
+from ..level_of_theories.conveniences import construct_lot
+from ..utilities import manage_xyz, elements, block_matrix, Devutils as dev, units
 
 ELEMENT_TABLE = elements.ElementData()
 
-# TOC:
-# constructors
-# methods
-# properties
-
-"""Specify a molecule by its atom composition, coordinates, charge
-and spin multiplicities.
-"""
-
-
 class Molecule:
-    _default_options = None
-    @classmethod
-    def default_options(cls):
-        if cls._default_options is not None:
-            return cls._default_options.copy()
-
-        opt = options.Options()
-
-        opt.add_option(
-            key='coord_obj',
-            required=False,
-            value=None,
-            #allowed_types=[DelocalizedInternalCoordinates,CartesianCoordinates],
-                doc='A coordinate object.'
-        )
-
-        opt.add_option(
-            key='geom',
-            required=False,
-            allowed_types=[list],
-            doc='geometry including atomic symbols'
-        )
-
-        opt.add_option(
-            key='xyz',
-            required=False,
-            allowed_types=[np.ndarray],
-            doc='The Cartesian coordinates in Angstrom'
-        )
-
-        opt.add_option(
-            key='Primitive_Hessian',
-            value=None,
-            required=False,
-            doc='Primitive hessian save file for doing optimization.'
-        )
-
-        opt.add_option(
-            key='Hessian',
-            value=None,
-            required=False,
-            doc='Hessian save file in the basis of coordinate_type.'
-        )
-
-        opt.add_option(
-            key='Form_Hessian',
-            value=True,
-            doc='Form the Hessian in the current basis -- takes time for large molecules.'
-        )
-
-        opt.add_option(
-            key="top_settings",
-            value={},
-            doc='some extra kwargs for forming coordinate object.'
-        )
-
-        opt.add_option(
-            key='comment',
-            required=False,
-            value='',
-            doc='A string that is saved on the molecule, used for descriptive purposes'
-        )
-
-        opt.add_option(
-            key='node_id',
-            required=False,
-            value=0,
-            doc='used to specify level of theory node identification',
-        )
-
-        opt.add_option(
-            key='frozen_atoms',
-            required=False,
-            value=None,
-            doc='frozen atoms',
-        )
-        cls._default_options = opt
-        return cls._default_options.copy()
-
-    @classmethod
-    def from_options(cls, options):
-        return cls(**options)
-
     @staticmethod
     def copy_from_options(MoleculeA, xyz=None, fnm=None, new_node_id=1, copy_wavefunction=True):
         """Create a copy of MoleculeA"""
@@ -163,9 +71,11 @@ class Molecule:
         self.atoms = [ELEMENT_TABLE.from_symbol(atom) for atom in atoms]
         self.frozen_atoms = frozen_atoms
 
-        self._lot = energy_evaluator
-        self._lot_options = energy_evaluator_options
-        self._energy_expansion = None
+        if energy_evaluator_options is None:
+            energy_evaluator_options = {}
+        if energy_evaluator is not None:
+            energy_evaluator = construct_lot(energy_evaluator, atoms=self.atoms, **energy_evaluator_options)
+        self.evaluator = energy_evaluator
 
         self.comment = comment
         self.node_id = node_id
@@ -179,9 +89,9 @@ class Molecule:
 
         self._hessian = hessian
         self._primitive_hessian = primitive_hessian
-        self._energy = None
-        self._gradient = None
-        self._derivative_coupling = None
+        self._energy = energy
+        self._gradient = gradient
+        self._derivative_coupling = derivative_coupling
 
     # @classmethod
     # def construct(cls, coord_sys, **opts):
@@ -339,6 +249,12 @@ class Molecule:
     def atom_symbols(self):
         return [a.symbol for a in self.atoms]
 
+    @classmethod
+    def construct_lot(cls, base_lot, **lot_opts):
+        if isinstance(base_lot, LoT): return base_lot
+
+
+
     @property
     def energy(self):
         return self.evaluator.get_energy(self.xyz)
@@ -449,10 +365,6 @@ class Molecule:
         return self.xyz
 
     @property
-    def finiteDifferenceHessian(self):
-        return self.PES.get_finite_difference_hessian(self.xyz)
-
-    @property
     def primitive_internal_coordinates(self):
         return self.coord_obj.Prims.Internals
 
@@ -540,7 +452,6 @@ class Molecule:
     @node_id.setter
     def node_id(self, value):
         self._node_id = value
-        self.PES.lot.node_id = value
 
 
 if __name__ == '__main__':

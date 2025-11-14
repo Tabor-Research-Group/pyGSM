@@ -20,8 +20,11 @@ Energy = namedtuple('Energy','value unit')
 Gradient = namedtuple('Gradient','value unit')
 Coupling = namedtuple('Coupling','value unit')
 
-class Lot(metaclass=abc.ABCMeta):
+class LoT(metaclass=abc.ABCMeta):
     """ Lot object for level of theory calculators """
+
+    energy_units = "Hartree"
+    distance_units = "BohrRadius"
 
     _default_options = None
     @classmethod
@@ -123,9 +126,6 @@ class Lot(metaclass=abc.ABCMeta):
         cls._default_options = opt
         return cls._default_options.copy()
 
-    Energy = Energy
-    Gradient = Gradient
-    Coupling = Coupling
     default_states = [(0,1)]
     def __init__(self,
                  states=None,
@@ -134,7 +134,8 @@ class Lot(metaclass=abc.ABCMeta):
                  charge=0,
                  calc_grad=None,
                  do_coupling=None,
-                 atoms=None
+                 atoms=None,
+                 numbers=None
                  ):
         """ Constructor """
         # self.options = options
@@ -152,11 +153,22 @@ class Lot(metaclass=abc.ABCMeta):
             calc_grad=calc_grad,
             do_coupling=do_coupling,
         )
-        self.check_num_electrons_and_mults(
-            self.atoms,
-            self.charge,
-            [m for m,_ in self.states]
-        )
+        if numbers is None and atoms is not None:
+            numbers = [
+                ELEMENT_TABLE.from_symbol(atom).atomic_num
+                    if isinstance(atom, str) else
+                atom.atomic_num
+                    if hasattr(atom, 'atomic_num') else
+                atom
+                for atom in atoms
+            ]
+        self.numbers = numbers
+        if self.numbers is not None:
+            self.check_num_electrons_and_mults(
+                self.numbers,
+                self.charge,
+                [m for m,_ in self.states]
+            )
         self.calc_grad = calc_grad
         self.do_coupling = calc_grad
 
@@ -213,14 +225,17 @@ class Lot(metaclass=abc.ABCMeta):
         """ Returns an instance of this class with default options updated from values in kwargs"""
         return cls(cls.default_options().set_values(kwargs))
 
-    def copy(self, copy_wavefunction=None):
-        return type(self)(
+    def get_state_dict(self):
+        return dict(
             states=self.states,
             gradient_states=self.gradient_states,
             coupling_states=self.coupling_states,
             charge=self.charge,
-            atoms=self.atoms
+            atoms=self.atoms,
+            numbers=self.numbers
         )
+    def copy(self):
+        return type(self)(**self.get_state_dict())
 
     @classmethod
     def check_multiplicity(cls, n_electrons, multiplicity):
@@ -228,10 +243,8 @@ class Lot(metaclass=abc.ABCMeta):
             raise ValueError("Spin multiplicity too high.")
 
     @classmethod
-    def check_num_electrons_and_mults(cls, atoms, charge, multiplicitities):
-        elements = [ELEMENT_TABLE.from_symbol(atom) for atom in atoms]
-        atomic_num = [ele.atomic_num for ele in elements]
-        n_electrons = sum(atomic_num) - charge
+    def check_num_electrons_and_mults(cls, atomic_nums, charge, multiplicitities):
+        n_electrons = sum(atomic_nums) - charge
         if n_electrons < 0:
             raise ValueError("Molecule has fewer than 0 electrons!!!")
         for m in multiplicitities:
@@ -239,13 +252,18 @@ class Lot(metaclass=abc.ABCMeta):
         return n_electrons
 
     @abc.abstractmethod
-    def run(self, atoms, coords, mult, ad_idx, *, runtypes):
+    def run(self, coords, mult, ad_idx, *, runtypes):
         ...
 
-    def runall(self, coords, *, ID, node_id, atoms=None, runtype="energy"):
+    def energy_obj(self, eng):
+        return Energy(eng, self.energy_units)
+    def grad_obj(self, grad):
+        return Gradient(grad, self.energy_units + "/" + self.distance_units)
+    def coupling_obj(self, cup):
+        return Coupling(cup, self.energy_units + "/" + self.distance_units)
+
+    def runall(self, coords, *, ID, node_id, runtype="energy"):
         results = {}
-        if atoms is None:
-            atoms = self.atoms
         if isinstance(runtype, str):
             runtype = [runtype]
         for state in self.states:
@@ -255,8 +273,11 @@ class Lot(metaclass=abc.ABCMeta):
                 runtypes.add('energy')
             if state in self.coupling_states:
                 runtypes.add('coupling')
-            results[(mult, ad_idx)] = self.run(atoms, coords, mult, ad_idx, runtypes=runtypes)
-        return LoTResults(ID, node_id, results)
+            results[(mult, ad_idx)] = self.run(coords, mult, ad_idx, runtypes=runtypes)
+        return LoTResults(ID, node_id, results,
+                          energy_units=self.energy_units,
+                          distance_units=self.distance_units,
+                          )
 
     def search_PES_tuple(self, tups, multiplicity, state):
         '''returns tuple in list of tuples that matches multiplicity and state'''
@@ -300,10 +321,11 @@ class LoTResults:
     default_id_format = "{:03}"
     default_node_id_format = "{:03}"
     def __init__(self,
-                 ID,
-                 node_id,
                  result_data,
+                 *,
                  scratch_dir="scratch",
+                 ID=None,
+                 node_id=None,
                  id_format=None,
                  node_id_format=None,
                  ):
@@ -317,60 +339,74 @@ class LoTResults:
         if node_id_format is None:
             node_id_format = self.default_node_id_format
         self.node_id_format = node_id_format
-    def get_energy(self, coords, multiplicity, state, runtype=None):
-        if self.hasRanForCurrentCoords is False or (coords != self.currentCoords).any():
-            self.currentCoords = coords.copy()
-            geom = manage_xyz.np_to_xyz(self.geom,self.currentCoords)
-            self.runall(geom,runtype)
-            self.hasRanForCurrentCoords=True
 
-        Energy = self.Energies[(multiplicity,state)]
-        if Energy.unit=="Hartree":
-            return Energy.value*units.KCAL_MOL_PER_AU
+    def list_energies(self):
+        if Energy.unit == "Hartree":
+            return Energy.value * units.KCAL_MOL_PER_AU
         elif Energy.unit == 'kcal/mol':
             return Energy.value
         elif Energy.unit is None:
             return Energy.value
+        return Energy
 
-    def get_gradient(self, coords, multiplicity, state, frozen_atoms=None):
-        if self.hasRanForCurrentCoords is False or (coords != self.currentCoords).any():
-            self.currentCoords = coords.copy()
-            geom = manage_xyz.np_to_xyz(self.geom, self.currentCoords)
-            self.runall(geom)
-            self.hasRanForCurrentCoords=True
-        Gradient = self.Gradients[(multiplicity,state)]
-        if Gradient.value is not None:
+    def get_energy(self, multiplicity, state):
+        eng = self.results[(multiplicity,state)]["energy"]
+        if eng.unit is None or eng.unit == 'kcal/mol':
+            return eng.value
+        elif eng.unit == "Hartree":
+            return eng.value * units.KCAL_MOL_PER_AU
+        else:
+            raise NotImplementedError(f"unhandled conversion between {eng.unit} and kcal/mol")
+
+    def get_gradient(self, multiplicity, state, frozen_atoms=None):
+        grad = self.results[(multiplicity,state)]["gradient"]
+        if grad.value is not None:
             if frozen_atoms is not None:
                 for a in frozen_atoms:
-                    Gradient.value[a, :] = 0.
-            if Gradient.unit == "Hartree/Bohr":
-                return Gradient.value * units.ANGSTROM_TO_AU  # Ha/bohr*bohr/ang=Ha/ang
-            elif Gradient.unit == "kcal/mol/Angstrom":
-                return Gradient.value * units.KCAL_MOL_TO_AU  # kcalmol/A*Ha/kcalmol=Ha/ang
+                    grad.value[a, :] = 0.
+            if grad.unit is None or grad.unit == "Hartree/Angstrom":
+                return grad.value
             else:
-                raise NotImplementedError
+                e_unit, d_unit = grad.unit.rsplit("/", 1)
+                val = grad.value
+                if e_unit == "kcal/mol":
+                    val = val * units.KCAL_MOL_TO_AU
+                elif e_unit != "Hartree":
+                    raise NotImplementedError(f"unhandled conversion between {d_unit} and Angstrom")
+
+                if d_unit == "BohrRadius":
+                    val = val * units.ANGSTROM_TO_AU
+                elif d_unit != "Angstrom":
+                    raise NotImplementedError(f"unhandled conversion between {e_unit} and Angstrom")
+
+                return val
         else:
             return None
 
-    def get_coupling(self, coords, multiplicity, state1, state2, frozen_atoms=None):
-        if self.hasRanForCurrentCoords is False or (coords != self.currentCoords).any():
-            self.currentCoords = coords.copy()
-            geom = manage_xyz.np_to_xyz(self.geom, self.currentCoords)
-            self.runall(geom)
-            self.hasRanForCurrentCoords=True
-        Coupling = self.Couplings[(state1,state2)]
-
-        if Coupling.value is not None:
+    def get_coupling(self, multiplicity, state1, state2, frozen_atoms=None):
+        cup = self.results[(state1, state2)]["coupling"]
+        if cup.value is not None:
             if frozen_atoms is not None:
                 for a in [3*i for i in frozen_atoms]:
-                    Coupling.value[a:a+3, 0] = 0.
-            if Coupling.unit == "Hartree/Bohr":
-                return Coupling.value * units.ANGSTROM_TO_AU  # Ha/bohr*bohr/ang=Ha/ang
+                    cup.value[a:a+3, 0] = 0.
+            if cup.unit is None or cup.unit == "Hartree/Angstrom":
+                return cup.value
             else:
-                raise NotImplementedError
+                e_unit, d_unit = cup.unit.rsplit("/", 1)
+                val = cup.value
+                if e_unit == "kcal/mol":
+                    val = val * units.KCAL_MOL_TO_AU
+                elif e_unit != "Hartree":
+                    raise NotImplementedError(f"unhandled conversion between {d_unit} and Angstrom")
+
+                if d_unit == "BohrRadius":
+                    val = val * units.ANGSTROM_TO_AU
+                elif d_unit != "Angstrom":
+                    raise NotImplementedError(f"unhandled conversion between {e_unit} and Angstrom")
+
+                return val
         else:
             return None
-        # return np.reshape(self.coup,(3*len(self.geom),1))*units.ANGSTROM_TO_AU
 
     def get_energy_file(self,
                         id_format=None,
@@ -388,18 +424,18 @@ class LoTResults:
                 node_id_format.format(self.node_id)
             )
         )
-    def write_E_to_file(self, file=None, energy_format='{mult} {state} {eng:9.7f} Hartree'):
-        if file is None:
-            file = self.get_energy_file()
-        if hasattr(file, 'write'):
-            for (mult, state), Energy in self.Energies.items():
-                file.write(energy_format.format(mult=mult, state=state, eng=Energy.value) + "\n")
-        else:
-            with open(file, 'w') as f:
-                self.write_E_to_file(f)
-        return file
+    # def write_E_to_file(self, file=None, energy_format='{mult} {state} {eng:9.7f} Hartree'):
+    #     if file is None:
+    #         file = self.get_energy_file()
+    #     if hasattr(file, 'write'):
+    #         for (mult, state), Energy in self.Energies.items():
+    #             file.write(energy_format.format(mult=mult, state=state, eng=Energy.value) + "\n")
+    #     else:
+    #         with open(file, 'w') as f:
+    #             self.write_E_to_file(f)
+    #     return file
 
-class FileBasedLoT(Lot):
+class FileBasedLoT(LoT):
     _default_options = None
     @classmethod
     def default_options(cls):

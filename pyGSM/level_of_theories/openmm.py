@@ -12,10 +12,10 @@ import simtk.openmm as openmm
 from parmed import load_file
 
 # local application imports
-from .base_lot import Lot
+from .base_lot import LoT
 
 
-class OpenMM(Lot):
+class OpenMM(LoT):
     def __init__(self, options):
         raise NotImplementedError("dead code")
 

@@ -9,11 +9,11 @@ import tcc
 import json
 
 # local application imports
-from .base_lot import Lot
+from .base_lot import LoT
 from ..utilities import nifty
 
 
-class TeraChemCloud(Lot):
+class TeraChemCloud(LoT):
 
     @property
     def TC(self):

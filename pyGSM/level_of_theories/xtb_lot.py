@@ -9,10 +9,10 @@ from xtb.libxtb import VERBOSITY_FULL
 
 # local application imports
 from ..utilities import manage_xyz, units, elements
-from .base_lot import Lot
+from .base_lot import LoT
 
 
-class xTB_lot(Lot):
+class xTB_lot(LoT):
     _default_options = None
     @classmethod
     def default_options(cls):
@@ -70,6 +70,7 @@ class xTB_lot(Lot):
         self.xTB_electronic_temperature = xTB_electronic_temperature
 
     def run(self, geom, multiplicity, state, verbose=False):
+        raise NotImplementedError("needs to be cleaned up")
 
         # no reason
         numbers = []

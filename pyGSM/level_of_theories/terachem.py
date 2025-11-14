@@ -10,7 +10,7 @@ import numpy as np
 # local application imports
 from ..utilities import manage_xyz
 
-from .base_lot import Lot, copy_file
+from .base_lot import LoT, copy_file
 from .file_options import File_Options
 
 '''
@@ -27,7 +27,7 @@ def str2bool(v):
     return v.lower() in ("yes", "true", "t", "1")
 
 
-class TeraChem(Lot):
+class TeraChem(LoT):
     def __init__(self, options):
         super(TeraChem, self).__init__(options)
 

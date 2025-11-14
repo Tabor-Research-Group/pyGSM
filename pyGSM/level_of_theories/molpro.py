@@ -9,10 +9,10 @@ import numpy as np
 # local application imports
 
 from ..utilities import manage_xyz
-from .base_lot import Lot
+from .base_lot import LoT
 
 
-class Molpro(Lot):
+class Molpro(LoT):
 
     def __init__(self, options):
         raise NotImplementedError("dead code")

@@ -7,11 +7,11 @@ import re
 # third party
 import numpy as np
 
-from .base_lot import Lot
+from .base_lot import LoT
 from .file_options import File_Options
 
 
-class BAGEL(Lot):
+class BAGEL(LoT):
 
     def __init__(self, options):
         super(BAGEL, self).__init__(options)

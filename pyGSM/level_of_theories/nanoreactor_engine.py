@@ -10,14 +10,14 @@ import copy as cp
 import numpy as np
 
 
-from .base_lot import Lot
+from .base_lot import LoT
 from .file_options import File_Options
 from ..utilities import *
 
 '''
 '''
 
-class nanoreactor_engine(Lot):
+class nanoreactor_engine(LoT):
 
     def __init__(self,options):
         raise NotImplementedError("dead code")

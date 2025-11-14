@@ -42,7 +42,8 @@ class GeometryTests(unittest.TestCase):
 
         mol = Molecule.from_file(
             test_data('diels_alder.xyz'),
-            PES="ase",
+            energy_evaluator="ase",
+            energy_evaluator_options={'calculator':'aimnet2ase'},
             coordinate_type='TRIC'
         )
 

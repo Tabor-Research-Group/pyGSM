@@ -2,7 +2,7 @@
 from .casci_lot_svd import CASCI_LOT_SVD
 from .rhf_lot import RHF_LOT
 from utilities import *
-from .base_lot import Lot
+from .base_lot import LoT
 import sys
 from os import path
 
@@ -17,7 +17,7 @@ import json
 #TODO get rid of get_energy, get_gradient
 
 
-class PyTC(Lot):
+class PyTC(LoT):
     """
     Level of theory is a wrapper object to do DFT and CASCI calculations 
     Inherits from Lot. Requires a PSIW object
