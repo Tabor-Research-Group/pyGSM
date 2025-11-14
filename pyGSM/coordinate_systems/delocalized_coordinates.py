@@ -1,5 +1,5 @@
 from __future__ import print_function
-from ..utilities import block_matrix
+from ..utilities import block_matrix, nifty, math_utils
 
 # standard library imports
 from sys import exit
@@ -23,7 +23,7 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
                  atoms,
                  xyz,
                  primitives,
-                 constraints
+                 constraints=None
                  ):
         super().__init__(
             atoms,
@@ -39,7 +39,7 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
         # print "in constructor",len(self.Prims.Internals)
 
         xyz = np.asanyarray(xyz).flatten()
-        self.Vecs, self.Internals = self.build_dlc(self.Prims, xyz)
+        self.Vecs, self.Internals = self.build_dlc(self.Prims, xyz, logger=self.logger)
         # print("vecs after build")
         # print(self.Vecs)
 
@@ -82,8 +82,8 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
         return type(self)(
             self.atoms,
             xyz,
-            self.Prims,
-            self.constraints
+            self.Prims.copy(),
+            constraints=self.constraints
         )
 
     def addConstraint(self, cPrim, cVal, xyz):
@@ -181,7 +181,7 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
     #    return Gq
 
     @classmethod
-    def build_dlc(cls, prims, xyz, C=None):
+    def build_dlc(cls, prims, xyz, *, logger, C=None):
         """
         Build the delocalized internal coordinates (DLCs) which are linear
         combinations of the primitive internal coordinates. Each DLC is stored
@@ -230,7 +230,7 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
         # print(self.Vecs.shape)
 
         time_eig = nifty.click()
-        print(" Timings: Build G: %.3f Eig: %.3f" % (time_G, time_eig))
+        logger.log_print(" Timings: Build G: %.3f Eig: %.3f" % (time_G, time_eig))
 
         internals = ["DLC %i" % (i+1) for i in range(vecs.shape[1])]
 
@@ -293,11 +293,11 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
                 Float array containing difference in primitive coordinates
         """
 
-        print(" starting to build G prim")
+        self.logger.print(" starting to build G prim")
         nifty.click()
         G = self.Prims.GMatrix(xyz)  # in primitive coords
         time_G = nifty.click()
-        print(" Timings: Build G: %.3f " % (time_G))
+        self.loggerprint(" Timings: Build G: %.3f " % (time_G))
 
         tmpvecs = []
         for A in G.matlist:
@@ -340,9 +340,9 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
             try:
                 cVecs = math_utils.conjugate_orthogonalize(cVecs, G)
             except:
-                print(cVecs)
-                print("error forming cVec")
-                exit(-1)
+                self.logger.print(cVecs)
+                self.logger.print("error forming cVec")
+                raise
 
             # project constraints into vectors
             self.Vecs = block_matrix.project_conjugate_constraint(self.Vecs, cVecs, G)

@@ -8,7 +8,7 @@ from collections import OrderedDict
 import numpy as np
 from numpy.linalg import multi_dot
 
-from ..utilities import elements, options, nifty, block_matrix
+from ..utilities import elements, options, nifty, block_matrix, Devutils as dev
 
 ELEMENT_TABLE = elements.ElementData()
 
@@ -44,13 +44,20 @@ class InternalCoordinates(metaclass=abc.ABCMeta):
             allowed_types=[int],
             doc='0-- no printing, 1-- printing')
 
+        opt.add_option(
+            key='logger',
+            value=True,
+            required=False,
+            doc='whether or not to use a logger (or an explicit `Logger` object or filepath)')
+
         cls._default_options = opt
         return cls._default_options.copy()
 
-    def __init__(self, atoms, xyz):
+    def __init__(self, atoms, xyz, logger=None):
         self.atoms = atoms
         self.xyz = xyz
         self.stored_wilsonB = OrderedDict()
+        self.logger = dev.Logger.lookup(logger)
 
     @classmethod
     def construct(cls, **opts):
@@ -60,6 +67,13 @@ class InternalCoordinates(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def derivatives(self, xyz):
         ...
+    @abc.abstractmethod
+    def second_derivatives(self, xyz):
+        ...
+
+    @abc.abstractmethod
+    def copy(self):
+        ...
 
     @abc.abstractmethod
     def addConstraint(self, cPrim, cVal, xyz):
@@ -67,10 +81,6 @@ class InternalCoordinates(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def haveConstraints(self):
-        raise NotImplementedError("Constraints not supported with Cartesian coordinates")
-
-    @abc.abstractmethod
-    def calcGradProj(self, xyz, gradx):
         raise NotImplementedError("Constraints not supported with Cartesian coordinates")
 
     def clearCache(self):
@@ -95,11 +105,15 @@ class InternalCoordinates(metaclass=abc.ABCMeta):
                 nifty.logger.warning("\x1b[91mWarning: more than 100 B-matrices stored, memory leaks likely\x1b[0m")
                 CacheWarning = True
         else:
-            WilsonB = []
-            Der = self.derivatives(xyz)
-            for i in range(Der.shape[0]):
-                WilsonB.append(Der[i].flatten())
+            WilsonB = self.compute_bmatrix(xyz)
         return WilsonB
+
+    def compute_bmatrix(self, xyz):
+        WilsonB = []
+        Der = self.derivatives(xyz)
+        for i in range(Der.shape[0]):
+            WilsonB.append(Der[i].flatten())
+        return np.array(WilsonB)
 
     def GMatrix(self, xyz, u=None):
         """
@@ -108,12 +122,15 @@ class InternalCoordinates(metaclass=abc.ABCMeta):
         """
         # t0 = time.time()
         Bmat = self.wilsonB(xyz)
-        # t1 = time.time()
-
-        if u is None:
-            BuBt = np.dot(Bmat, Bmat.T)
+        if isinstance(Bmat, block_matrix):
+            if u is not None:
+                raise ValueError("block matrix mutl with `u` not supported")
+            BuBt = block_matrix.dot(Bmat, block_matrix.transpose(Bmat))
         else:
-            BuBt = np.dot(Bmat, np.dot(u, Bmat.T))
+            if u is None:
+                BuBt = np.dot(Bmat, Bmat.T)
+            else:
+                BuBt = np.dot(Bmat, np.dot(u, Bmat.T))
         # t2 = time.time()
         # t10 = t1-t0
         # t21 = t2-t1
@@ -165,96 +182,9 @@ class InternalCoordinates(metaclass=abc.ABCMeta):
         # print "G-time: %.3f Inv-time: %.3f" % (time_G, time_inv)
         return Gi
 
-    def checkFiniteDifference(self, xyz):
-        xyz = xyz.reshape(-1, 3)
-        Analytical = self.derivatives(xyz)
-        FiniteDifference = np.zeros_like(Analytical)
-        h = 1e-5
-        for i in range(xyz.shape[0]):
-            for j in range(3):
-                x1 = xyz.copy()
-                x2 = xyz.copy()
-                x1[i, j] += h
-                x2[i, j] -= h
-                PMDiff = self.calcDiff(x1, x2)
-                FiniteDifference[:, i, j] = PMDiff/(2*h)
-        for i in range(Analytical.shape[0]):
-            nifty.logger.info("IC %i/%i : %s" % (i, Analytical.shape[0], self.Internals[i]))
-            lines = [""]
-            maxerr = 0.0
-            for j in range(Analytical.shape[1]):
-                lines.append("Atom %i" % (j+1))
-                for k in range(Analytical.shape[2]):
-                    error = Analytical[i, j, k] - FiniteDifference[i, j, k]
-                    if np.abs(error) > 1e-5:
-                        color = "\x1b[91m"
-                    else:
-                        color = "\x1b[92m"
-                    lines.append("%s % .5e % .5e %s% .5e\x1b[0m" % ("xyz"[k], Analytical[i, j, k], FiniteDifference[i, j, k], color, Analytical[i, j, k] - FiniteDifference[i, j, k]))
-                    if maxerr < np.abs(error):
-                        maxerr = np.abs(error)
-            if maxerr > 1e-5:
-                nifty.logger.info('\n'.join(lines))
-            else:
-                nifty.logger.info("Max Error = %.5e" % maxerr)
-        nifty.logger.info("Finite-difference Finished")
-
-    def checkFiniteDifferenceHess(self, xyz):
-        xyz = xyz.reshape(-1, 3)
-        Analytical = self.second_derivatives(xyz)
-        FiniteDifference = np.zeros_like(Analytical)
-        h = 1e-4
-        verbose = False
-        nifty.logger.info("-=# Now checking second derivatives of internal coordinates w/r.t. Cartesians #=-\n")
-        for j in range(xyz.shape[0]):
-            for m in range(3):
-                for k in range(xyz.shape[0]):
-                    for n in range(3):
-                        x1 = xyz.copy()
-                        x2 = xyz.copy()
-                        x3 = xyz.copy()
-                        x4 = xyz.copy()
-                        x1[j, m] += h
-                        x1[k, n] += h  # (+, +)
-                        x2[j, m] += h
-                        x2[k, n] -= h  # (+, -)
-                        x3[j, m] -= h
-                        x3[k, n] += h  # (-, +)
-                        x4[j, m] -= h
-                        x4[k, n] -= h  # (-, -)
-                        PMDiff1 = self.calcDiff(x1, x2)
-                        PMDiff2 = self.calcDiff(x4, x3)
-                        FiniteDifference[:, j, m, k, n] += (PMDiff1+PMDiff2)/(4*h**2)
-        #                 print('\r%i %i' % (j, k), end='')
-        # print()
-        for i in range(Analytical.shape[0]):
-            title = "%20s : %20s" % ("IC %i/%i" % (i+1, Analytical.shape[0]), self.Internals[i])
-            lines = [title]
-            if verbose:
-                logger.info(title+'\n')
-            maxerr = 0.0
-            numerr = 0
-            for j in range(Analytical.shape[1]):
-                for m in range(Analytical.shape[2]):
-                    for k in range(Analytical.shape[3]):
-                        for n in range(Analytical.shape[4]):
-                            ana = Analytical[i, j, m, k, n]
-                            fin = FiniteDifference[i, j, m, k, n]
-                            error = ana - fin
-                            message = "Atom %i %s %i %s a: % 12.5e n: % 12.5e e: % 12.5e %s" % (j+1, 'xyz'[m], k+1, 'xyz'[n], ana, fin,
-                                                                                                error, 'X' if np.abs(error) > 1e-5 else '')
-                            if np.abs(error) > 1e-5:
-                                numerr += 1
-                            if (ana != 0.0 or fin != 0.0) and verbose:
-                                logger.info(message+'\n')
-                            lines.append(message)
-                            if maxerr < np.abs(error):
-                                maxerr = np.abs(error)
-            if maxerr > 1e-5 and not verbose:
-                logger.info('\n'.join(lines)+'\n')
-            logger.info("%s : Max Error = % 12.5e (%i above threshold)\n" % (title, maxerr, numerr))
-        logger.info("Finite-difference Finished\n")
-        return FiniteDifference
+    def GInverse(self, xyz):
+        # 9/2019 CRA what is the difference in performace/stability for SVD vs regular inverse?
+        return self.GInverse_EIG(xyz)
 
     def calcGrad(self, xyz, gradx, frozen_atoms=None):
         Ginv = self.GInverse(xyz)
@@ -309,6 +239,7 @@ class InternalCoordinates(metaclass=abc.ABCMeta):
         self.stored_newxyz = newxyz.copy()
   
     def newCartesian(self, xyz, dQ, frozen_atoms=None, verbose=True):
+        #TODO: make this actually return something...
         cached = self.readCache(xyz, dQ)
         if cached is not None:
             # print "Returning cached result"

@@ -27,9 +27,18 @@ class GeometryTests(unittest.TestCase):
     # @unittest.skip
     def test_ConstructMolecules(self):
         from pyGSM.molecule import Molecule
+        from pyGSM.coordinate_systems import construct_coordinate_system
         from pyGSM.utilities import manage_xyz
         geom = manage_xyz.read_xyzs(test_data('diels_alder.xyz'))[0]
-        print(geom)
+
+        # print(geom)
+        coords = construct_coordinate_system(
+            manage_xyz.get_atoms(geom),
+            manage_xyz.xyz_to_np(geom),
+            primitives='auto'
+        )
+
+        coords.GMatrix(coords.xyz)
 
 if __name__ == '__main__':
     os.chdir(root)

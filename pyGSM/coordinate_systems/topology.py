@@ -1,79 +1,117 @@
 from __future__ import print_function
-from ..utilities import manage_xyz, nifty
-from collections import OrderedDict
-from pkg_resources import parse_version
-import itertools
+from ..utilities import manage_xyz
 import numpy as np
-from .networkx_loader import nx
+import scipy.sparse as sparse
 
+__all__ = [
+    "EdgeGraph",
+    "guess_bonds"
+]
 
-#===========================#
-#|   Connectivity graph    |#
-#|  Good for doing simple  |#
-#|     topology tricks     |#
-#===========================#
+def format_xyz_block(atoms, xyz):
+    return f"{len(atoms)}\n\n" + "\n".join(
+        f"{a:4} {x:8.3f} {y:8.3f} {z:8.3f}"
+        for a,(x,y,z) in zip(atoms, xyz)
+    )
+def guess_bonds(atoms, xyz, charge=0):
+    import rdkit.Chem as Chem
+    import rdkit.Chem.rdDetermineBonds as rdDetermineBonds
 
-if nx is not None:
-    class MyG(nx.Graph):
-        def __init__(self, incoming_graph_data=None):
-            super().__init__(incoming_graph_data=incoming_graph_data)
-            self.Alive = True
+    rdmol = Chem.MolFromXYZBlock(format_xyz_block(atoms, xyz))
+    if charge is None:
+        charge = 0
+    rdDetermineBonds.DetermineConnectivity(rdmol, charge=charge)
+    return [
+            [b.GetBeginAtomIdx(), b.GetEndAtomIdx(), b.GetBondTypeAsDouble()]
+            for b in rdmol.GetBonds()
+        ]
 
-        # def __eq__(self, other):
-        #     # This defines whether two MyG objects are "equal" to one another.
-        #     if not self.Alive:
-        #         return False
-        #     if not other.Alive:
-        #         return False
-        #     return nx.is_isomorphic(self, other, node_match=nodematch)
+class EdgeGraph:
+    # adapted from McUtils to fix the terrible networkx graph extension
+    def __init__(self, labels, edges):
+        self.labels = labels
+        self.label_map = {l:i for i,l in enumerate(labels)}
+        self.graph = self.adj_mat(len(labels), np.asanyarray(edges))
+        self._edges = edges
+        self.edge_map = self.build_edge_map(self._edges)
+    def edges(self):
+        return [
+            (self.labels[i], self.labels[j])
+            for i, j in self._edges
+        ]
+    def nodes(self):
+        return self.labels
+    def neighbors(self, a):
+        return [self.labels[i] for i in self.edge_map[self.label_map[a]]]
 
-        def __hash__(self):
-            """ The hash function is something we can use to discard two things that are obviously not equal.  Here we neglect the hash. """
-            return 1
+    @classmethod
+    def adj_mat(cls, num_nodes, edges):
+        adj = np.zeros((num_nodes, num_nodes), dtype=int)
+        if len(edges) > 0:
+            rows,cols = edges.T
+            adj[rows, cols] = 1
+            adj[cols, rows] = 1
 
-        def L(self):
-            """ Return a list of the sorted atom numbers in this graph. """
-            return sorted(list(self.nodes()))
+        return sparse.csr_matrix(adj)
 
-        def AStr(self):
-            """ Return a string of atoms, which serves as a rudimentary 'fingerprint' : '99,100,103,151' . """
-            return ','.join(['%i' % i for i in self.L()])
+    @classmethod
+    def build_edge_map(cls, edge_list, num_nodes=None):
+        map = {}
+        for e1, e2 in edge_list:
+            if e1 not in map: map[e1] = set()
+            map[e1].add(e2)
+            if e2 not in map: map[e2] = set()
+            map[e2].add(e1)
+        if num_nodes is not None:
+            for i in range(num_nodes):
+                if i not in map: map[i] = set()
+        return map
 
-        def e(self):
-            """ Return an array of the elements.  For instance ['H' 'C' 'C' 'H']. """
-            elems = nx.get_node_attributes(self, 'e')
-            return [elems[i] for i in self.L()]
+    def get_fragment_indices(self):
+        ncomp, labels = sparse.csgraph.connected_components(self.graph, directed=False, return_labels=True)
+        groups = {}
+        for i,l in enumerate(labels):
+            if l not in groups: groups[l] = []
+            groups[l].append(i)
+        return list(groups.values())
+    def get_fragments(self):
+        return [self.take(pos) for pos in self.get_fragment_indices()]
 
-        def ef(self):
-            """ Create an Empirical Formula """
-            Formula = list(self.e())
-            return ''.join([('%s%i' % (k, Formula.count(k)) if Formula.count(k) > 1 else '%s' % k) for k in sorted(set(Formula))])
+    @classmethod
+    def _remap(cls, labels, pos, rows, cols):
+        if len(rows) == 0:
+            edge_list = np.array([], dtype=int).reshape(-1, 2)
+        else:
+            new_mapping = np.zeros(len(labels), dtype=int)
+            new_mapping[pos,] = np.arange(len(pos))
+            new_row = new_mapping[rows,]
+            new_col = new_mapping[cols,]
+            edge_list = np.array([new_row, new_col]).T
 
-        def x(self):
-            """ Get a list of the coordinates. """
-            coors = nx.get_node_attributes(self, 'x')
-            return np.array([coors[i] for i in self.L()])
+        return [labels[p] for p in pos], edge_list
+    @classmethod
+    def _take(cls, pos, labels, adj_mat:sparse.compressed) -> 'typing.Self':
+        rows, cols, _ = sparse.find(adj_mat)
+        utri = cols >= rows
+        rows = rows[utri]
+        cols = cols[utri]
+        row_cont = np.isin(rows, pos)
+        col_cont = np.isin(cols, pos)
+        cont = np.logical_and(row_cont, col_cont)
 
-else:
-    class MyG:
-        def __init__(self):
-            raise ImportError("networkx has to be installed")
+        labels, edge_list = cls._remap(labels, pos, rows[cont], cols[cont])
+        return cls(labels, edge_list)
 
-        def L(self):
-            raise ImportError("networkx has to be installed")
+    def take(self, pos):
+        return self._take(pos, self.labels, self.graph)
 
-        def AStr(self):
-            raise ImportError("networkx has to be installed")
+    def L(self):
+        """ Return a list of the sorted atom numbers in this graph. """
+        return sorted(list(self.labels))
 
-        def e(self):
-            raise ImportError("networkx has to be installed")
-
-        def ef(self):
-            raise ImportError("networkx has to be installed")
-
-        def x(self):
-            raise ImportError("networkx has to be installed")
-
+    def AStr(self):
+        """ Return a string of atoms, which serves as a rudimentary 'fingerprint' : '99,100,103,151' . """
+        return ','.join(['%i' % i for i in self.L()])
 
 def AtomContact(xyz, pairs, box=None, displace=False):
     """
@@ -142,445 +180,6 @@ def AtomContact(xyz, pairs, box=None, displace=False):
         return dr, dxyz
     else:
         return dr
-
-
-class Topology:
-    @classmethod
-    def build_topology(cls, xyz, atoms, add_bond=None, hybrid_indices=None, bondlistfile=None, prim_idx_start_stop=None, **kwargs):
-        """
-        Create topology and fragments; these are graph
-        representations of the individual molecule fragments
-        contained in the Molecule object.
-
-        Parameters
-        ----------
-        force_bonds : bool
-            Build the bonds from interatomic distances.  If the user
-            calls build_topology from outside, assume this is the
-            default behavior.  If creating a Molecule object using
-            __init__, do not force the building of bonds by default
-            (only build bonds if not read from file.)
-        topframe : int, optional
-            Provide the frame number used for reading the bonds.  If
-            not provided, this will be taken from the top_settings
-            field.  If provided, this will take priority and write
-            the value into top_settings.
-        """
-
-        natoms = len(atoms)
-
-        # can do an assert for xyz here CRA TODO
-        if natoms > 100000:
-            nifty.logger.warning("Warning: Large number of atoms (%i), topology building may take a long time" % natoms)
-
-        # Get hybrid indices
-        hybrid_indices = hybrid_indices
-        hybrid_idx_start_stop = []
-        if hybrid_indices is None:
-            primitive_indices = range(len(atoms))
-        else:
-            # specify Hybrid TRIC we need to specify which atoms to build topology for
-            primitive_indices = []
-            for i in range(len(atoms)):
-                if i not in hybrid_indices:
-                    primitive_indices.append(i)
-            # print("non-cartesian indices")
-            # print(primitive_indices)
-
-            # get the hybrid start and stop indices
-            new = True
-            for i in range(natoms+1):
-                if i in hybrid_indices:
-                    if new:
-                        start = i
-                        new = False
-                else:
-                    if not new:
-                        end = i-1
-                        new = True
-                        hybrid_idx_start_stop.append((start, end))
-
-        if not bondlistfile:
-            nifty.printcool(" building bonds")
-            print(prim_idx_start_stop)
-            bonds = cls.build_bonds(xyz, atoms, primitive_indices, prim_idx_start_stop)
-            # print(" done")
-            assert bondlistfile is None
-        else:
-            # bondlistfile:
-            # prim_idx_start_stop = kwargs.get('prim_idx_start_stop',None)
-            try:
-                bonds = cls.read_bonds_from_file(bondlistfile)  # ,prim_idx_start_stop)
-            except:
-                raise RuntimeError
-
-        if add_bond:
-            print(" adding extra bonds")
-            for bond in add_bond:
-                bonds.append(bond)
-            # print(bonds)
-
-        # Create a NetworkX graph object to hold the bonds.
-        G = MyG()
-
-        for i in primitive_indices:
-            element = atoms[i]
-            a = element.symbol
-            G.add_node(i)
-            if parse_version(nx.__version__) >= parse_version('2.0'):
-                nx.set_node_attributes(G, {i: a}, name='e')
-                nx.set_node_attributes(G, {i: xyz[i]}, name='x')
-            else:
-                nx.set_node_attributes(G, 'e', {i: a})
-                nx.set_node_attributes(G, 'x', {i: xyz[i]})
-        for (i, j) in bonds:
-            G.add_edge(i, j)
-
-        # The Topology is simply the NetworkX graph object.
-        # topology = G
-        fragments = [G.subgraph(c).copy() for c in nx.connected_components(G)]
-        for g in fragments:
-            g.__class__ = MyG
-
-        # print(len(fragments))
-        # for frag in fragments:
-        #    print(frag.L())
-
-        # print("nodes of Graph")
-        # print(topology.L())
-
-        # Deprecated in networkx 2.2
-        # fragments = list(nx.connected_component_subgraphs(G))
-
-        # show topology
-        # import matplotlib as mpl
-        # mpl.use('Agg')
-        # import matplotlib.pyplot as plt
-        # plt.plot()
-        # nx.draw(topology,with_labels=True,font_weight='bold')
-        # plt.show()
-        # plt.savefig('tmp.png')
-
-        return G
-
-    # @staticmethod
-    # def rebuild_topology_from_prim_bonds(xyz):
-
-    #     raise NotImplementedError
-    #     bonds = []
-    #     for p in Internals:
-    #         if type(p) == Distance:
-    #             bonds.append(p)
-
-    #     # Create a NetworkX graph object to hold the bonds.
-    #     G = MyG()
-    #     for i, a_dict in enumerate(atoms):
-    #         a = a_dict.symbol
-    #         G.add_node(i)
-    #         if parse_version(nx.__version__) >= parse_version('2.0'):
-    #             nx.set_node_attributes(G, {i: a}, name='e')
-    #             nx.set_node_attributes(G, {i: xyz[i]}, name='x')
-    #         else:
-    #             nx.set_node_attributes(G, 'e', {i: a})
-    #             nx.set_node_attributes(G, 'x', {i: xyz[i]})
-    #     for bond in bonds:
-    #         atoms = bond.atoms
-    #         G.add_edge(atoms[0], atoms[1])
-
-    #     # The Topology is simply the NetworkX graph object.
-    #     topology = G
-    #     fragments = [G.subgraph(c).copy() for c in nx.connected_components(G)]
-    #     for g in fragments:
-    #         g.__class__ = MyG
-
-    @staticmethod
-    def build_bonds(xyz, atoms, primitive_indices, prim_idx_start_stop=None, **kwargs):
-        """ Build the bond connectivity graph. """
-
-        print(" In build bonds")
-        top_settings = {
-            'toppbc': kwargs.get('toppbc', False),
-            'topframe': kwargs.get('topframe', 0),
-            'Fac': kwargs.get('Fac', 1.2),
-            'radii': kwargs.get('radii', {}),
-        }
-
-        # leftover from LPW code
-        sn = top_settings['topframe']
-        toppbc = top_settings['toppbc']
-        Fac = top_settings['Fac']
-        natoms = len(xyz)
-
-        mindist = 1.0  # Any two atoms that are closer than this distance are bonded.
-        # Create an atom-wise list of covalent radii.
-        # Molecule object can have its own set of radii that overrides the global ones
-        # R = np.array([top_settings['radii'].get(i.symbol, i.covalent_radius) for i in atoms])
-        R = np.array([atom.covalent_radius for atom in atoms])
-        # Create a list of 2-tuples corresponding to combinations of atomic indices using a grid algorithm.
-        mins = np.min(xyz, axis=0)
-        maxs = np.max(xyz, axis=0)
-        # Grid size in Angstrom.  This number is optimized for speed in a 15,000 atom system (united atom pentadecane).
-        gsz = 6.0
-        boxes = None
-        if top_settings['toppbc']:
-            raise NotImplementedError
-            xmin = 0.0
-            ymin = 0.0
-            zmin = 0.0
-            xmax = boxes[sn].a
-            ymax = boxes[sn].b
-            zmax = boxes[sn].c
-            if any([i != 90.0 for i in [boxes[sn].alpha, boxes[sn].beta, boxes[sn].gamma]]):
-                nifty.logger.warning("Warning: Topology building will not work with broken molecules in nonorthogonal cells.")
-                toppbc = False
-        else:
-            xmin = mins[0]
-            ymin = mins[1]
-            zmin = mins[2]
-            xmax = maxs[0]
-            ymax = maxs[1]
-            zmax = maxs[2]
-            toppbc = False
-
-        xext = xmax-xmin
-        yext = ymax-ymin
-        zext = zmax-zmin
-
-        if toppbc:
-            gszx = xext/int(xext/gsz)
-            gszy = yext/int(yext/gsz)
-            gszz = zext/int(zext/gsz)
-        else:
-            gszx = gsz
-            gszy = gsz
-            gszz = gsz
-
-        # Run algorithm to determine bonds.
-        # Decide if we want to use the grid algorithm.
-        use_grid = toppbc or (np.min([xext, yext, zext]) > 2.0*gsz)
-        if use_grid and prim_idx_start_stop is None:
-            print(" Using grid")
-            # Inside the grid algorithm.
-            # 1) Determine the left edges of the grid cells.
-            # Note that we leave out the rightmost grid cell,
-            # because this may cause spurious partitionings.
-            xgrd = np.arange(xmin, xmax-gszx, gszx)
-            ygrd = np.arange(ymin, ymax-gszy, gszy)
-            zgrd = np.arange(zmin, zmax-gszz, gszz)
-            # 2) Grid cells are denoted by a three-index tuple.
-            gidx = list(itertools.product(list(range(len(xgrd))), list(range(len(ygrd))), list(range(len(zgrd)))))
-            # 3) Build a dictionary which maps a grid cell to itplus its neighboring grid cells.
-            # Two grid cells are defined to be neighbors if the differences between their x, y, z indices are at most 1.
-            gngh = OrderedDict()
-            amax = np.array(gidx[-1])
-            amin = np.array(gidx[0])
-            n27 = np.array(list(itertools.product([-1, 0, 1], repeat=3)))
-            for i in gidx:
-                gngh[i] = []
-                ai = np.array(i)
-                for j in n27:
-                    nj = ai+j
-                    for k in range(3):
-                        mod = amax[k]-amin[k]+1
-                        if nj[k] < amin[k]:
-                            nj[k] += mod
-                        elif nj[k] > amax[k]:
-                            nj[k] -= mod
-                    gngh[i].append(tuple(nj))
-            # 4) Loop over the atoms and assign each to a grid cell.
-            # Note: I think this step becomes the bottleneck if we choose very small grid sizes.
-
-            # TODO 9/2019 build-bonds only for non-cartesian indices
-            gasn = OrderedDict([(i, []) for i in gidx])
-            for i in primitive_indices:
-                xidx = -1
-                yidx = -1
-                zidx = -1
-                for j in xgrd:
-                    xi = xyz[i][0]
-                    while xi < xmin:
-                        xi += xext
-                    while xi > xmax:
-                        xi -= xext
-                    if xi < j:
-                        break
-                    xidx += 1
-                for j in ygrd:
-                    yi = xyz[i][1]
-                    while yi < ymin:
-                        yi += yext
-                    while yi > ymax:
-                        yi -= yext
-                    if yi < j:
-                        break
-                    yidx += 1
-                for j in zgrd:
-                    zi = xyz[i][2]
-                    while zi < zmin:
-                        zi += zext
-                    while zi > zmax:
-                        zi -= zext
-                    if zi < j:
-                        break
-                    zidx += 1
-                gasn[(xidx, yidx, zidx)].append(i)
-
-            # 5) Create list of 2-tuples corresponding to combinations of atomic indices.
-            # This is done by looping over pairs of neighboring grid cells and getting Cartesian products of atom indices inside.
-            # It may be possible to get a 2x speedup by eliminating forward-reverse pairs (e.g. (5, 4) and (4, 5) and duplicates (5,5).)
-            AtomIterator = []
-            for i in gasn:
-                for j in gngh[i]:
-                    apairs = nifty.cartesian_product2([gasn[i], gasn[j]])
-                    if len(apairs) > 0:
-                        AtomIterator.append(apairs[apairs[:, 0] > apairs[:, 1]])
-            AtomIterator = np.ascontiguousarray(np.vstack(AtomIterator))
-        else:
-            # Create a list of 2-tuples corresponding to combinations of atomic indices.
-            # This is much faster than using itertools.combinations.
-            # TODO 9/2019 build-bonds only for non-cartesian indices
-            # the original version
-            # AtomIterator = np.ascontiguousarray(np.vstack((np.fromiter(itertools.chain(*[[i]*(natoms-i-1) for i in range(natoms)]),dtype=np.int32), np.fromiter(itertools.chain(*[list(range(i+1,natoms)) for i in range(natoms)]),dtype=np.int32))).T)
-
-            # first_o =np.fromiter(itertools.chain(*[[i]*(natoms-i-1) for i in range(natoms)]),dtype=np.int32)
-
-            # print("prim indices")
-            # need the primitive start and stop indices
-
-            if prim_idx_start_stop is None:
-                prim_idx_start_stop = []
-                new = True
-                for i in range(natoms+1):
-                    if i in primitive_indices:
-                        if new:
-                            start = i
-                            new = False
-                    else:
-                        if not new:
-                            end = i-1
-                            new = True
-                            prim_idx_start_stop.append((start, end))
-            else:
-                print(" using user defined primitive start stop values")
-
-            # print(prim_idx_start_stop)
-            first_list = []
-            for tup in prim_idx_start_stop:
-                for i in range(tup[0], tup[1]):
-                    first_list.append([i]*(tup[1]-i))
-            #         first_list.append([i]*(tup[1]-i-1) for i in range(tup[0],tup[1]))
-            # print(first_list)
-
-            second_list = []
-            for tup in prim_idx_start_stop:
-                for i in range(tup[0], tup[1]):
-                    second_list.append(list(range(i+1, tup[1]+1)))
-            # print(second_list)
-
-            # first = np.fromiter(itertools.chain(*[[i]*(natoms-i-1) for i in primitive_indices]),dtype=np.int32)
-            # first = np.fromiter(itertools.chain(*first_list), dtype=np.int32)
-            # second = np.fromiter(itertools.chain(*second_list), dtype=np.int32)
-
-            AtomIterator = np.ascontiguousarray(
-                np.vstack((
-                    np.fromiter(itertools.chain(*first_list), dtype=np.int32),
-                    np.fromiter(itertools.chain(*second_list), dtype=np.int32)
-                )).T
-            )
-        # Create a list of thresholds for determining whether a certain interatomic distance is considered to be a bond.
-        BT0 = R[AtomIterator[:, 0]]
-        BT1 = R[AtomIterator[:, 1]]
-        BondThresh = (BT0+BT1) * Fac
-        BondThresh = (BondThresh > mindist) * BondThresh + (BondThresh < mindist) * mindist
-        # if hasattr( 'boxes') and toppbc:
-        if toppbc:
-            raise NotImplementedError
-            # dxij = AtomContact(xyz, AtomIterator, box=np.array([boxes[sn].a, boxes[sn].b, boxes[sn].c]))
-        else:
-            dxij = AtomContact(xyz, AtomIterator)
-
-        # Update topology settings with what we learned
-        top_settings['toppbc'] = toppbc
-
-        # Create a list of atoms that each atom is bonded to.
-        atom_bonds = [[] for i in range(natoms)]
-        # atom_bonds = [[] for i in primitive_indices]
-
-        bond_bool = dxij < BondThresh
-        for i, a in enumerate(bond_bool):
-            if not a:
-                continue
-            (ii, jj) = AtomIterator[i]
-            if ii == jj:
-                continue
-            atom_bonds[ii].append(jj)
-            atom_bonds[jj].append(ii)
-        bondlist = []
-
-        for i, bi in enumerate(atom_bonds):
-            for j in bi:
-                if i == j:
-                    continue
-                # Do not add a bond between resids if fragment is set to True.
-                # if top_settings['fragment'] and 'resid' in Data.keys() and resid[i] != resid[j]:
-                #    continue
-                elif i < j:
-                    bondlist.append((i, j))
-                else:
-                    bondlist.append((j, i))
-        bondlist = sorted(list(set(bondlist)))
-        bonds = sorted(list(set(bondlist)))
-
-        # print('bond list')
-        # print(bondlist)
-
-        return bonds
-
-    @staticmethod
-    def read_bonds_from_file(filename):
-        print("reading bonds")
-        bondlist = np.loadtxt(filename)
-
-        bonds = []
-        for b in bondlist:
-            i = int(b[0])
-            j = int(b[1])
-            if i > j:
-                bonds.append((i, j))
-            else:
-                bonds.append((j, i))
-
-        sorted_bonds = sorted(list(set(bonds)))
-        print(sorted_bonds[:10])
-
-        return sorted_bonds
-
-    def distance_displacement(xyz, self):
-        """ Obtain distance matrix and displacement vectors between all pairs of atoms. """
-        AtomIterator = np.ascontiguousarray(np.vstack((np.fromiter(itertools.chain(*[[i]*(self.natoms-i-1) for i in range(self.natoms)]), dtype=np.int32),
-                                            np.fromiter(itertools.chain(*[list(range(i+1, self.natoms)) for i in range(self.natoms)]), dtype=np.int32))).T)
-        drij = []
-        dxij = []
-        # if hasattr(self, 'boxes') and pbc:
-        #     drij_i, dxij_i = AtomContact(xyz, AtomIterator, box=np.array([self.boxes[sn].a, self.boxes[sn].b, self.boxes[sn].c]), displace=True)
-        # else:
-        drij_i, dxij_i = AtomContact(xyz, AtomIterator, box=None, displace=True)
-        drij.append(drij_i)
-        dxij.append(dxij_i)
-        return AtomIterator, drij, dxij
-
-    @staticmethod
-    def distance_matrix(xyz, pbc=True):
-        """ Obtain distance matrix between all pairs of atoms. """
-        natoms = len(xyz)
-        AtomIterator = np.ascontiguousarray(np.vstack((np.fromiter(itertools.chain(*[[i]*(natoms-i-1) for i in range(natoms)]), dtype=np.int32),
-                                            np.fromiter(itertools.chain(*[list(range(i+1, natoms)) for i in range(natoms)]), dtype=np.int32))).T)
-        drij = []
-        # if hasattr(self, 'boxes') and pbc:
-        #    drij.append(AtomContact(xyz,AtomIterator,box=np.array([self.boxes[sn].a, self.boxes[sn].b, self.boxes[sn].c])))
-        # else:
-        drij.append(AtomContact(xyz, AtomIterator))
-        return AtomIterator, drij
 
 
 if __name__ == '__main__' and __package__ is None:

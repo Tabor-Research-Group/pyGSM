@@ -8,11 +8,36 @@ import numpy as np
 from ..utilities import nifty, math_utils
 from .rotate import get_expmap, get_expmap_der, is_linear, calc_rot_vec_diff
 
+__all__ = [
+    "Distance",
+    "Angle",
+    "Dihedral",
+    "LinearAngle",
+    "MultiAngle",
+    "MultiDihedral",
+    "OutOfPlane",
+    "CartesianX",
+    "CartesianY",
+    "CartesianZ",
+    "TranslationX",
+    "TranslationY",
+    "TranslationZ",
+    "Rotator",
+    "RotationA",
+    "RotationB",
+    "RotationC",
+    "coordinate_mapping"
+]
 
 class PrimitiveCoordinate(metaclass=abc.ABCMeta):
     """
     Parent class for primitive internal coordinate objects with common methods.
     """
+    __slots__ = ['isAngular', 'isPeriodic']
+    def __init__(self, *, isAngular, isPeriodic):
+        self.isAngular = isAngular
+        self.isPeriodic = isPeriodic
+
     @abc.abstractmethod
     def value(self, coords):
         ...
@@ -56,18 +81,26 @@ class PrimitiveCoordinate(metaclass=abc.ABCMeta):
         diff *= w
         return diff
 
+coordinate_mapping = {}
 
-class CartesianX(PrimitiveCoordinate):
-    __slots__ = ['a', 'w', 'isAngular', 'isPeriodic']
+def register(name):
+    def decorate(cls):
+        coordinate_mapping[name] = cls
+        return cls
+    return decorate
 
-    def __init__(self, a, w=1.0):
+@register("cartesian")
+class CartesianPosition(PrimitiveCoordinate):
+    __slots__ = ['a', "axis", 'w'] + PrimitiveCoordinate.__slots__
+
+    def __init__(self, a, axis, w=1.0):
+        super().__init__(isAngular=False, isPeriodic=False)
         self.a = a
+        self.axis = axis
         self.w = w
-        self.isAngular = False
-        self.isPeriodic = False
 
     def __repr__(self):
-        return "Cartesian-X %i" % (self.a+1)
+        return f"Cartesian-{self.axis+1} {self.a+1}"
 
     @property
     def atoms(self):
@@ -78,7 +111,8 @@ class CartesianX(PrimitiveCoordinate):
             return False
         eq = self.a == other.a
         if eq and self.w != other.w:
-            nifty.logger.warning("Warning: CartesianX same atoms, different weights (%.4f %.4f)" % (self.w, other.w))
+            cls = type(self)
+            nifty.logger.warning(f"Warning: {cls.__name__} same atoms, different weights ({self.w:.4f} {other.w:.4f})")
         return eq
 
     def __ne__(self, other):
@@ -87,7 +121,7 @@ class CartesianX(PrimitiveCoordinate):
     def value(self, xyz):
         xyz = xyz.reshape(-1, 3)
         a = self.a
-        return xyz[a][0]*self.w
+        return xyz[a][self.axis]*self.w
 
     def derivative(self, xyz, start_idx=0):
         '''
@@ -97,7 +131,7 @@ class CartesianX(PrimitiveCoordinate):
         xyz = xyz.reshape(-1, 3)
         derivatives = np.zeros_like(xyz)
         relative_a = self.a - start_idx
-        derivatives[relative_a][0] = self.w
+        derivatives[relative_a][self.axis] = self.w
         return derivatives
 
     def second_derivative(self, xyz, start_idx=0):
@@ -105,128 +139,35 @@ class CartesianX(PrimitiveCoordinate):
         deriv2 = np.zeros((xyz.shape[0], xyz.shape[1], xyz.shape[0], xyz.shape[1]))
         return deriv2
 
-
-class CartesianY(PrimitiveCoordinate):
-    __slots__ = ['a', 'w', 'isAngular', 'isPeriodic']
-
+@register("cartesian_x")
+class CartesianX(CartesianPosition):
     def __init__(self, a, w=1.0):
-        self.a = a
-        self.w = w
-        self.isAngular = False
-        self.isPeriodic = False
+        super().__init__(a, axis=0, w=w)
 
-    def __repr__(self):
-        # return "Cartesian-Y %i : Weight %.3f" % (self.a+1, self.w)
-        return "Cartesian-Y %i" % (self.a+1)
-
-    @property
-    def atoms(self):
-        return [self.a]
-
-    def __eq__(self, other):
-        if type(self) is not type(other):
-            return False
-        eq = self.a == other.a
-        if eq and self.w != other.w:
-            nifty.logger.warning("Warning: CartesianY same atoms, different weights (%.4f %.4f)" % (self.w, other.w))
-        return eq
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def value(self, xyz):
-        xyz = xyz.reshape(-1, 3)
-        a = self.a
-        return xyz[a][1]*self.w
-
-    def derivative(self, xyz, start_idx=0):
-        '''
-        start idx is used for fragments, in that case pass in only the xyz of the fragment
-        Expecting shape of xyz to be (N,3)
-        '''
-        xyz = xyz.reshape(-1, 3)
-        derivatives = np.zeros_like(xyz)
-        relative_a = self.a - start_idx
-        derivatives[relative_a][1] = self.w
-        return derivatives
-
-    #def second_derivative(self, xyz):
-    #    xyz = xyz.reshape(-1,3)
-    #    deriv2 = np.zeros((xyz.shape[0], xyz.shape[1], xyz.shape[0], xyz.shape[1]))
-    #    return deriv2
-    def second_derivative(self, xyz, start_idx=0):
-        xyz = xyz.reshape(-1, 3)
-        deriv2 = np.zeros((xyz.shape[0], xyz.shape[1], xyz.shape[0], xyz.shape[1]))
-        return deriv2
-
-
-class CartesianZ(PrimitiveCoordinate):
-    __slots__ = ['a', 'w', 'isAngular', 'isPeriodic']
-
+@register("cartesian_y")
+class CartesianY(CartesianPosition):
     def __init__(self, a, w=1.0):
+        super().__init__(a, axis=1, w=w)
+
+@register("cartesian_z")
+class CartesianZ(CartesianPosition):
+    def __init__(self, a, w=1.0):
+        super().__init__(a, axis=2, w=w)
+
+@register("translation")
+class Translation(PrimitiveCoordinate):
+    __slots__ = ['a', 'axis', 'w'] + PrimitiveCoordinate.__slots__
+
+    def __init__(self, a, axis, w):
+        super().__init__(isAngular=False, isPeriodic=False)
         self.a = a
         self.w = w
-        self.isAngular = False
-        self.isPeriodic = False
-
-    def __repr__(self):
-        # return "Cartesian-Z %i : Weight %.3f" % (self.a+1, self.w)
-        return "Cartesian-Z %i" % (self.a+1)
-
-    @property
-    def atoms(self):
-        return [self.a]
-
-    def __eq__(self, other):
-        if type(self) is not type(other):
-            return False
-        eq = self.a == other.a
-        if eq and self.w != other.w:
-            nifty.logger.warning("Warning: CartesianZ same atoms, different weights (%.4f %.4f)" % (self.w, other.w))
-        return eq
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def value(self, xyz):
-        xyz = xyz.reshape(-1, 3)
-        a = self.a
-        return xyz[a][2]*self.w
-
-    def derivative(self, xyz, start_idx=0):
-        '''
-        start idx is used for fragments, in that case pass in only the xyz of the fragment
-        Expecting shape of xyz to be (N,3)
-        '''
-        xyz = xyz.reshape(-1, 3)
-        derivatives = np.zeros_like(xyz)
-        relative_a = self.a - start_idx
-        derivatives[relative_a][2] = self.w
-        return derivatives
-
-    #def second_derivative(self, xyz):
-    #    xyz = xyz.reshape(-1,3)
-    #    deriv2 = np.zeros((xyz.shape[0], xyz.shape[1], xyz.shape[0], xyz.shape[1]))
-    #    return deriv2
-    def second_derivative(self, xyz, start_idx=0):
-        xyz = xyz.reshape(-1, 3)
-        deriv2 = np.zeros((xyz.shape[0], xyz.shape[1], xyz.shape[0], xyz.shape[1]))
-        return deriv2
-
-
-class TranslationX(PrimitiveCoordinate):
-    __slots__ = ['a', 'w', 'isAngular', 'isPeriodic']
-
-    def __init__(self, a, w):
-        self.a = a
-        self.w = w
+        self.axis = axis
         assert len(a) == len(w)
-        self.isAngular = False
-        self.isPeriodic = False
 
     def __repr__(self):
         # return "Translation-X %s : Weights %s" % (' '.join([str(i+1) for i in self.a]), ' '.join(['%.2e' % i for i in self.w]))
-        return "Translation-X %s" % (nifty.commadash(self.a))
+        return f"Cartesian-{self.axis+1} {nifty.commadash(self.a)}"
 
     @property
     def atoms(self):
@@ -247,7 +188,7 @@ class TranslationX(PrimitiveCoordinate):
     def value(self, xyz):
         xyz = xyz.reshape(-1, 3)
         a = np.array(self.a)
-        return np.sum(xyz[a, 0]*self.w)
+        return np.sum(xyz[a, self.axis]*self.w)
 
     def calcDiff(self, xyz1, xyz2=None, val2=None):
         # Translation ICs require an explicit implementation of calcDiff
@@ -266,7 +207,7 @@ class TranslationX(PrimitiveCoordinate):
         derivatives = np.zeros_like(xyz)
         relative_a = [a-start_idx for a in self.a]
         for i, a in enumerate(relative_a):
-            derivatives[a][0] = self.w[i]
+            derivatives[a][self.axis] = self.w[i]
         return derivatives
 
     def second_derivative(self, xyz, start_idx=0):
@@ -274,128 +215,19 @@ class TranslationX(PrimitiveCoordinate):
         deriv2 = np.zeros((xyz.shape[0], xyz.shape[1], xyz.shape[0], xyz.shape[1]))
         return deriv2
 
-
-class TranslationY(PrimitiveCoordinate):
-    __slots__ = ['a', 'w', 'isAngular', 'isPeriodic']
-
+@register("translation_x")
+class TranslationX(Translation):
     def __init__(self, a, w):
-        self.a = a
-        self.w = w
-        assert len(a) == len(w)
-        self.isAngular = False
-        self.isPeriodic = False
+        super().__init__(a, 0, w=w)
 
-    def __repr__(self):
-        # return "Translation-Y %s : Weights %s" % (' '.join([str(i+1) for i in self.a]), ' '.join(['%.2e' % i for i in self.w]))
-        return "Translation-Y %s" % (nifty.commadash(self.a))
-
-    @property
-    def atoms(self):
-        return list(self.a)
-
-    def __eq__(self, other):
-        if type(self) is not type(other):
-            return False
-        eq = set(self.a) == set(other.a)
-        if eq and np.sum((self.w-other.w)**2) > 1e-6:
-            nifty.logger.warning("Warning: TranslationY same atoms, different weights")
-            eq = False
-        return eq
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def value(self, xyz):
-        xyz = xyz.reshape(-1, 3)
-        a = np.array(self.a)
-        return np.sum(xyz[a, 1]*self.w)
-
-    def calcDiff(self, xyz1, xyz2=None, val2=None):
-        # Translation ICs require an explicit implementation of calcDiff
-        # because self.w is not a float but an array
-        if xyz2 is None and val2 is None:
-            raise RuntimeError("Provide exactly one of xyz2 and val2")
-        elif xyz2 is not None and val2 is not None:
-            raise RuntimeError("Provide exactly one of xyz2 and val2")
-        if xyz2 is not None:
-            val2 = self.value(xyz2)
-        diff = self.value(xyz1) - val2
-        return diff
-
-    def derivative(self, xyz, start_idx=0):
-        xyz = xyz.reshape(-1, 3)
-        derivatives = np.zeros_like(xyz)
-        relative_a = [a-start_idx for a in self.a]
-        for i, a in enumerate(relative_a):
-            derivatives[a][1] = self.w[i]
-        return derivatives
-
-    def second_derivative(self, xyz, start_idx=0):
-        xyz = xyz.reshape(-1, 3)
-        deriv2 = np.zeros((xyz.shape[0], xyz.shape[1], xyz.shape[0], xyz.shape[1]))
-        return deriv2
-
-
-class TranslationZ(PrimitiveCoordinate):
-    __slots__ = ['a', 'w', 'isAngular', 'isPeriodic']
-
+@register("translation_y")
+class TranslationY(Translation):
     def __init__(self, a, w):
-        self.a = a
-        self.w = w
-        assert len(a) == len(w)
-        self.isAngular = False
-        self.isPeriodic = False
-
-    def __repr__(self):
-        # return "Translation-Z %s : Weights %s" % (' '.join([str(i+1) for i in self.a]), ' '.join(['%.2e' % i for i in self.w]))
-        return "Translation-Z %s" % (nifty.commadash(self.a))
-
-    @property
-    def atoms(self):
-        return list(self.a)
-
-    def __eq__(self, other):
-        if type(self) is not type(other):
-            return False
-        eq = set(self.a) == set(other.a)
-        if eq and np.sum((self.w-other.w)**2) > 1e-6:
-            nifty.logger.warning("Warning: TranslationZ same atoms, different weights")
-            eq = False
-        return eq
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def value(self, xyz):
-        xyz = xyz.reshape(-1, 3)
-        a = np.array(self.a)
-        return np.sum(xyz[a, 2]*self.w)
-
-    def calcDiff(self, xyz1, xyz2=None, val2=None):
-        # Translation ICs require an explicit implementation of calcDiff
-        # because self.w is not a float but an array
-        if xyz2 is None and val2 is None:
-            raise RuntimeError("Provide exactly one of xyz2 and val2")
-        elif xyz2 is not None and val2 is not None:
-            raise RuntimeError("Provide exactly one of xyz2 and val2")
-        if xyz2 is not None:
-            val2 = self.value(xyz2)
-        diff = self.value(xyz1) - val2
-        return diff
-
-    def derivative(self, xyz, start_idx=0):
-        xyz = xyz.reshape(-1, 3)
-        derivatives = np.zeros_like(xyz)
-        relative_a = [a-start_idx for a in self.a]
-        for i, a in enumerate(relative_a):
-            derivatives[a][2] = self.w[i]
-        return derivatives
-
-    def second_derivative(self, xyz, start_idx=0):
-        xyz = xyz.reshape(-1, 3)
-        deriv2 = np.zeros((xyz.shape[0], xyz.shape[1], xyz.shape[0], xyz.shape[1]))
-        return deriv2
-
+        super().__init__(a, 1, w=w)
+@register("translation_z")
+class TranslationZ(Translation):
+    def __init__(self, a, w):
+        super().__init__(a, 2, w=w)
 
 class Rotator(object):
     __slots__ = ['a', 'x0', 'stored_value', 'stored_value2', 'stored_valxyz', 'stored_valxyz2', 'stored_deriv', 'stored_derxyz', 'stored_deriv2', 'stored_deriv2xyz', 'stored_norm', 'e0', 'stored_dot2', 'linear']
@@ -785,23 +617,23 @@ class Rotator(object):
                 second_derivatives[a, :, b, :, :] = deriv2_raw[i, :, j, :, :]
         return second_derivatives
 
+@register("rotation")
+class Rotation(PrimitiveCoordinate):
+    __slots__ = ['a', 'axis', 'x0', 'w', 'Rotator'] + PrimitiveCoordinate.__slots__
 
-class RotationA(PrimitiveCoordinate):
-    __slots__ = ['a', 'x0', 'w', 'Rotator', 'isAngular', 'isPeriodic']
-
-    def __init__(self, a, x0, Rotators, w=1.0):
+    def __init__(self, a, axis, x0, Rotators, w=1.0):
+        super().__init__(isAngular=True, isPeriodic=False)
         self.a = tuple(sorted(a))
+        self.axis=axis
         self.x0 = x0
         self.w = w
         if self.a not in Rotators:
             Rotators[self.a] = Rotator(self.a, x0)
         self.Rotator = Rotators[self.a]
-        self.isAngular = True
-        self.isPeriodic = False
 
     def __repr__(self):
         # return "Rotation-A %s : Weight %.3f" % (' '.join([str(i+1) for i in self.a]), self.w)
-        return "Rotation-A %s" % (nifty.commadash(self.a))
+        return f"Rotation-{self.axis} {nifty.commadash(self.a)}"
 
     @property
     def atoms(self):
@@ -821,134 +653,46 @@ class RotationA(PrimitiveCoordinate):
         return not self.__eq__(other)
 
     def value(self, xyz):
-        return self.Rotator.value(xyz)[0]*self.w
+        return self.Rotator.value(xyz)[self.axis]*self.w
 
     def calcDiff(self, xyz1, xyz2=None, val2=None):
-        return self.Rotator.calcDiff(xyz1, xyz2, val2)[0]*self.w
+        return self.Rotator.calcDiff(xyz1, xyz2, val2)[self.axis]*self.w
 
     def derivative(self, xyz, start_idx=0):
         der_all = self.Rotator.derivative(xyz, start_idx)
-        derivatives = der_all[:, :, 0]*self.w
+        derivatives = der_all[:, :, self.axis]*self.w
         return derivatives
 
     def second_derivative(self, xyz, start_idx=0):
         deriv2_all = self.Rotator.second_derivative(xyz, start_idx)
-        second_derivatives = deriv2_all[:, :, :, :, 0]*self.w
+        second_derivatives = deriv2_all[:, :, :, :, self.axis]*self.w
         return second_derivatives
 
-
-class RotationB(PrimitiveCoordinate):
-    __slots__ = ['a', 'x0', 'w', 'Rotator', 'isAngular', 'isPeriodic']
-
+@register("rotation_a")
+class RotationA(Rotation):
     def __init__(self, a, x0, Rotators, w=1.0):
-        self.a = tuple(sorted(a))
-        self.x0 = x0
-        self.w = w
-        if self.a not in Rotators:
-            Rotators[self.a] = Rotator(self.a, x0)
-        self.Rotator = Rotators[self.a]
-        self.isAngular = True
-        self.isPeriodic = False
+        super().__init__(a, 0, x0, Rotators, w=w)
 
-    def __repr__(self):
-        # return "Rotation-B %s : Weight %.3f" % (' '.join([str(i+1) for i in self.a]), self.w)
-        return "Rotation-B %s" % (nifty.commadash(self.a))
-
-    @property
-    def atoms(self):
-        return list(self.a)
-
-    def __eq__(self, other):
-        if type(self) is not type(other):
-            return False
-        eq = set(self.a) == set(other.a)
-        # if eq and np.sum((self.w-other.w)**2) > 1e-6:
-        #     print "Warning: RotationB same atoms, different weights"
-        # if eq and np.sum((self.x0-other.x0)**2) > 1e-6:
-        #     print "Warning: RotationB same atoms, different reference positions"
-        return eq
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def value(self, xyz):
-        return self.Rotator.value(xyz)[1]*self.w
-
-    def calcDiff(self, xyz1, xyz2=None, val2=None):
-        return self.Rotator.calcDiff(xyz1, xyz2, val2)[1]*self.w
-
-    def derivative(self, xyz, start_idx=0):
-        der_all = self.Rotator.derivative(xyz, start_idx)
-        derivatives = der_all[:, :, 1]*self.w
-        return derivatives
-
-    def second_derivative(self, xyz, start_idx=0):
-        deriv2_all = self.Rotator.second_derivative(xyz, start_idx)
-        second_derivatives = deriv2_all[:, :, :, :, 1]*self.w
-        return second_derivatives
-
-
-class RotationC(PrimitiveCoordinate):
-    __slots__ = ['a', 'x0', 'w', 'Rotator', 'isAngular', 'isPeriodic']
-
+@register("rotation_b")
+class RotationB(Rotation):
     def __init__(self, a, x0, Rotators, w=1.0):
-        self.a = tuple(sorted(a))
-        self.x0 = x0
-        self.w = w
-        if self.a not in Rotators:
-            Rotators[self.a] = Rotator(self.a, x0)
-        self.Rotator = Rotators[self.a]
-        self.isAngular = True
-        self.isPeriodic = False
+        super().__init__(a, 1, x0, Rotators, w=w)
 
-    def __repr__(self):
-        # return "Rotation-C %s : Weight %.3f" % (' '.join([str(i+1) for i in self.a]), self.w)
-        return "Rotation-C %s" % (nifty.commadash(self.a))
+@register("rotation_c")
+class RotationC(Rotation):
+    def __init__(self, a, x0, Rotators, w=1.0):
+        super().__init__(a, 2, x0, Rotators, w=w)
 
-    @property
-    def atoms(self):
-        return list(self.a)
-
-    def __eq__(self, other):
-        if type(self) is not type(other):
-            return False
-        eq = set(self.a) == set(other.a)
-        # if eq and np.sum((self.w-other.w)**2) > 1e-6:
-        #     print "Warning: RotationC same atoms, different weights"
-        # if eq and np.sum((self.x0-other.x0)**2) > 1e-6:
-        #     print "Warning: RotationC same atoms, different reference positions"
-        return eq
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def value(self, xyz):
-        return self.Rotator.value(xyz)[2]*self.w
-
-    def calcDiff(self, xyz1, xyz2=None, val2=None):
-        return self.Rotator.calcDiff(xyz1, xyz2, val2)[2]*self.w
-
-    def derivative(self, xyz, start_idx=0):
-        der_all = self.Rotator.derivative(xyz, start_idx)
-        derivatives = der_all[:, :, 2]*self.w
-        return derivatives
-
-    def second_derivative(self, xyz, start_idx=0):
-        deriv2_all = self.Rotator.second_derivative(xyz, start_idx)
-        second_derivatives = deriv2_all[:, :, :, :, 2]*self.w
-        return second_derivatives
-
-
+@register("distance")
 class Distance(PrimitiveCoordinate):
-    __slots__ = ['a', 'b', 'isAngular', 'isPeriodic']
+    __slots__ = ['a', 'b'] + PrimitiveCoordinate.__slots__
 
     def __init__(self, a, b):
+        super().__init__(isAngular=False, isPeriodic=False)
         self.a = a
         self.b = b
         if a == b:
             raise RuntimeError('a and b must be different')
-        self.isAngular = False
-        self.isPeriodic = False
 
     def __repr__(self):
         return "Distance %i-%i" % (self.a+1, self.b+1)
@@ -1003,16 +747,15 @@ class Distance(PrimitiveCoordinate):
         deriv2[n, :, m, :] = mtx
         return deriv2
 
-
+@register("angle")
 class Angle(PrimitiveCoordinate):
-    __slots__ = ['a', 'b', 'c', 'isAngular', 'isPeriodic']
+    __slots__ = ['a', 'b', 'c'] + PrimitiveCoordinate.__slots__
 
     def __init__(self, a, b, c):
+        super().__init__(isAngular=True, isPeriodic=False)
         self.a = a
         self.b = b
         self.c = c
-        self.isAngular = True
-        self.isPeriodic = False
         if len({a, b, c}) != 3:
             raise RuntimeError('a, b, and c must be different')
 
@@ -1154,11 +897,12 @@ class Angle(PrimitiveCoordinate):
                                       - (cq/sq) * np.outer(der1[a], der1[b]))
         return deriv2
 
-
+@register("linear-angle")
 class LinearAngle(PrimitiveCoordinate):
-    __slots__ = ['a', 'b', 'c', 'axis', 'e0', 'stored_dot2', 'isAngular', 'isPeriodic']
+    __slots__ = ['a', 'b', 'c', 'axis', 'e0', 'stored_dot2'] + PrimitiveCoordinate.__slots__
 
     def __init__(self, a, b, c, axis):
+        super().__init__(isAngular=False, isPeriodic=False)
         self.a = a
         self.b = b
         self.c = c
@@ -1327,11 +1071,12 @@ class LinearAngle(PrimitiveCoordinate):
                 deriv2[ii, j, :, :] = fderiv
         return deriv2
 
-
+@register("multi-angle")
 class MultiAngle(PrimitiveCoordinate):
-    __slots__ = ['a', 'b', 'c', 'isAngular', 'isPeriodic']
+    __slots__ = ['a', 'b', 'c'] + PrimitiveCoordinate.__slots__
 
     def __init__(self, a, b, c):
+        super().__init__(isAngular=True, isPeriodic=False)
         if type(a) is int:
             a = (a,)
         if type(c) is int:
@@ -1339,8 +1084,6 @@ class MultiAngle(PrimitiveCoordinate):
         self.a = tuple(a)
         self.b = b
         self.c = tuple(c)
-        self.isAngular = True
-        self.isPeriodic = False
         if len({a, b, c}) != 3:
             raise RuntimeError('a, b, and c must be different')
 
@@ -1444,17 +1187,16 @@ class MultiAngle(PrimitiveCoordinate):
     def second_derivative(self, xyz, start_idx):
         raise NotImplementedError("Second derivatives have not been implemented for IC type %s" % self.__name__)
 
-
+@register("dihedral")
 class Dihedral(PrimitiveCoordinate):
-    __slots__ = ['a', 'b', 'c', 'd', 'isAngular', 'isPeriodic']
+    __slots__ = ['a', 'b', 'c', 'd'] + PrimitiveCoordinate.__slots__
 
     def __init__(self, a, b, c, d):
+        super().__init__(isAngular=True, isPeriodic=True)
         self.a = a
         self.b = b
         self.c = c
         self.d = d
-        self.isAngular = True
-        self.isPeriodic = True
         if len({a, b, c, d}) != 4:
             raise RuntimeError('a, b, c and d must be different')
 
@@ -1613,10 +1355,12 @@ class Dihedral(PrimitiveCoordinate):
         return deriv2
 
 
+@register("multi-dihedral")
 class MultiDihedral(PrimitiveCoordinate):
-    __slots__ = ['a', 'b', 'c', 'd', 'isAngular', 'isPeriodic']
+    __slots__ = ['a', 'b', 'c', 'd'] + PrimitiveCoordinate.__slots__
 
     def __init__(self, a, b, c, d):
+        super().__init__(isAngular=True, isPeriodic=True)
         if type(a) is int:
             a = (a, )
         if type(d) is int:
@@ -1625,8 +1369,6 @@ class MultiDihedral(PrimitiveCoordinate):
         self.b = b
         self.c = c
         self.d = tuple(d)
-        self.isAngular = True
-        self.isPeriodic = True
         if len({a, b, c, d}) != 4:
             raise RuntimeError('a, b, c and d must be different')
 
@@ -1720,16 +1462,16 @@ class MultiDihedral(PrimitiveCoordinate):
         raise NotImplementedError("Second derivatives have not been implemented for IC type %s" % self.__name__)
 
 
+@register("oop")
 class OutOfPlane(PrimitiveCoordinate):
-    __slots__ = ['a', 'b', 'c', 'd', 'isAngular', 'isPeriodic']
+    __slots__ = ['a', 'b', 'c', 'd'] + PrimitiveCoordinate.__slots__
 
     def __init__(self, a, b, c, d):
+        super().__init__(isAngular=True, isPeriodic=True)
         self.a = a
         self.b = b
         self.c = c
         self.d = d
-        self.isAngular = True
-        self.isPeriodic = True
         if len({a, b, c, d}) != 4:
             raise RuntimeError('a, b, c and d must be different')
 

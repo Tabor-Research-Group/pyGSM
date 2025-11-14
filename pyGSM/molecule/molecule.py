@@ -225,8 +225,14 @@ class Molecule:
         ...
 
     @classmethod
-    def from_xyz(cls, atoms, xyz, **opts):
+    def from_xyz(cls, atoms, xyz,
+                 bonds=None,
+                 primitives=None,
+                 **opts):
         return cls(
+            construct_coordinate_system(atoms, xyz,
+                                        primitives=primitives
+                                        )
 
         )
 
