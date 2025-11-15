@@ -37,7 +37,7 @@ class MainGSM(GSM):
                     max_iters=30,
                     max_opt_steps=3,
                     nconstraints=1,
-                    logger=True
+                    logger=None
                     ):
         '''
         Grow the string
@@ -50,7 +50,6 @@ class MainGSM(GSM):
         optsteps : int
             Maximum number of optimization steps per node of string
         '''
-        self.logger = dev.Logger.lookup(logger)
         with self.logger.block("In growth_iters"):
 
             ncurrent, nlist = self.make_difference_node_list()
@@ -65,7 +64,7 @@ class MainGSM(GSM):
                     print(" Ran out of iterations")
                     return
                     # raise Exception(" Ran out of iterations")
-                printcool("Starting growth iteration %i" % iteration)
+                self.logger("Starting growth iteration {iteration}", iteration=iteration)
                 self.optimize_iteration(max_opt_steps)
                 totalgrad, gradrms, sum_gradrms = self.calc_optimization_metrics(self.nodes)
                 self.xyz_writer('scratch/growth_iters_{:03}_{:03}.xyz'.format(self.ID, iteration), self.geometries, self.energies, self.gradrmss, self.dEs)

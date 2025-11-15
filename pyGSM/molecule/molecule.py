@@ -357,7 +357,7 @@ class Molecule:
 
     def update_and_move(self, tan, deltadq, verbose=True):
         self.update_coordinate_basis(tan)
-        dq = deltadq*self.constraint[:, 0]
+        dq = deltadq * self.constraint[:, 0]
         self.update_xyz(dq, verbose=verbose)
 
     def update_MW_xyz(self, mass, dq, verbose=True):
