@@ -47,7 +47,7 @@ class InternalCoordinates(metaclass=abc.ABCMeta):
         ...
 
     @abc.abstractmethod
-    def guess_hess(self):
+    def guess_hessian(self, coords, bonds=None):
         ...
 
     @abc.abstractmethod

@@ -26,106 +26,6 @@ class LoT(metaclass=abc.ABCMeta):
     energy_units = "Hartree"
     distance_units = "BohrRadius"
 
-    _default_options = None
-    @classmethod
-    def default_options(cls):
-        """ Lot default options. """
-
-        if cls._default_options is not None:
-            return cls._default_options.copy()
-
-        opt = options.Options()
-
-        opt.add_option(
-            key='states',
-            value=[(1, 0)],
-            required=False,
-            doc='list of states 0-indexed')
-
-        opt.add_option(
-            key='gradient_states',
-            value=None,
-            required=False,
-            doc='list of states to calculate gradients for, will assume same as states if not given'
-        )
-
-        opt.add_option(
-            key='coupling_states',
-            value=None,
-            required=False,
-            doc='states to calculate derivative coupling. Currently only one coupling can be calculated per level of theory object.'
-        )
-
-        opt.add_option(
-            key='charge',
-            value=0,
-            required=False,
-            allowed_types=[int],
-            doc='charge of molecule')
-
-        opt.add_option(
-            key='do_coupling',
-            required=False,
-            value=None,
-            doc='derivative coupling'
-        )
-
-        opt.add_option(
-            key="node_id",
-            required=False,
-            value=0,
-            allowed_types=[int],
-            doc='node id used for storing orbs,etc'
-        )
-
-        opt.add_option(
-            key="ID",
-            required=False,
-            value=0,
-            allowed_types=[int],
-            doc=' id used for storing orbs,etc for string'
-        )
-
-        opt.add_option(
-            key="calc_grad",
-            required=False,
-            value=None,
-            allowed_types=[bool],
-            doc=' calculate gradient or not'
-        )
-
-        opt.add_option(
-            key="lot_inp_file",
-            required=False,
-            value=None,
-            doc='file name storing LOT input section. Used for custom basis sets,\
-                     custom convergence criteria, etc. Will override nproc, basis and\
-                     functional. Do not specify charge or spin in this file. Charge \
-                     and spin should be specified in charge and states options.\
-                     for QChem, include $molecule line. For ORCA, do not include *xyz\
-                     line.'
-        )
-
-        opt.add_option(
-            key='job_data',
-            value={},
-            allowed_types=[dict],
-            doc='extra key-word arguments to define level of theory object. e.g.\
-                     TeraChem Cloud requires a TeraChem client and options dictionary.'
-        )
-
-        opt.add_option(
-            key='file_options',
-            value=None,
-            allowed_types=[File_Options],
-            doc='A specialized dictionary containing lot specific options from file\
-                        including checks on dependencies and clashes. Not all packages\
-                        require'
-        )
-
-        cls._default_options = opt
-        return cls._default_options.copy()
-
     default_states = [(0,1)]
     def __init__(self,
                  states=None,
@@ -219,11 +119,6 @@ class LoT(metaclass=abc.ABCMeta):
 
         print(" making folder scratch/{:03}/{}".format(self.ID, self.node_id))
         os.system('mkdir -p scratch/{:03}/{}'.format(self.ID, self.node_id))
-
-    @classmethod
-    def from_options(cls, **kwargs):
-        """ Returns an instance of this class with default options updated from values in kwargs"""
-        return cls(cls.default_options().set_values(kwargs))
 
     def get_state_dict(self):
         return dict(

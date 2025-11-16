@@ -2,6 +2,8 @@ from dataclasses import dataclass, asdict, field, fields
 from typing import List, Optional, Literal, Dict, Any
 import json
 
+from ..growing_string_methods import GrowthType
+
 GSMType = Literal["DE_GSM", "SE_GSM"] #, "SE_Cross"]
 # PESType = Literal["PES", "Avg_PES", "Penalty_PES"]
 CoordType = Literal["TRIC", "DLC", "HDLC"]
@@ -17,10 +19,12 @@ TSOptimizationType = Literal[0, 1, 2]
 class CoordinateSystemOptions:
     # coords / topology
     coordinate_type: CoordType = "TRIC"
-    bonds: tuple[int, int] = None
-    hybrid_coord_idx: Any = None
-    hybrid_coord_idx_file: Optional[str] = None       # Is this used?
-    prim_idx_file: Optional[str] = None               # Is this used?
+    internals: Literal['auto']|list[tuple[int, int]|tuple[int, int, int]|tuple[int, int, int, int]] = None
+    primitives:Literal['auto']|list[tuple[int, int]|tuple[int, int, int]|tuple[int, int, int, int]] = None
+    bonds: tuple[int, int]|Literal['auto'] = 'auto'
+    hybrid_idx_start_stop: Any = None
+    # hybrid_coord_idx_file: Optional[str] = None       # Is this used?
+    # prim_idx_file: Optional[str] = None               # Is this used?
 @dataclass
 class LevelOfTheoryOptions:
     EST_Package: PackageType = "aimnet"
@@ -32,25 +36,18 @@ class LevelOfTheoryOptions:
     gradient_states: list[tuple[int, int]] = None
     coupling_states: list[tuple[int, int]] = None
 
-    nproc: Optional[int] = 1
-
     # xTB / ASE options
-    xTB_Hamiltonian: str = "GFN2-xTB"
-    xTB_accuracy: float = 1.0
-    xTB_electronic_temperature: float = 300.0
-    solvent: Optional[str] = None       #Solvent to use (xTB calculations only)
-    xyz_output_format: str = "molden"   # Other options???
-    ase_class: Optional[str] = None
-    ase_kwargs: Optional[Dict[str, Any]] = None
+    # xTB_Hamiltonian: str = "GFN2-xTB"
+    # xTB_accuracy: float = 1.0
+    # xTB_electronic_temperature: float = 300.0
+    # solvent: Optional[str] = None       #Solvent to use (xTB calculations only)
+    # xyz_output_format: str = "molden"   # Other options???
+    # ase_class: Optional[str] = None
+    # ase_kwargs: Optional[Dict[str, Any]] = None
 
     # External Force
-    constraints_file: Optional[str] = None
-
-    def __post_init__(self):
-        self._set_states()
-
-    def _set_states(self):
-        self.states = [(int(m), int(s)) for m, s in zip(self.multiplicity, self.adiabatic_index)]
+    # constraints_forces = None # need to figure out what type this should be
+    # constraints_file: Optional[str] = None
 
 @dataclass
 class MoleculeOptions:
@@ -64,13 +61,9 @@ class OptimizerOptions:
     optimizer: OptimizerType = "eigenvector_follow"
     linesearch: LineSearch = "NoLineSearch"
     DMAX: float = 0.1
-    CONV_TOL: float = 1e-6
-    conv_Ediff: float = 100.0
-    conv_dE: float = 1.0
-    conv_gmax: float = 100.0
 @dataclass
 class GrowingStringMethodOptions:
-    mode: GSMType = "DE_GSM"
+    mode: GSMType|GrowthType = "DE_GSM"
     num_nodes: int = None
 
     # run behavior
@@ -86,6 +79,10 @@ class GrowingStringMethodOptions:
     BDIST_RATIO: float = 0.5
     ADD_NODE_TOL: float = 0.01
     DQMAG_MAX: float = 0.8      # Controls SE_GSM stepsize when adding nodes
+    CONV_TOL: float = 1e-6
+    conv_Ediff: float = 100.0
+    conv_dE: float = 1.0
+    conv_gmax: float = 100.0
 
     # interpolation
     interp_method: str = "DLC"
@@ -102,12 +99,16 @@ class GrowingStringMethodOptions:
     max_opt_steps: Optional[int] = None
 
     def __post_init__(self):
+        self._set_mode()
         self._set_num_nodes()
         self._set_rtype()
         self._set_max_opt_steps()
 
         if self.mode == "SE_GSM" and self.isomers_file is None:
             raise ValueError("SE_GSM mode needs an isomers file.")
+
+    def _set_mode(self):
+        self.mode = GrowthType(self.mode)
 
     def _set_num_nodes(self):
         if self.num_nodes is None:

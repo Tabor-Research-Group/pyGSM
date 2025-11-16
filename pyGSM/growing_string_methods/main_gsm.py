@@ -7,17 +7,9 @@ import numpy as np
 import os
 from .gsm import GSM, NodeAdditionStrategy
 
-# from molecule.molecule import Molecule
-# from utilities.nifty import printcool
-# from utilities.manage_xyz import xyz_to_np
-# from utilities import units
-# from utilities import block_matrix
-# from coordinate_systems import rotate
-# from optimizers import eigenvector_follow
 from ..utilities import Devutils as dev
 import multiprocessing as mp
 from itertools import chain
-from copy import deepcopy
 
 def worker(arg):
     obj, methname = arg[:2]
@@ -1277,7 +1269,6 @@ class MainGSM(GSM):
             new_optimizers[n] = self.optimizer[n-1]
         self.nodes = new_node_list
         self.optimizer = new_optimizers
-        self.nnodes = len(self.nodes)
         print(' New number of nodes %d' % self.nnodes)
         self.active = [True] * self.nnodes
         self.active[0] = False

@@ -2,10 +2,12 @@ import os
 import numpy as np
 import glob
 import dataclasses
+from typing import List
 
 from ..coordinate_systems import (
     DelocalizedInternalCoordinates, Distance, PrimitiveInternalCoordinates, construct_coordinate_system
 )
+from ..growing_string_methods import GrowthType
 from ..level_of_theories import construct_lot
 from ..optimizers import construct_optimizer
 from ..utilities import manage_xyz, nifty, Devutils as dev
@@ -33,35 +35,7 @@ def load_structures(cfg: GSMConfig):
         geoms = np.array([manage_xyz.xyz_to_np(g) for g in raw_geoms])
     return atoms, geoms
 
-def create_lot(cfg: GSMConfig, mol):
-    lot_opts = cfg.evaluator_settings
-
-    # common options for LoTs
-    lot_options = dict(
-        atoms=mol.atoms,
-        xyz=mol.xyz,
-        lot_inp_file=lot_opts.lot_inp_file,
-        states=lot_opts.states,
-        gradient_states=lot_opts.gradient_states,
-        coupling_states=lot_opts.coupling_states,
-        nproc=lot_opts.nproc,
-        charge=mol.charge,
-        lot_options=lot_opts.lot_options
-    )
-
-    # actual LoT choice
-    return construct_lot(lot_opts.EST_Package, **lot_options)
-
-def load_optimizer(cfg: GSMConfig):
-    opt_settings = dataclasses.asdict(cfg.optimizer_settings)
-    only_climb = cfg.gsm_settings.only_climb
-    name = opt_settings.pop('optimizer')
-    if only_climb:
-        opt_settings['update_hess_in_bg'] = False
-
-    return construct_optimizer(name, **opt_settings)
-
-def construct_mols(cfg:GSMConfig, *, atoms, coords, evaluator):
+def construct_mols(cfg:GSMConfig, *, atoms, coords):
     coords = np.asarray(coords)
     smol = coords.ndim == 2
     if smol: coords = coords[np.newaxis]
@@ -74,13 +48,17 @@ def construct_mols(cfg:GSMConfig, *, atoms, coords, evaluator):
             "coords",
             "xyzfile"
     }}
+    cs_base_opts = {
+        k:coord_opts.pop(k)
+        for k in ['internals', 'primitives', 'bonds', 'coordinate_type']
+    }
     mols = [
         Molecule.from_xyz(
             atoms,
             xyz,
-            energy_evaluator=evaluator,
+            coordinate_system_options=coord_opts,
             **mol_opts,
-            **coord_opts
+            **cs_base_opts,
         )
         for xyz in coords
     ]
@@ -88,41 +66,51 @@ def construct_mols(cfg:GSMConfig, *, atoms, coords, evaluator):
         mols = mols[0]
     return mols
 
-def setup_topologies(cfg: GSMConfig, **mol_args):
+def load_mols(cfg):
+    #TODO: add in support for a `trajectory_file` argument
+    #      that can store charges and other potentially relevant information
+    atoms, geoms = load_structures(cfg)
+    return construct_mols(cfg, atoms=atoms, coords=geoms)
+
+def create_lot(cfg: GSMConfig, mol):
+    lot_opts = dataclasses.asdict(cfg.evaluator_settings)
+
+    package = lot_opts.pop('EST_Package')
+    # common options for LoTs
+    lot_options = dict(lot_opts,
+        atoms=mol.atoms,
+        # xyz=mol.xyz,
+        charge=mol.charge,
+    )
+
+    # actual LoT choice
+    return construct_lot(package, **lot_options)
+
+def load_optimizer(cfg: GSMConfig):
+    opt_settings = dataclasses.asdict(cfg.optimizer_settings)
+    only_climb = cfg.gsm_settings.only_climb
+    name = opt_settings.pop('optimizer')
+    if only_climb:
+        opt_settings['update_hess_in_bg'] = False
+
+    return construct_optimizer(name, **opt_settings)
+
+def setup_topologies(cfg: GSMConfig, *, mols:List[Molecule]):
     '''
     Returns (reactant: Molecule, product: Molecule, driving_coordinates: list)
     if SE_GSM: returns (reactant, None, driving_coordinates)    
     if DE_GSM, returns (reactant, product, None)
     '''
 
-    coord_settings = cfg.coordinate_system_settings
-    mols = construct_mols(cfg, **mol_args)
-    print(mols)
+    reactant: Molecule
+    product: Molecule
+    if hasattr(mols, 'xyz'): # really just one mol
+        reactant, product = mols, None
+    else:
+        reactant, product = mols[0], mols[-1]
 
-    raise Exception(...)
-
-
-    reactant = Molecule.from_xyz()
-    nifty.printcool("Building the reactant object with {}".format(coord_settings.coordinate_type))
-
-    mol_1 = Molecule
-    Form_Hessian = True if cfg['optimizer'] == 'eigenvector_follow' else False
-
-    # Build the topology
-    nifty.printcool("Building the topology")
-    xyz1 = coords[0]
-    top1 = Topology.build_topology(
-        xyz1,
-        atoms,
-    )
-    if cfg['mode'] == 'DE_GSM':
-        xyz2 = manage_xyz.xyz_to_np(geoms[-1])
-        top2 = Topology.build_topology(
-            xyz2,
-            atoms,
-            # hybrid_indices=hybrid_indices,
-            # prim_idx_start_stop=prim_indices,
-        )
+    if cfg.gsm_settings.mode == GrowthType.DoubleEnded:
+        xyz2 = product.xyz
 
         # Add bonds to top1 that are present in top2
         # It's not clear if we should form the topology so the bonds

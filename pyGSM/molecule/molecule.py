@@ -44,6 +44,7 @@ class Molecule:
     def __init__(self,
                  coord_obj:InternalCoordinates,
                  *,
+                 charge=0,
                  node_id=None,
                  comment="",
                  frozen_atoms=None,
@@ -57,7 +58,9 @@ class Molecule:
                  energy_evaluator_options=None
                  ):
 
-        atoms = coord_obj.atoms
+        self.coord_obj = coord_obj
+        atoms = np.asarray(coord_obj.atoms)
+        self.charge = charge
 
         self.logger = dev.Logger.lookup(logger)
         if not np.issubdtype(atoms.dtype, np.str_):
@@ -79,7 +82,6 @@ class Molecule:
 
         self.comment = comment
         self.node_id = node_id
-        self.coord_obj = coord_obj
 
         #TODO
         self.gradrms = 0.

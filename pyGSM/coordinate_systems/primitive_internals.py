@@ -152,7 +152,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             self.get_hybrid_indices(xyz)
             #nifty.click()
             with self.logger.block(tag="Constructing primitives"):
-                self.Internals, self.block_info = self.newMakePrimitives(
+                internals, self.block_info = self.newMakePrimitives(
                     atoms,
                     xyz,
                     self.topology,
@@ -168,7 +168,6 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         else:
             if internals is None:
                 internals = []
-            self.Internals = internals
             if fragments is None:
                 fragments = []
             self.fragments = fragments

@@ -492,10 +492,10 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
     def repr_diff(self, other):
         return self.Prims.repr_diff(other.Prims)
 
-    def guess_hessian(self, coords):
+    def guess_hessian(self, coords, bonds=None):
         """ Build the guess Hessian, consisting of a diagonal matrix
         in the primitive space and changed to the basis of DLCs. """
-        Hprim = self.Prims.guess_hessian(coords)
+        Hprim = self.Prims.guess_hessian(coords, bonds)
         return multi_dot([self.Vecs.T, Hprim, self.Vecs])
 
     def resetRotations(self, xyz):

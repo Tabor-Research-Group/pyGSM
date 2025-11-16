@@ -44,7 +44,7 @@ class CartesianCoordinates(InternalCoordinates):
             logger=self.logger
         )
 
-    def guess_hessian(self, xyz):
+    def guess_hessian(self, xyz, bonds=None):
         return 0.5*np.eye(len(xyz.flatten()))
 
 

@@ -31,23 +31,6 @@ class ASELoT(LoT):
     energy_units = "kcal/mol"
     distance_units = "Angstroms"
 
-    _default_options = None
-    @classmethod
-    def default_options(cls):
-        if cls._default_options is not None:
-            return cls._default_options.copy()
-
-        opt = super().default_options()
-
-        opt.add_option(
-            key='constraints_file',
-            required=False,
-            value=None
-        )
-
-        cls._default_options = opt
-        return cls._default_options.copy()
-
     def __init__(self,
                  calculator: Calculator,
                  constraints_forces=None,

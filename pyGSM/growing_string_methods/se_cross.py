@@ -156,15 +156,7 @@ class SE_Cross(SE_GSM):
                 self.end_early = True
             else:
                 print(" deltaE s1-minimum and MECI %5.4f" % deltaE)
-                try:
-                    self.optimize_string(max_iter=max_iters, opt_steps=3, rtype=1)
-                except Exception as error:
-                    if str(error) == "Ran out of iterations":
-                        print(error)
-                        self.end_early = True
-                    else:
-                        print(error)
-                        self.end_early = True
+                self.optimize_string(max_iter=max_iters, opt_steps=3, rtype=1)
         else:
             print("Exiting early")
             self.end_early = True

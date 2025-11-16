@@ -36,19 +36,13 @@ class GSMRunner:
         gsm_opts = cfg.gsm_settings
         logger = dev.Logger.lookup(run_opts.logger)
 
-        # # TODO I'm not convinced nproc is doing anything.  Check later.
-        # if eval_settings.nproc > 1:
-        #     logger.log_print("forcing number of processors to be {nproc}!!!", eval_settings.nproc)
-        # else:
-        #     nproc = int(os.environ.get('OMP_NUM_THREADS', 1))
-        #     logger.log_print("Using {nproc} processors", eval_settings.nproc)
-
         # nifty.printcool_dictionary(cfg.to_dict(), title="GSM Configuration")
 
-        atoms, geoms = core.load_structures(cfg)
+        mols = core.load_mols(cfg) #TODO: allow direct loading of mols
         optimizer = core.load_optimizer(cfg)
+        evaluator = core.create_lot(cfg, mols[0])
 
-        reactant, product, driving_coordinates = core.setup_topologies(cfg, geoms)
+        reactant, product, driving_coordinates = core.setup_topologies(cfg)
 
         gsm = core.build_GSM_obj(cfg, reactant, product, driving_coordinates, optimizer)
 
