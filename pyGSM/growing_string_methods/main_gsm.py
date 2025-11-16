@@ -5,7 +5,7 @@ import enum
 
 import numpy as np
 import os
-from .gsm import GSM, NodeAdditionStrategy
+from .gsm import GSM, NodeAdditionStrategy, TSOptimizationStrategy
 
 from ..utilities import Devutils as dev
 import multiprocessing as mp
@@ -16,22 +16,10 @@ def worker(arg):
     return getattr(obj, methname)(*arg[2:])
 
 __all__ = [
-    "GrowthType",
-    "TSOptimizationStrategy",
     "MainGSM"
 ]
 
-class GrowthType(enum.Enum):
-    DoubleEnded = "DE_GSM"
-    SingleEnded = "SE_GSM"
-
-class TSOptimizationStrategy(enum.Enum):
-    NoClimb = 0
-    Climb = 1
-    Exact = 2
-
 class MainGSM(GSM):
-    growth_type:GrowthType
 
     @abc.abstractmethod
     def make_difference_node_list(self):
@@ -126,7 +114,7 @@ class MainGSM(GSM):
                 )
             return
 
-    def optimize_string(self, max_iter=30, nconstraints=1, opt_steps=1, rtype=2):
+    def optimize_string(self, max_iter=30, nconstraints=1, opt_steps=1, rtype=None):
         '''
         Optimize the grown string until convergence
 
@@ -144,6 +132,11 @@ class MainGSM(GSM):
             1 is climber
             2 is finder
         '''
+        if rtype is None:
+            rtype = self.rtype
+
+        if self.only_drive:
+            raise NotImplementedError("need to handle plain interpolation")
         printcool("In opt_iters Cody")
 
         self.nclimb = 0
@@ -384,19 +377,7 @@ class MainGSM(GSM):
                     path=path,
                 )
 
-        if self.done_growing and self.growth_type == GrowthType.SingleEnded:
-            fp = self.find_peaks('opting')
-            if self.energies[self.nnodes-1] > self.energies[self.nnodes-2] and fp > 0 and self.nodes[self.nnodes-1].gradrms > self.CONV_TOL:
-                printcool('Last node is not a minimum, Might need to verify that the last node is a minimum')
-                path = os.path.join(os.getcwd(), 'scratch/{:03d}/{}'.format(self.ID, self.nnodes-1))
-                self.optimizer[self.nnodes-1].optimize(
-                    molecule=self.nodes[self.nnodes-1],
-                    refE=refE,
-                    opt_type='UNCONSTRAINED',
-                    opt_steps=osteps,
-                    ictan=None,
-                    path=path
-                )
+        return self.isConverged, refE
 
     def get_tangents_opting(self, print_level=1):
         if self.climb or self.find:

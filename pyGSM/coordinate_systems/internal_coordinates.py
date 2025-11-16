@@ -10,6 +10,7 @@ import numpy as np
 from numpy.linalg import multi_dot
 
 from ..utilities import elements, options, nifty, block_matrix, Devutils as dev
+from .topology import EdgeGraph, guess_bonds
 
 ELEMENT_TABLE = elements.ElementData()
 
@@ -36,11 +37,26 @@ def register_coordinate_system(name):
 
 class InternalCoordinates(metaclass=abc.ABCMeta):
 
-    def __init__(self, atoms, xyz, logger=None):
+    def __init__(self, atoms, xyz, bonds=None, logger=None):
         self.atoms = atoms
         self.xyz = xyz
+        self._input_topology = bonds
+        self._topology = None
         self.stored_wilsonB = OrderedDict()
         self.logger = dev.Logger.lookup(logger)
+
+    @property
+    def topology(self):
+        if self._topology is None:
+            self._topology = self._make_bond_graph(self.atoms, self.xyz, self._input_topology)
+        return self._topology
+    @classmethod
+    def _make_bond_graph(cls, atoms, coords, bonds):
+        if bonds is None:
+            bonds = guess_bonds(atoms, coords)
+        if not isinstance(bonds, EdgeGraph):
+            bonds = EdgeGraph(np.arange(len(atoms)), [b[:2] for b in bonds])
+        return bonds
 
     @abc.abstractmethod
     def calcDiff(self, xyz2, xyz1):

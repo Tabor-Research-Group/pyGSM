@@ -99,7 +99,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                  logger=None
                  ):
 
-        super().__init__(atoms, xyz, logger=logger)
+        super().__init__(atoms, xyz, bonds=bonds, logger=logger)
 
         self.connect = connect
         self.addcart = addcart
@@ -127,9 +127,6 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         if hybrid_idx_start_stop is None:
             hybrid_idx_start_stop = []
         self.hybrid_idx_start_stop = hybrid_idx_start_stop
-
-        self._input_topology = bonds
-        self._topology = None
 
         # # Topology settings  -- CRA 3/2019 leftovers from Lee-Ping's code
         # but maybe useful in the future
@@ -182,13 +179,10 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         # self.makeConstraints(xyz, constraints, cvals)
 
         self.Internals = tuple(internals) # performance overhead, but need to catch attempted mutations
-        self._type_classes = None
 
     @property
     def type_classes(self):
-        if self._type_classes is None:
-            self._type_classes = tuple(slots.get_coordinate_type_class(ic) for ic in self.Internals)
-        return self._type_classes
+        return tuple(ic.type_class for ic in self.Internals)
 
     def copy(self):
         return type(self)(
@@ -204,19 +198,6 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             addtr=self.addtr,
             logger=self.logger
         )
-
-    @property
-    def topology(self):
-        if self._topology is None:
-            self._topology = self._make_bond_graph(self.atoms, self.xyz, self._input_topology)
-        return self._topology
-    @classmethod
-    def _make_bond_graph(cls, atoms, coords, bonds):
-        if bonds is None:
-            bonds = guess_bonds(atoms, coords)
-        if not isinstance(bonds, EdgeGraph):
-            bonds = EdgeGraph(np.arange(len(atoms)), [b[:2] for b in bonds])
-        return bonds
 
     def compute_bmatrix(self, xyz):
         xyz = xyz.reshape(-1, 3)
@@ -1314,30 +1295,30 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                     self.logger.log_print("Adding driving coord prim {} to Internals".format(dc))
                     self.append_prim_to_block(dc)
 
-
-def get_driving_coord_prim(dc):
-    prim = None
-    if "ADD" in dc or "BREAK" in dc:
-        if dc[1] < dc[2]:
-            prim = slots.Distance(dc[1]-1, dc[2]-1)
-        else:
-            prim = slots.Distance(dc[2]-1, dc[1]-1)
-    elif "ANGLE" in dc:
-        if dc[1] < dc[3]:
-            prim = slots.Angle(dc[1]-1, dc[2]-1, dc[3]-1)
-        else:
-            prim = slots.Angle(dc[3]-1, dc[2]-1, dc[1]-1)
-    elif "TORSION" in dc:
-        if dc[1] < dc[4]:
-            prim = slots.Dihedral(dc[1]-1, dc[2]-1, dc[3]-1, dc[4]-1)
-        else:
-            prim = slots.Dihedral(dc[4]-1, dc[3]-1, dc[2]-1, dc[1]-1)
-    elif "OOP" in dc:
-        # if dc[1]<dc[4]:
-        prim = slots.OutOfPlane(dc[1]-1, dc[2]-1, dc[3]-1, dc[4]-1)
-        # else:
-        #    prim = OutOfPlane(dc[4]-1,dc[3]-1,dc[2]-1,dc[1]-1)
-    return prim
+    @classmethod
+    def get_driving_coord_prim(cls, dc):
+        prim = None
+        if "ADD" in dc or "BREAK" in dc:
+            if dc[1] < dc[2]:
+                prim = slots.Distance(dc[1]-1, dc[2]-1)
+            else:
+                prim = slots.Distance(dc[2]-1, dc[1]-1)
+        elif "ANGLE" in dc:
+            if dc[1] < dc[3]:
+                prim = slots.Angle(dc[1]-1, dc[2]-1, dc[3]-1)
+            else:
+                prim = slots.Angle(dc[3]-1, dc[2]-1, dc[1]-1)
+        elif "TORSION" in dc:
+            if dc[1] < dc[4]:
+                prim = slots.Dihedral(dc[1]-1, dc[2]-1, dc[3]-1, dc[4]-1)
+            else:
+                prim = slots.Dihedral(dc[4]-1, dc[3]-1, dc[2]-1, dc[1]-1)
+        elif "OOP" in dc:
+            # if dc[1]<dc[4]:
+            prim = slots.OutOfPlane(dc[1]-1, dc[2]-1, dc[3]-1, dc[4]-1)
+            # else:
+            #    prim = OutOfPlane(dc[4]-1,dc[3]-1,dc[2]-1,dc[1]-1)
+        return prim
 
 
 if __name__ == '__main__' and __package__ is None:

@@ -16,36 +16,11 @@ from ..utilities import manage_xyz, elements, block_matrix, Devutils as dev, uni
 ELEMENT_TABLE = elements.ElementData()
 
 class Molecule:
-    @staticmethod
-    def copy_from_options(MoleculeA, xyz=None, fnm=None, new_node_id=1, copy_wavefunction=True):
-        """Create a copy of MoleculeA"""
-        print(" Copying from MoleculA {}".format(MoleculeA.node_id))
-        PES = type(MoleculeA.PES).create_pes_from(PES=MoleculeA.PES, options={'node_id': new_node_id})
-
-        if xyz is not None:
-            new_geom = manage_xyz.np_to_xyz(MoleculeA.geometry, xyz)
-            coord_obj = type(MoleculeA.coord_obj)(MoleculeA.coord_obj.options.copy().set_values({"xyz": xyz}))
-        elif fnm is not None:
-            new_geom = manage_xyz.read_xyz(fnm, scale=1.)
-            xyz = manage_xyz.xyz_to_np(new_geom)
-            coord_obj = type(MoleculeA.coord_obj)(MoleculeA.coord_obj.options.copy().set_values({"xyz": xyz}))
-        else:
-            new_geom = MoleculeA.geometry
-            coord_obj = type(MoleculeA.coord_obj)(MoleculeA.coord_obj.options.copy())
-
-        return Molecule(MoleculeA.Data.copy().set_values({
-            'PES': PES,
-            'coord_obj': coord_obj,
-            'geom': new_geom,
-            'node_id': new_node_id,
-            'copy_wavefunction': copy_wavefunction,
-        }))
 
     def __init__(self,
                  coord_obj:InternalCoordinates,
                  *,
                  charge=0,
-                 node_id=None,
                  comment="",
                  frozen_atoms=None,
                  logger=None,
@@ -81,7 +56,6 @@ class Molecule:
         self.evaluator = energy_evaluator
 
         self.comment = comment
-        self.node_id = node_id
 
         #TODO
         self.gradrms = 0.
@@ -341,6 +315,10 @@ class Molecule:
             self._gradient = None
             self._primitive_hessian = None
             self._hessian = None
+
+    @property
+    def bond_graph(self):
+        return self.coord_obj.topology
 
     @property
     def num_frozen_atoms(self):

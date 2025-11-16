@@ -2,12 +2,14 @@ from __future__ import print_function
 # standard library imports
 import abc
 import enum
+import dataclasses
 
 from ..coordinate_systems import Distance, Angle, Dihedral, OutOfPlane
 from .. import utilities as util #import nifty, options, block_matrix
 from ..utilities import manage_xyz, Devutils as dev
 from ..molecule import Molecule
-from ..optimizers import base_optimizer, construct_optimizer
+from ..optimizers.base_optimizer import base_optimizer
+from ..optimizers import construct_optimizer
 
 # third party
 import numpy as np
@@ -25,6 +27,7 @@ def worker(arg):
 __all__ = [
     "NodeAdditionStrategy",
     "ReparametrizationMethod",
+    "TSOptimizationStrategy",
     "GSM"
 ]
 
@@ -42,7 +45,103 @@ class ReparametrizationMethod(enum.Enum):
     Geodesic = "Geodesic"
     DelocalizedCoordinate = "DLC"
 
+class TSOptimizationStrategy(enum.Enum):
+    NoClimb = 0
+    Climb = 1
+    Exact = 2
+
 class GSM(metaclass=abc.ABCMeta):
+    default_rtype: TSOptimizationStrategy
+    default_max_opt_steps: int
+
+    @classmethod
+    @abc.abstractmethod
+    def preadjust_nodes(cls, nodes, evaluator, optimizer, driving_coords):
+        ...
+
+    @classmethod
+    def add_optimizer_to_nodes(cls, nodes, optimizer):
+        return [
+            mol.attach_optimizer(optimizer)
+                if mol is not None else
+            None
+            for mol in nodes
+        ]
+
+    @classmethod
+    def add_evaluator_to_nodes(cls, nodes, evaluator):
+        return [
+            mol.attach_evaluator(evaluator)
+                if mol is not None else
+            None
+            for mol in nodes
+        ]
+
+    @classmethod
+    def add_bonds_to_nodes(cls, nodes, base_edges, target_edges):
+        pre_len = len(base_edges)
+        for i,j in target_edges:
+            if (i,j) in base_edges or (j,i) in base_edges:
+                continue
+            else:
+                if i > j:
+                    i,j = j,i
+                base_edges.append((i,j))
+        if len(base_edges) > pre_len:
+            return [
+                mol.modify_coordinate_system(bonds=base_edges)
+                    if mol is not None else
+                None
+                for mol in nodes
+            ]
+        else:
+            return nodes
+
+    @classmethod
+    def read_isomers_file(cls, isomers_file):
+        with open(isomers_file) as f:
+            tmp = filter(None, (line.rstrip() for line in f))
+            lines = []
+            for line in tmp:
+                lines.append(line)
+
+        driving_coordinates = []
+
+        if lines[0] == "NEW":
+            start = 1
+        else:
+            start = 0
+
+        for line in lines[start:]:
+            dc = []
+            twoInts = False
+            threeInts = False
+            fourInts = False
+            for i, elem in enumerate(line.split()):
+                if i == 0:
+                    dc.append(elem)
+                    if elem == "ADD" or elem == "BREAK":
+                        twoInts = True
+                    elif elem == "ANGLE":
+                        threeInts = True
+                    elif elem == "TORSION" or elem == "OOP":
+                        fourInts = True
+                    elif elem == "ROTATE":
+                        threeInts = True
+                else:
+                    if twoInts and i > 2:
+                        dc.append(float(elem))
+                    elif twoInts and i > 3:
+                        dc.append(float(elem))  # add break dist
+                    elif threeInts and i > 3:
+                        dc.append(float(elem))
+                    elif fourInts and i > 4:
+                        dc.append(float(elem))
+                    else:
+                        dc.append(int(elem))
+            driving_coordinates.append(dc)
+        return driving_coordinates
+
     @abc.abstractmethod
     def set_active(self, nR, nP):
         ...
@@ -71,13 +170,15 @@ class GSM(metaclass=abc.ABCMeta):
     def __init__(
             self,
             *,
-            optimizers,
-            driving_coords=None,
             reactant=None,
             product=None,
-            nodes:'list[Molecule]'=None,
-            nnodes=None,
+            nodes: 'list[Molecule]' = None,
+            num_nodes=None,
             fixed_nodes=None,
+            evaluator=None,
+            optimizer=None,
+            driving_coords=None,
+            only_drive=False,
             scratch_dir=None,
             growth_direction=0,
             tolerances=None,
@@ -86,6 +187,8 @@ class GSM(metaclass=abc.ABCMeta):
             noise=100,
             mp_cores=None,
             xyz_writer=None,
+            reparametrize=False,
+            rtype=None,
             logger=True
     ):
         self.scratch_dir = scratch_dir
@@ -94,7 +197,7 @@ class GSM(metaclass=abc.ABCMeta):
                 raise ValueError("`reactant` is required if no nodes are supplied")
             # if product is None:
             #     raise ValueError("`product` is required if no nodes are supplied")
-            nodes = [None]*nnodes
+            nodes = [None]*num_nodes
             nodes[0] = reactant
             nodes[-1] = product
         elif (
@@ -102,21 +205,30 @@ class GSM(metaclass=abc.ABCMeta):
             or product is not None
         ):
             raise ValueError("explicit node list passed, `reactant` and `product` will not be used")
-        self.nodes = list(nodes)
-        self.fixed_nodes = self._prep_fixed_nodes(self.nnodes, fixed_nodes)
-        self.driving_coords = driving_coords
+        optimizer = self._initialize_optimizers(nodes, optimizer)
+        self.nodes = self.preadjust_nodes(nodes,
+                                          evaluator=evaluator, optimizer=optimizer, driving_coords=driving_coords)
+        self.fixed_nodes = self._prep_fixed_nodes(self.num_nodes, fixed_nodes)
+
         self.growth_direction = NodeAdditionStrategy(growth_direction)
         self.isRestarted = False
         if tolerances is None:
             tolerances = {}
         self.tolerances = dict(self.get_default_tolerances(), **tolerances)
         self.ID = id
-        self.optimizer = self._initialize_optimizers(self.nodes, optimizers)
         self.interp_method = ReparametrizationMethod(interp_method)
         self.noise = noise
         self.mp_cores = mp_cores
         self.xyz_writer = xyz_writer
         self.logger = dev.Logger.lookup(logger)
+
+        if rtype is None:
+            rtype = self.default_rtype
+        self.rtype = TSOptimizationStrategy(rtype)
+
+        self.only_drive = only_drive
+        if reparametrize:
+            raise NotImplementedError("reparametrization needs to be reintegrated")
 
         # Set initial values
         self.current_nnodes = len([x for x in self.nodes if x is not None])
@@ -132,8 +244,8 @@ class GSM(metaclass=abc.ABCMeta):
         self.found_ts = False
         self.rn3m6 = self._get_num_coords()
 
-        self.ictan = [None] * self.nnodes
-        self.active = [False] * self.nnodes
+        self.ictan = [None] * self.num_nodes
+        self.active = [False] * self.num_nodes
         self.climber = False  # is this string a climber?
         self.finder = False   # is this string a finder?
         self.done_growing = False
@@ -152,6 +264,10 @@ class GSM(metaclass=abc.ABCMeta):
         self.ran_out = False   # if it ran out of iterations
 
         self.newic = self.nodes[0].copy()  # newic object is used for coordinate transformations
+
+    @classmethod
+    def from_restart(cls, start_climb_immediately=False, **base_opts):
+        raise NotImplementedError("restarting needs to be handled")
 
     @classmethod
     def _initialize_optimizers(cls, nodes, base_optimizers):
@@ -174,7 +290,7 @@ class GSM(metaclass=abc.ABCMeta):
     def preoptimize(self):
         for prep_node in [
             0, # reactant
-            self.nnodes - 1 # product
+            self.num_nodes - 1 # product
         ]:
             if self.fixed_nodes is None or prep_node not in self.fixed_nodes:
                 self.nodes[prep_node] = self.nodes[prep_node].optimize()
@@ -190,7 +306,7 @@ class GSM(metaclass=abc.ABCMeta):
         #         path=path
         #     )
 
-        # if self.fixed_nodes is None or self.nnodes-1 not in self.fixed_nodes:
+        # if self.fixed_nodes is None or self.num_nodes-1 not in self.fixed_nodes:
         #     self.nodes[0].optimize()
         #
         # if not cfg['product_geom_fixed'] and cfg.mode == 'DE_GSM':
@@ -211,7 +327,7 @@ class GSM(metaclass=abc.ABCMeta):
     def product(self):
         return self.nodes[-1]
     @property
-    def nnodes(self):
+    def num_nodes(self):
         return len(self.nodes)
 
     @classmethod
@@ -229,7 +345,7 @@ class GSM(metaclass=abc.ABCMeta):
         '''
         # Treat GSM with penalty a little different since penalty will increase energy based on energy
         # make sure TS is not zero or last node
-        return int(np.argmax(self.energies[1:self.nnodes-1])+1)
+        return int(np.argmax(self.energies[1:self.num_nodes-1])+1)
 
     @property
     def emax(self):
@@ -244,9 +360,9 @@ class GSM(metaclass=abc.ABCMeta):
         energies = self.energies
         if energies[1] > energies[0]:
             minnodes.append(0)
-        if energies[self.nnodes-1] < energies[self.nnodes-2]:
-            minnodes.append(self.nnodes-1)
-        for n in range(self.n0, self.nnodes-1):
+        if energies[self.num_nodes-1] < energies[self.num_nodes-2]:
+            minnodes.append(self.num_nodes-1)
+        for n in range(self.n0, self.num_nodes-1):
             if energies[n+1] > energies[n]:
                 if energies[n] < energies[n-1]:
                     minnodes.append(n)
@@ -686,23 +802,6 @@ class GSM(metaclass=abc.ABCMeta):
             if dqmaga[n] < 0.:
                 raise RuntimeError
 
-        # TEMPORORARY parallel idea
-        # ictan = [0.]
-        # ictan += [ Process(target=get_tangent,args=(n,)) for n in range(n0+1,self.nnodes)]
-        # dqmaga = [ Process(target=get_dqmag,args=(n,ictan[n])) for n in range(n0+1,self.nnodes)]
-
-        # if print_level > 1:
-        #     print('------------printing ictan[:]-------------')
-        #     for n in range(n0+1, nnodes):
-        #         print("ictan[%i]" % n)
-        #         print(ictan[n].T)
-        # if print_level > 0:
-        #     print('------------printing dqmaga---------------')
-        #     for n in range(n0+1, nnodes):
-        #         print(" {:5.4}".format(dqmaga[n]), end='')
-        #         if (n) % 5 == 0:
-        #             print()
-        #     print()
         return ictan, dqmaga
 
     @classmethod

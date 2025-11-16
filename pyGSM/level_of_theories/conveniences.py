@@ -1,5 +1,5 @@
 
-from .base_lot import LoT
+from .base_lot import LoT, FileBasedLoT
 import importlib
 
 __all__ = [
@@ -87,6 +87,8 @@ def construct_lot(lot_name, allow_imports=True,
                 loader = _resolve_lot(lot_name)
             else:
                 raise ValueError(f"unknown level of theory {lot_name}")
+        if isinstance(loader, type) and not issubclass(loader, FileBasedLoT):
+            opts.pop("lot_inp_file", None)
         return loader(states=states, **opts)
     else:
         raise NotImplementedError("pure level of theory objects from functions not implemented")

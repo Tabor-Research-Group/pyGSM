@@ -1,7 +1,11 @@
 from __future__ import print_function
 
-from ..coordinate_systems import Distance, Angle, Dihedral, OutOfPlane
-from .main_gsm import MainGSM, GrowthType
+from ..coordinate_systems import (
+    Distance, Angle, Dihedral, OutOfPlane,
+    PrimitiveInternalCoordinates
+)
+from ..coordinate_systems import slots
+from .main_gsm import MainGSM, TSOptimizationStrategy
 from ..molecule import Molecule
 from ..utilities import nifty
 # standard library imports
@@ -15,7 +19,38 @@ __all__ = [
 ]
 
 class SE_GSM(MainGSM):
-    growth_type = GrowthType.SingleEnded
+    default_rtype = TSOptimizationStrategy(2)
+    default_max_opt_steps = 3
+
+    @classmethod
+    def preadjust_nodes(cls, nodes, evaluator, optimizer, driving_coords):
+        if isinstance(driving_coords, str) or hasattr(driving_coords, 'read'):
+            driving_coords = cls.read_isomers_file(driving_coords)
+
+        driving_coord_prims = []
+        for dc in driving_coords:
+            prim = PrimitiveInternalCoordinates.get_driving_coord_prim(dc)
+            if prim is not None:
+                if prim.type_class != slots.CoordinateTypeClasses.Distance:
+                    raise NotImplementedError(f"driving a reaction by anything other than a distance not supported, (got {prim.type_class})")
+                driving_coord_prims.append(prim)
+
+        reactant:Molecule = nodes[0]
+        base_edges = list(reactant.bond_graph.edges())
+        target_edges = [
+            (prim.atoms[0], prim.atoms[1])
+            for prim in driving_coord_prims
+        ]
+        nodes = cls.add_bonds_to_nodes(
+            nodes,
+            base_edges,
+            target_edges
+        )
+
+        nodes = cls.add_evaluator_to_nodes(nodes, evaluator)
+        nodes = cls.add_optimizer_to_nodes(nodes, optimizer)
+
+        return nodes
 
     def __init__(
             self,
@@ -93,13 +128,16 @@ class SE_GSM(MainGSM):
         self.nodes[0].coord_obj.Prims.reorderPrimitives()
         self.nodes[0].update_coordinate_basis()
 
-    def go_gsm(self, max_iters=50, opt_steps=10, *, rtype=2):
+    def go_gsm(self, max_iters=50, opt_steps=10, *, rtype=None):
         """
         rtype=2 Find and Climb TS,
         1 Climb with no exact find,
         0 turning of climbing image and TS search
         """
         self.set_V0()
+
+        if rtype is None:
+            rtype = self.rtype
 
         if self.isRestarted is False:
             self.nodes[0].gradrms = 0.
@@ -526,6 +564,22 @@ class SE_GSM(MainGSM):
         #    if self.nodes[self.TSnode].gradrms<TS_conv and ts_cgradq < self.options['CONV_TOL']:
         #        isDone=True
 
+    def optimize_iteration(self, opt_steps):
+        _, refE = super().optimize_iteration(opt_steps)
+
+        if self.done_growing:
+            fp = self.find_peaks('opting')
+            if self.energies[self.nnodes-1] > self.energies[self.nnodes-2] and fp > 0 and self.nodes[self.nnodes-1].gradrms > self.CONV_TOL:
+                printcool('Last node is not a minimum, Might need to verify that the last node is a minimum')
+                path = os.path.join(os.getcwd(), 'scratch/{:03d}/{}'.format(self.ID, self.nnodes-1))
+                self.optimizer[self.nnodes-1].optimize(
+                    molecule=self.nodes[self.nnodes-1],
+                    refE=refE,
+                    opt_type='UNCONSTRAINED',
+                    opt_steps=osteps,
+                    ictan=None,
+                    # path=path
+                )
 
 if __name__ == '__main__':
     from .qchem import QChem

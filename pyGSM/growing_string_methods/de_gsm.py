@@ -2,10 +2,9 @@ from __future__ import print_function
 
 import traceback as tb
 
-# from ..utilities import manage_xyz, nifty
-# from ..molecule import Molecule
+from ..molecule import Molecule
 from .gsm import NodeAdditionStrategy
-from .main_gsm import MainGSM, GrowthType
+from .main_gsm import MainGSM, TSOptimizationStrategy
 # from ..utilities import Devutils as dev
 
 __all__ = [
@@ -13,16 +12,44 @@ __all__ = [
 ]
 
 class DE_GSM(MainGSM):
-    growth_type = GrowthType.DoubleEnded
+    default_rtype = TSOptimizationStrategy(2)
+    default_max_opt_steps = 20
+
+    @classmethod
+    def preadjust_nodes(cls, nodes, evaluator, optimizer, driving_coords):
+        # Add bonds to top1 that are present in top2
+        # It's not clear if we should form the topology so the bonds
+        # are the same since this might affect the Primitives of the xyz1 (slightly)
+        # Later we stil need to form the union of bonds, angles and torsions
+        # However, I think this is important, the way its formulated, for identifiyin
+        # the number of fragments and blocks, which is used in hybrid TRIC.
+        reactant:Molecule = nodes[0]
+        product:Molecule = nodes[-1]
+
+        base_edges = list(reactant.bond_graph.edges())
+        target_edges = product.bond_graph.edges()
+        nodes = cls.add_bonds_to_nodes(
+            nodes,
+            base_edges,
+            target_edges
+        )
+
+        nodes = cls.add_evaluator_to_nodes(nodes, evaluator)
+        nodes = cls.add_optimizer_to_nodes(nodes, optimizer)
+
+        return nodes
 
     # TODO Change rtype to a more meaningful argument name
-    def go_gsm(self, max_iters=50, opt_steps=3, *, rtype=2):
+    def go_gsm(self, max_iters=50, opt_steps=3, *, rtype=None):
         """
         rtype=2 Find and Climb TS,
         1 Climb with no exact find,
         0 turning of climbing image and TS search
         """
         self.set_V0()
+
+        if rtype is None:
+            rtype = self.rtype
 
         with self.logger.block(tag="Running GSM"):
             if not self.isRestarted:

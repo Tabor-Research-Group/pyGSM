@@ -51,7 +51,8 @@ class GSMTests(unittest.TestCase):
         from pyGSM.gsm_runner import GSMRunner
 
         GSMRunner.run_simple(
-            xyzfile=test_data('diels_alder.xyz')
+            xyzfile=test_data('diels_alder.xyz'),
+            EST_Package='dummy'
         )
 
 if __name__ == '__main__':

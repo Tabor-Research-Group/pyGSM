@@ -2,23 +2,26 @@ import os
 import numpy as np
 import glob
 import dataclasses
-from typing import List
 
-from ..coordinate_systems import (
-    DelocalizedInternalCoordinates, Distance, PrimitiveInternalCoordinates, construct_coordinate_system
-)
-from ..growing_string_methods import GrowthType
-from ..level_of_theories import construct_lot
-from ..optimizers import construct_optimizer
+from ..level_of_theories import construct_lot as _construct_lot
+from ..optimizers import construct_optimizer as _construct_optimizer
+from ..growing_string_methods import construct_gsm as _construct_gsm
 from ..utilities import manage_xyz, nifty, Devutils as dev
 from ..molecule import Molecule
 
 from .gsm_config import GSMConfig
 
+__all__ = [
+    "load_mols",
+    "construct_lot",
+    "construct_optimizer",
+    "construct_gsm"
+]
+
 def load_structures(cfg: GSMConfig):
     mol_opts = cfg.molecule_settings
     geoms = mol_opts.coords
-    restart_file = cfg.runner_settings.restart_file
+    restart_file = cfg.restart_settings.restart_file
     if geoms is not None:
         if restart_file is not None: raise ValueError("can't have explicit coords and a `restart_file`")
         atoms = mol_opts.atoms
@@ -72,7 +75,7 @@ def load_mols(cfg):
     atoms, geoms = load_structures(cfg)
     return construct_mols(cfg, atoms=atoms, coords=geoms)
 
-def create_lot(cfg: GSMConfig, mol):
+def construct_lot(cfg: GSMConfig, mol):
     lot_opts = dataclasses.asdict(cfg.evaluator_settings)
 
     package = lot_opts.pop('EST_Package')
@@ -84,244 +87,36 @@ def create_lot(cfg: GSMConfig, mol):
     )
 
     # actual LoT choice
-    return construct_lot(package, **lot_options)
+    return _construct_lot(package, **lot_options)
 
-def load_optimizer(cfg: GSMConfig):
+def construct_optimizer(cfg: GSMConfig):
     opt_settings = dataclasses.asdict(cfg.optimizer_settings)
-    only_climb = cfg.gsm_settings.only_climb
+    only_climb = cfg.runner_settings.only_climb # I think this is in the wrong spot...
     name = opt_settings.pop('optimizer')
     if only_climb:
         opt_settings['update_hess_in_bg'] = False
 
-    return construct_optimizer(name, **opt_settings)
+    return _construct_optimizer(name, **opt_settings)
 
-def setup_topologies(cfg: GSMConfig, *, mols:List[Molecule]):
-    '''
-    Returns (reactant: Molecule, product: Molecule, driving_coordinates: list)
-    if SE_GSM: returns (reactant, None, driving_coordinates)    
-    if DE_GSM, returns (reactant, product, None)
-    '''
-
-    reactant: Molecule
-    product: Molecule
-    if hasattr(mols, 'xyz'): # really just one mol
-        reactant, product = mols, None
-    else:
-        reactant, product = mols[0], mols[-1]
-
-    if cfg.gsm_settings.mode == GrowthType.DoubleEnded:
-        xyz2 = product.xyz
-
-        # Add bonds to top1 that are present in top2
-        # It's not clear if we should form the topology so the bonds
-        # are the same since this might affect the Primitives of the xyz1 (slightly)
-        # Later we stil need to form the union of bonds, angles and torsions
-        # However, I think this is important, the way its formulated, for identifiyin
-        # the number of fragments and blocks, which is used in hybrid TRIC.
-        for bond in top2.edges():
-            if bond in top1.edges:
-                pass
-            elif (bond[1], bond[0]) in top1.edges():
-                pass
-            else:
-                print(" Adding bond {} to top1".format(bond))
-                if bond[0] > bond[1]:
-                    top1.add_edge(bond[0], bond[1])
-                else:
-                    top1.add_edge(bond[1], bond[0])
-
-    if cfg['mode'] == 'SE_GSM' or cfg['mode'] == 'SE_Cross':
-        driving_coordinates = read_isomers_file(cfg['isomers_file'])
-
-        driving_coord_prims = []
-        for dc in driving_coordinates:
-            prim = get_driving_coord_prim(dc)
-            if prim is not None:
-                driving_coord_prims.append(prim)
-
-        for prim in driving_coord_prims:
-            if type(prim) == Distance:
-                bond = (prim.atoms[0], prim.atoms[1])
-                if bond in top1.edges:
-                    pass
-                elif (bond[1], bond[0]) in top1.edges():
-                    pass
-                else:
-                    print(" Adding bond {} to top1".format(bond))
-                    top1.add_edge(bond[0], bond[1])
-
-    nifty.printcool("Building Primitive Internal Coordinates")
-    connect = False
-    addtr = False
-    addcart = False
-    if cfg['coordinate_type'] == "DLC":
-        connect = True
-    elif cfg['coordinate_type'] == "TRIC":
-        addtr = True
-    elif cfg['coordinate_type'] == "HDLC":
-        addcart = True
-    p1 = PrimitiveInternalCoordinates.from_options(
-        xyz=xyz1,
-        atoms=atoms,
-        connect=connect,
-        addtr=addtr,
-        addcart=addcart,
-        topology=top1,
+def construct_gsm(cfg:GSMConfig, *, mols, evaluator, optimizer):
+    gsm_opts = dataclasses.asdict(cfg.gsm_settings)
+    for o in ['reactant_geom_fixed', 'product_geom_fixed']:
+        gsm_opts.pop(o)
+    driving_coords = gsm_opts.pop("driving_coords")
+    isomers_file = gsm_opts.pop("isomers_file")
+    if driving_coords is None:
+        driving_coords = isomers_file
+    elif isomers_file is not None:
+        raise ValueError("got values for both `driving_coords` and `isomers_file`")
+    return _construct_gsm(
+        optimizer=optimizer,
+        nodes=mols,
+        evaluator=evaluator,
+        restart_options=dataclasses.asdict(cfg.restart_settings),
+        tolerances=dataclasses.asdict(cfg.tolerance_settings),
+        driving_coords=driving_coords,
+        **gsm_opts
     )
-    p1.newMakePrimitives(xyz1)
-    print(" done making primitives p1")
-
-    if cfg['mode'] == 'DE_GSM':
-        nifty.printcool("Building Primitive Internal Coordinates 2")
-        p2 = PrimitiveInternalCoordinates.from_options(
-            xyz=xyz2,
-            atoms=atoms,
-            addtr=addtr,
-            addcart=addcart,
-            connect=connect,
-            topology=top1,  # Use the topology of 1 because we fixed it above
-        )
-
-        p2.newMakePrimitives(xyz2)
-        print(" done making primitives p2")
-
-        nifty.printcool("Forming Union of Primitives")
-        # Form the union of primitives
-        p1.add_union_primitives(p2)
-
-        print("check {}".format(len(p1.Internals)))
-
-    elif cfg['mode'] == 'SE_GSM' or cfg['mode'] == 'SE_Cross':
-        for dc in driving_coord_prims:
-            if type(dc) != Distance:  # Already handled in topology
-                if dc not in p1.Internals:
-                    print("Adding driving coord prim {} to Internals".format(dc))
-                    p1.append_prim_to_block(dc)
-
-    nifty.printcool("Building Delocalized Internal Coordinates")
-    coord_obj1 = DelocalizedInternalCoordinates.from_options(
-        xyz=xyz1,
-        atoms=atoms,
-        addtr=addtr,
-        addcart=addcart,
-        connect=connect,
-        primitives=p1,
-    )
-
-    nifty.printcool("Building the reactant")
-    reactant = Molecule.from_options(
-        geom=geoms[0],
-        PES=pes,
-        coord_obj=coord_obj1,
-        Form_Hessian=Form_Hessian,
-        # frozen_atoms=frozen_indices,
-    )
-
-    # SE_GSM returns here
-    if cfg['mode'] == 'SE_GSM' or cfg['mode'] == 'SE_Cross':
-        return reactant, None, driving_coordinates
-
-    if cfg['mode'] == 'DE_GSM':
-        nifty.printcool("Building the product object")
-        xyz2 = manage_xyz.xyz_to_np(geoms[-1])
-        product = Molecule.copy_from_options(
-            reactant,
-            xyz=xyz2,
-            new_node_id=cfg['num_nodes'] - 1,
-            copy_wavefunction=False,
-        )
-        return reactant, product, None
-
-def build_GSM_obj(cfg: GSMConfig, reactant, product, driving_coordinates, optimizer):
-    nifty.printcool("Building the GSM object")
-    if cfg['mode'] == "DE_GSM":
-        gsm = DE_GSM.from_options(
-            reactant=reactant,
-            product=product,
-            nnodes=cfg['num_nodes'],
-            CONV_TOL=cfg['CONV_TOL'],
-            CONV_gmax=cfg['conv_gmax'],
-            CONV_Ediff=cfg['conv_Ediff'],
-            CONV_dE=cfg['conv_dE'],
-            ADD_NODE_TOL=cfg['ADD_NODE_TOL'],
-            growth_direction=cfg['growth_direction'],
-            optimizer=optimizer,
-            ID=cfg['ID'],
-            print_level=cfg['gsm_print_level'],
-            xyz_writer=XYZ_WRITERS[cfg['xyz_output_format']],
-            mp_cores=cfg["mp_cores"],
-            interp_method=cfg["interp_method"],
-        )
-    else:
-        if cfg['mode'] == "SE_GSM":
-            gsm_class = SE_GSM
-        elif cfg['mode'] == "SE_Cross":
-            gsm_class = SE_Cross
-        else:
-            raise NotImplementedError(f"GSM type: `{cfg['mode']}` not understood")
-
-        gsm = gsm_class.from_options(
-            reactant=reactant,
-            nnodes=cfg['num_nodes'],
-            DQMAG_MAX=cfg['DQMAG_MAX'],
-            BDIST_RATIO=cfg['BDIST_RATIO'],
-            CONV_TOL=cfg['CONV_TOL'],
-            ADD_NODE_TOL=cfg['ADD_NODE_TOL'],
-            optimizer=optimizer,
-            print_level=cfg['gsm_print_level'],
-            driving_coords=driving_coordinates,
-            ID=cfg['ID'],
-            xyz_writer=XYZ_WRITERS[cfg['xyz_output_format']],
-            mp_cores=cfg["mp_cores"],
-            interp_method=cfg["interp_method"],
-        )
-    return gsm
-
-def read_isomers_file(isomers_file):
-    with open(isomers_file) as f:
-        tmp = filter(None, (line.rstrip() for line in f))
-        lines = []
-        for line in tmp:
-            lines.append(line)
-
-    driving_coordinates = []
-
-    if lines[0] == "NEW":
-        start = 1
-    else:
-        start = 0
-
-    for line in lines[start:]:
-        dc = []
-        twoInts = False
-        threeInts = False
-        fourInts = False
-        for i, elem in enumerate(line.split()):
-            if i == 0:
-                dc.append(elem)
-                if elem == "ADD" or elem == "BREAK":
-                    twoInts = True
-                elif elem == "ANGLE":
-                    threeInts = True
-                elif elem == "TORSION" or elem == "OOP":
-                    fourInts = True
-                elif elem == "ROTATE":
-                    threeInts = True
-            else:
-                if twoInts and i > 2:
-                    dc.append(float(elem))
-                elif twoInts and i > 3:
-                    dc.append(float(elem))  # add break dist
-                elif threeInts and i > 3:
-                    dc.append(float(elem))
-                elif fourInts and i > 4:
-                    dc.append(float(elem))
-                else:
-                    dc.append(int(elem))
-        driving_coordinates.append(dc)
-
-    nifty.printcool("driving coordinates {}".format(driving_coordinates))
-    return driving_coordinates
 
 
 def cleanup_scratch(ID):

@@ -9,10 +9,13 @@ from ..utilities import nifty
 
 class SE_Cross(SE_GSM):
 
-    def go_gsm(self, max_iters=50, opt_steps=3, *, rtype=0):
-        """rtype=0 MECI search
-           rtype=1 MESX search
+    def go_gsm(self, max_iters=50, opt_steps=3, *, rtype=None):
+        """rtype=3 MECI search
+           rtype=4 MESX search
         """
+        if rtype is None:
+            rtype = self.rtype
+
         assert rtype in [0, 1], "rtype not defined"
         if rtype == 0:
             nifty.printcool("Doing SE-MECI search")

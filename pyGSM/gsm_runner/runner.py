@@ -26,6 +26,8 @@ class GSMRunner:
         self.gsm = gsm
         self.scratch_dir = scratch_dir
         self.max_gsm_iters = max_gsm_iters
+        if max_opt_steps is None:
+            max_opt_steps = self.gsm.default_max_opt_steps
         self.max_opt_steps = max_opt_steps
         self.rtype = GSM.TSOptimizationStrategy(rtype)
 
@@ -39,12 +41,10 @@ class GSMRunner:
         # nifty.printcool_dictionary(cfg.to_dict(), title="GSM Configuration")
 
         mols = core.load_mols(cfg) #TODO: allow direct loading of mols
-        optimizer = core.load_optimizer(cfg)
-        evaluator = core.create_lot(cfg, mols[0])
+        optimizer = core.construct_optimizer(cfg)
+        evaluator = core.construct_lot(cfg, mols[0])
 
-        reactant, product, driving_coordinates = core.setup_topologies(cfg)
-
-        gsm = core.build_GSM_obj(cfg, reactant, product, driving_coordinates, optimizer)
+        gsm = core.construct_gsm(cfg, mols=mols, evaluator=evaluator, optimizer=optimizer)
 
         if cfg['restart_file'] is not None:
             gsm.setup_from_geometries(geoms, reparametrize=cfg['reparametrize'],

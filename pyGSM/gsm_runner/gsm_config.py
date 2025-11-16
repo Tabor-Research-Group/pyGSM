@@ -2,9 +2,7 @@ from dataclasses import dataclass, asdict, field, fields
 from typing import List, Optional, Literal, Dict, Any
 import json
 
-from ..growing_string_methods import GrowthType
-
-GSMType = Literal["DE_GSM", "SE_GSM"] #, "SE_Cross"]
+GSMTypeStr = Literal["DE_GSM", "SE_GSM"] #, "SE_Cross"]
 # PESType = Literal["PES", "Avg_PES", "Penalty_PES"]
 CoordType = Literal["TRIC", "DLC", "HDLC"]
 LineSearch = Literal["NoLineSearch", "backtrack"]
@@ -63,52 +61,29 @@ class OptimizerOptions:
     DMAX: float = 0.1
 @dataclass
 class GrowingStringMethodOptions:
-    mode: GSMType|GrowthType = "DE_GSM"
+    mode: GSMTypeStr = "DE_GSM"
     num_nodes: int = None
 
     # run behavior
     growth_direction: GrowthDirection = 0       # Options: 0,1,2
-    only_climb: bool = False
-    no_climb: bool = False
     reactant_geom_fixed: bool = False
     product_geom_fixed: bool = False
-    reparametrize: bool = False
-    start_climb_immediately: bool = False
-    only_drive: bool = False
-
-    BDIST_RATIO: float = 0.5
-    ADD_NODE_TOL: float = 0.01
-    DQMAG_MAX: float = 0.8      # Controls SE_GSM stepsize when adding nodes
-    CONV_TOL: float = 1e-6
-    conv_Ediff: float = 100.0
-    conv_dE: float = 1.0
-    conv_gmax: float = 100.0
+    fixed_nodes: list[int] = None
 
     # interpolation
     interp_method: str = "DLC"
 
-    isomer_specification: Any = None #TODO: provide actual type hints for these
+    driving_coords: Any = None #TODO: provide actual type hints for these
     isomers_file: Optional[str] = None
 
     # other stuff
     # dont_analyze_ICs: bool = True   # This doesn't seem used    # TODO probably makes more sense to have "analyze_ICs" and default False
-    rtype: TSOptimizationType = None
-    setup_DE_from_SE: bool = False  # If True, will setup DE_GSM from SE_GSM run
-
-    max_gsm_iters: int = 10000
-    max_opt_steps: Optional[int] = None
 
     def __post_init__(self):
-        self._set_mode()
         self._set_num_nodes()
-        self._set_rtype()
-        self._set_max_opt_steps()
 
         if self.mode == "SE_GSM" and self.isomers_file is None:
             raise ValueError("SE_GSM mode needs an isomers file.")
-
-    def _set_mode(self):
-        self.mode = GrowthType(self.mode)
 
     def _set_num_nodes(self):
         if self.num_nodes is None:
@@ -117,22 +92,32 @@ class GrowingStringMethodOptions:
             elif self.mode == "DE_GSM":
                 self.num_nodes = 9
 
-    def _set_rtype(self):
-        if self.rtype is None:
-            if self.only_climb:
-                self.rtype = 1
-            elif self.no_climb:
-                self.rtype = 0
-            else:
-                self.rtype = 2
+    def _set_fixed_nodes(self):
+        if self.fixed_nodes is None:
+            self.fixed_nodes = []
+            if self.reactant_geom_fixed:
+                self.fixed_nodes.append(0)
+            if self.product_geom_fixed:
+                self.fixed_nodes.append(-1)
+@dataclass
+class GSMTolerances:
+    BDIST_RATIO: float = 0.5
+    ADD_NODE_TOL: float = 0.01
+    DQMAG_MAX: float = 0.8  # Controls SE_GSM stepsize when adding nodes
+    CONV_TOL: float = 1e-6
+    conv_Ediff: float = 100.0
+    conv_dE: float = 1.0
+    conv_gmax: float = 100.0
+@dataclass
+class RestartOptions:
+    is_restarted: bool = None
+    restart_file: Optional[str] = None
+    reparametrize: bool = False
+    start_climb_immediately: bool = False
 
-    def _set_max_opt_steps(self):
-        if self.max_opt_steps is None:
-            if self.mode == "SE_GSM":
-                self.max_opt_steps = 20
-            elif self.mode == "DE_GSM":
-                self.max_opt_steps = 3
-
+    def __post_init__(self):
+        if self.is_restarted is None:
+            self.is_restarted = self.restart_file is not None
 @dataclass
 class RunnerSettings:
     ID: int = 0
@@ -142,7 +127,26 @@ class RunnerSettings:
     mp_cores: int = 1
 
     scratch_dir: str|None = None
-    restart_file: Optional[str] = None
+    setup_DE_from_SE: bool = False  # If True, will setup DE_GSM from SE_GSM run
+
+    only_climb: bool = False
+    no_climb: bool = False
+    only_drive: bool = False
+    rtype: TSOptimizationType = None
+    max_gsm_iters: int = 10000
+    max_opt_steps: Optional[int] = None
+
+    def __post_init__(self):
+        self._set_rtype()
+
+    def _set_rtype(self):
+        if self.rtype is None:
+            if self.only_climb:
+                self.rtype = 1
+            elif self.no_climb:
+                self.rtype = 0
+            else:
+                self.rtype = 2
 
 # full_option_type_list = (
 #     CoordinateSystemOptions,
@@ -182,12 +186,14 @@ def filter_options(core_class, **opts):
         field_split[cls] = {k:opts[k] for k in opts.keys() & field_names}
 
     if len(opts.keys() - prev) > 0:
-        raise ValueError(f"got unknown options {list(opts.keys())}")
+        raise ValueError(f"got unknown options {list(opts.keys() - prev)}")
     return cls_names, field_split
 
 @dataclass
 class GSMConfig:
     runner_settings: RunnerSettings
+    restart_settings: RestartOptions
+    tolerance_settings: GSMTolerances
     gsm_settings: GrowingStringMethodOptions
     molecule_settings: MoleculeOptions
     optimizer_settings: OptimizerOptions
