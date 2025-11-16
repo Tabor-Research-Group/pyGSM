@@ -8,11 +8,12 @@ from io import StringIO
 import numpy as np
 
 # local application imports
-from .base_optimizer import base_optimizer
+from .hessian_update_optimizers import hessian_update_optimizer
+from .. import coordinate_systems as coord_ops
 from ..utilities import manage_xyz, block_matrix
 
 
-class beales_cg(base_optimizer):
+class beales_cg(hessian_update_optimizer):
 
     def optimize(
             self,
@@ -70,7 +71,7 @@ class beales_cg(base_optimizer):
         for ostep in range(opt_steps):
             print(" On opt step {} ".format(ostep+1))
 
-            if update_hess and self.options['update_hess_in_bg']:
+            if update_hess and self.update_hess_in_bg:
                 if opt_type != 'TS':
                     self.update_Hessian(molecule, 'BFGS')
                 else:
@@ -129,18 +130,18 @@ class beales_cg(base_optimizer):
             if nconstraints > 0:
                 g = g - np.dot(g.T, molecule.constraints)*molecule.constraints
 
-            if ls['step'] > self.options['DMAX']:
-                if ls['step'] <= self.options['abs_max_step']:     # absolute max
+            if ls['step'] > self.DMAX:
+                if ls['step'] <= self.max_step:     # absolute max
                     print(" Increasing DMAX to {}".format(ls['step']))
-                    self.options['DMAX'] = ls['step']
+                    self.DMAX = ls['step']
                 else:
-                    self.options['DMAX'] = self.options['abs_max_step']
-            elif ls['step'] < self.options['DMAX']:
+                    self.DMAX = self.max_step
+            elif ls['step'] < self.DMAX:
                 if ls['step'] >= self.DMIN:     # absolute min
                     print(" Decreasing DMAX to {}".format(ls['step']))
-                    self.options['DMAX'] = ls['step']
+                    self.DMAX = ls['step']
                 elif ls['step'] <= self.DMIN:
-                    self.options['DMAX'] = self.DMIN
+                    self.DMAX = self.DMIN
                     print(" Decreasing DMAX to {}".format(self.DMIN))
 
             # dE
@@ -181,16 +182,16 @@ class beales_cg(base_optimizer):
                 manage_xyz.write_xyzs_w_comments('opt_{}.xyz'.format(molecule.node_id), geoms, energies, scale=1.)
 
             # save variables for update Hessian!
-            if not molecule.coord_obj.__class__.__name__ == 'CartesianCoordinates' or self.options['update_hess_in_bg']:
+            if not coord_ops.is_cartesian(molecule.coord_obj) or self.update_hess_in_bg:
                 self.dx_prim = molecule.coord_obj.Prims.calcDiff(xyz, xyzp)
                 self.dx_prim = np.reshape(self.dx_prim, (-1, 1))
                 self.dg_prim = g_prim - gp_prim
             else:
                 raise NotImplementedError(" ef not implemented for CART")
 
-            if self.options['print_level'] > 0:
-                print(" Opt step: %d E: %5.4f gradrms: %1.5f ss: %1.3f DMAX: %1.3f" % (ostep+1, fx-refE, molecule.gradrms, step, self.options['DMAX']))
-            self.buf.write(u' Opt step: %d E: %5.4f gradrms: %1.5f ss: %1.3f DMAX: %1.3f\n' % (ostep+1, fx-refE, molecule.gradrms, step, self.options['DMAX']))
+            log_str = " Opt step: %d E: %5.4f gradrms: %1.5f ss: %1.3f DMAX: %1.3f" % (ostep+1, fx-refE, molecule.gradrms, step, self.DMAX)
+            self.logger.log_print(log_str)
+            self.buf.write(log_str)
 
             # gmax = np.max(g)/ANGSTROM_TO_AU/units.KCAL_MOL_PER_AU
             # print "current gradrms= %r au" % gradrms
@@ -221,7 +222,7 @@ class beales_cg(base_optimizer):
                 break
 
             #update DLC  --> this changes q, g, Hint
-            if not molecule.coord_obj.__class__.__name__ == 'CartesianCoordinates':
+            if not coord_ops.is_cartesian(molecule.coord_obj):
                 if opt_type == 'SEAM' or opt_type == "MECI":
                     print(" updating DLC")
                     sys.stdout.flush()

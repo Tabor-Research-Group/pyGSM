@@ -12,11 +12,12 @@ from numpy.linalg import multi_dot
 import numpy as np
 
 # local application imports
-from .internal_coordinates import InternalCoordinates
+from .internal_coordinates import InternalCoordinates, register_coordinate_system
 from .primitive_internals import PrimitiveInternalCoordinates
 # from . topology import Topology
 from .slots import *
 
+@register_coordinate_system("delocalized")
 class DelocalizedInternalCoordinates(InternalCoordinates):
 
     def __init__(self,

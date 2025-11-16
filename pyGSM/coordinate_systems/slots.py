@@ -1,5 +1,6 @@
 # standard library imports
 import abc
+import enum
 import sys
 import os
 from os import path
@@ -26,20 +27,50 @@ __all__ = [
     "RotationA",
     "RotationB",
     "RotationC",
-    "coordinate_mapping"
+    "coordinate_mapping",
+    "get_coordinate_type_name",
+    "CoordinateTypeClasses"
 ]
+
+
+coordinate_mapping = {}
+def register(name):
+    def decorate(cls):
+        coordinate_mapping[name] = cls
+        return cls
+    return decorate
+
+class CoordinateTypeClasses(enum.Enum):
+    Distance = "distance"
+    Angle = "angle"
+    Dihedral = "dihedral"
+    OutOfPlane = "oop"
+    Cartesian = "cartesian"
+    Translation = "translation"
+    Rotation = "rotation"
+def get_coordinate_type_name(prim):
+    for name,base in coordinate_mapping.items():
+        if isinstance(prim, base):
+            return name
+    else:
+        return None
 
 class PrimitiveCoordinate(metaclass=abc.ABCMeta):
     """
     Parent class for primitive internal coordinate objects with common methods.
     """
     __slots__ = ['isAngular', 'isPeriodic']
+    type_class: CoordinateTypeClasses
     def __init__(self, *, isAngular, isPeriodic):
         self.isAngular = isAngular
         self.isPeriodic = isPeriodic
 
     @abc.abstractmethod
     def value(self, coords):
+        ...
+
+    @abc.abstractmethod
+    def derivative(self, coords):
         ...
 
     def calcDiff(self, xyz1, xyz2=None, val2=None):
@@ -81,17 +112,10 @@ class PrimitiveCoordinate(metaclass=abc.ABCMeta):
         diff *= w
         return diff
 
-coordinate_mapping = {}
-
-def register(name):
-    def decorate(cls):
-        coordinate_mapping[name] = cls
-        return cls
-    return decorate
-
 @register("cartesian")
 class CartesianPosition(PrimitiveCoordinate):
     __slots__ = ['a', "axis", 'w'] + PrimitiveCoordinate.__slots__
+    type_class = CoordinateTypeClasses.Cartesian
 
     def __init__(self, a, axis, w=1.0):
         super().__init__(isAngular=False, isPeriodic=False)
@@ -157,6 +181,7 @@ class CartesianZ(CartesianPosition):
 @register("translation")
 class Translation(PrimitiveCoordinate):
     __slots__ = ['a', 'axis', 'w'] + PrimitiveCoordinate.__slots__
+    type_class = CoordinateTypeClasses.Translation
 
     def __init__(self, a, axis, w):
         super().__init__(isAngular=False, isPeriodic=False)
@@ -620,6 +645,7 @@ class Rotator(object):
 @register("rotation")
 class Rotation(PrimitiveCoordinate):
     __slots__ = ['a', 'axis', 'x0', 'w', 'Rotator'] + PrimitiveCoordinate.__slots__
+    type_class = CoordinateTypeClasses.Rotation
 
     def __init__(self, a, axis, x0, Rotators, w=1.0):
         super().__init__(isAngular=True, isPeriodic=False)
@@ -686,6 +712,7 @@ class RotationC(Rotation):
 @register("distance")
 class Distance(PrimitiveCoordinate):
     __slots__ = ['a', 'b'] + PrimitiveCoordinate.__slots__
+    type_class = CoordinateTypeClasses.Distance
 
     def __init__(self, a, b):
         super().__init__(isAngular=False, isPeriodic=False)
@@ -750,6 +777,7 @@ class Distance(PrimitiveCoordinate):
 @register("angle")
 class Angle(PrimitiveCoordinate):
     __slots__ = ['a', 'b', 'c'] + PrimitiveCoordinate.__slots__
+    type_class = CoordinateTypeClasses.Angle
 
     def __init__(self, a, b, c):
         super().__init__(isAngular=True, isPeriodic=False)
@@ -900,6 +928,7 @@ class Angle(PrimitiveCoordinate):
 @register("linear-angle")
 class LinearAngle(PrimitiveCoordinate):
     __slots__ = ['a', 'b', 'c', 'axis', 'e0', 'stored_dot2'] + PrimitiveCoordinate.__slots__
+    type_class = CoordinateTypeClasses.Angle
 
     def __init__(self, a, b, c, axis):
         super().__init__(isAngular=False, isPeriodic=False)
@@ -1190,6 +1219,7 @@ class MultiAngle(PrimitiveCoordinate):
 @register("dihedral")
 class Dihedral(PrimitiveCoordinate):
     __slots__ = ['a', 'b', 'c', 'd'] + PrimitiveCoordinate.__slots__
+    type_class = CoordinateTypeClasses.Dihedral
 
     def __init__(self, a, b, c, d):
         super().__init__(isAngular=True, isPeriodic=True)
@@ -1354,7 +1384,6 @@ class Dihedral(PrimitiveCoordinate):
                                            (zeta(a, n, o)*zeta(b, p, o) + zeta(a, p, o)*zeta(b, o, n))*term8)
         return deriv2
 
-
 @register("multi-dihedral")
 class MultiDihedral(PrimitiveCoordinate):
     __slots__ = ['a', 'b', 'c', 'd'] + PrimitiveCoordinate.__slots__
@@ -1461,10 +1490,10 @@ class MultiDihedral(PrimitiveCoordinate):
     def second_derivative(self, xyz, start_idx=0):
         raise NotImplementedError("Second derivatives have not been implemented for IC type %s" % self.__name__)
 
-
 @register("oop")
 class OutOfPlane(PrimitiveCoordinate):
     __slots__ = ['a', 'b', 'c', 'd'] + PrimitiveCoordinate.__slots__
+    type_class = CoordinateTypeClasses.OutOfPlane
 
     def __init__(self, a, b, c, d):
         super().__init__(isAngular=True, isPeriodic=True)

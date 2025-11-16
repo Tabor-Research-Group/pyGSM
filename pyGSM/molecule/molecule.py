@@ -7,7 +7,8 @@ import numpy as np
 import os
 # from collections import Counter
 
-from ..coordinate_systems import InternalCoordinates, construct_coordinate_system, CartesianCoordinates
+from ..coordinate_systems import InternalCoordinates, CartesianCoordinates
+from .. import coordinate_systems as coord_ops
 from ..level_of_theories.base_lot import LoT
 from ..level_of_theories.conveniences import construct_lot
 from ..utilities import manage_xyz, elements, block_matrix, Devutils as dev, units
@@ -57,7 +58,6 @@ class Molecule:
                  ):
 
         atoms = coord_obj.atoms
-        self.xyz = coord_obj.xyz
 
         self.logger = dev.Logger.lookup(logger)
         if not np.issubdtype(atoms.dtype, np.str_):
@@ -110,13 +110,13 @@ class Molecule:
                  **opts):
         if coordinate_system_options is None:
             coordinate_system_options = {}
-        coord_sys = construct_coordinate_system(atoms, xyz,
-                                                bonds=bonds,
-                                                primitives=primitives,
-                                                internals=internals,
-                                                coordinate_type=coordinate_type,
-                                                **coordinate_system_options
-                                                )
+        coord_sys = coord_ops.construct_coordinate_system(atoms, xyz,
+                                                          bonds=bonds,
+                                                          primitives=primitives,
+                                                          internals=internals,
+                                                          coordinate_type=coordinate_type,
+                                                          **coordinate_system_options
+                                                          )
 
         return cls(coord_sys, **opts)
 
@@ -253,8 +253,6 @@ class Molecule:
     def construct_lot(cls, base_lot, **lot_opts):
         if isinstance(base_lot, LoT): return base_lot
 
-
-
     @property
     def energy(self):
         return self.evaluator.get_energy(self.xyz)
@@ -293,7 +291,7 @@ class Molecule:
     @property
     def Primitive_Hessian(self):
         if self._primitive_hessian is None:
-            if not isinstance(self.coord_obj, CartesianCoordinates):
+            if not coord_ops.is_cartesian(self.coord_obj):
                 self.logger.log_print(" making primitive Hessian")
                 start = time()
                 self._primitive_hessian = self.form_Primitive_Hessian()
@@ -331,12 +329,12 @@ class Molecule:
 
     @property
     def xyz(self):
-        return self._coords
+        return self.coord_obj.xyz
     @xyz.setter
     def xyz(self, newxyz):
         if newxyz is not None:
             #TODO: check whether or not I should actually invalidate the cache
-            self._coords = newxyz
+            self.coord_obj.xyz = newxyz
             self._energy = None
             self._gradient = None
             self._primitive_hessian = None
@@ -444,14 +442,6 @@ class Molecule:
     @property
     def num_coordinates(self):
         return len(self.coordinates)
-
-    @property
-    def node_id(self):
-        return self._node_id
-
-    @node_id.setter
-    def node_id(self, value):
-        self._node_id = value
 
 
 if __name__ == '__main__':

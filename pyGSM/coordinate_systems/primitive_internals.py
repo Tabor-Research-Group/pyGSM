@@ -15,12 +15,13 @@ from scipy.linalg import block_diag
 # local application import
 from .internal_coordinates import InternalCoordinates
 from .topology import EdgeGraph, guess_bonds
-from .slots import Distance, Angle, Dihedral, OutOfPlane, RotationA, RotationB, RotationC, TranslationX, TranslationY, TranslationZ, CartesianX, CartesianY, CartesianZ, LinearAngle
+from . import slots
 
 CacheWarning = False
 
 
 class PrimitiveInternalCoordinates(InternalCoordinates):
+    Internals: tuple[slots.PrimitiveCoordinate]
 
     _default_options = None
     @classmethod
@@ -181,6 +182,15 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         # print("done reordering %.3f" % time_reorder)
         # self.makeConstraints(xyz, constraints, cvals)
 
+        self.Internals = tuple(internals) # performance overhead, but need to catch attempted mutations
+        self._type_classes = None
+
+    @property
+    def type_classes(self):
+        if self._type_classes is None:
+            self._type_classes = tuple(slots.get_coordinate_type_class(ic) for ic in self.Internals)
+        return self._type_classes
+
     def copy(self):
         return type(self)(
             self.atoms,
@@ -307,7 +317,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         Changed = False
         for i in other.Internals:
             if i not in self.Internals:
-                if bonds_only and type(i) != "Distance":
+                if bonds_only and i.type_class != slots.CoordinateTypeClasses.Distance:
                     pass
                 else:
                     # logger.info("Adding:  ", i)
@@ -334,18 +344,18 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
 
     def resetRotations(self, xyz):
         for Internal in self.Internals:
-            if type(Internal) is LinearAngle:
+            if isinstance(Internal, slots.LinearAngle):
                 Internal.reset(xyz)
         for rot in list(self.Rotators.values()):
             rot.reset(xyz)
 
     def largeRots(self):
         for Internal in self.Internals:
-            if type(Internal) is LinearAngle:
+            if isinstance(Internal, slots.LinearAngle):
                 if Internal.stored_dot2 > 0.75:
                     # Linear angle is almost parallel to reference axis
                     return True
-            if type(Internal) in [RotationA, RotationB, RotationC]:
+            if isinstance(Internal, slots.Rotation):
                 if Internal in self.cPrims:
                     continue
                 if Internal.Rotator.stored_norm > 0.9*np.pi:
@@ -374,14 +384,14 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
     def getRotatorNorms(self):
         rots = []
         for Internal in self.Internals:
-            if type(Internal) in [RotationA]:
+            if isinstance(Internal, slots.RotationA):
                 rots.append(Internal.Rotator.stored_norm)
         return rots
 
     def getRotatorDots(self):
         dots = []
         for Internal in self.Internals:
-            if type(Internal) in [RotationA]:
+            if isinstance(Internal, slots.RotationA):
                 dots.append(Internal.Rotator.stored_dot2)
         return dots
 
@@ -392,7 +402,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         rotDots = self.getRotatorDots()
         if len(rotDots) > 0 and np.max(rotDots) > 1e-5:
             self.logger.log_print("Rotator Dots : ", " ".join(["% .4f" % i for i in rotDots]))
-        linAngs = [ic.value(xyz) for ic in self.Internals if type(ic) is LinearAngle]
+        linAngs = [ic.value(xyz) for ic in self.Internals if isinstance(ic, slots.LinearAngle)]
         if len(linAngs) > 0:
             self.logger.log_print("Linear Angles: ", " ".join(["% .4f" % i for i in linAngs]))
 
@@ -415,7 +425,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
     @classmethod
     def _addable_dof(cls, dof, internals):
         return (
-            isinstance(dof, (CartesianX, CartesianY, CartesianZ))
+            isinstance(dof, slots.CartesianPosition)
             or dof not in internals
         )
     @classmethod
@@ -447,19 +457,19 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
     def dof_index(self, indice_tuple, dtype='Distance'):
         if dtype == "Distance":
             i, j = indice_tuple
-            prim = Distance(i, j)
+            prim = slots.Distance(i, j)
         elif dtype == "Angle":
             i, j, k = indice_tuple
-            prim = Angle(i, j, k)
+            prim = slots.Angle(i, j, k)
         elif dtype == "Dihedral":
             i, j, k, l = indice_tuple
-            prim = Dihedral(i, j, k, l)
+            prim = slots.Dihedral(i, j, k, l)
         elif dtype == "OutOfPlane":
             i, j, k, l = indice_tuple
-            prim = OutOfPlane(i, j, k, l)
+            prim = slots.OutOfPlane(i, j, k, l)
         else:
             self.logger.log_print(dtype)
-            raise NotImplementedError
+            raise NotImplementedError(dtype)
         return self.Internals.index(prim)
 
     def delete(self, dof):
@@ -490,7 +500,13 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             self.cPrims.append(cPrim)
             self.cVals.append(cVal)
 
-    _primitive_ordering = [Distance, Angle, LinearAngle, OutOfPlane, Dihedral, CartesianX, CartesianY, CartesianZ, TranslationX, TranslationY, TranslationZ, RotationA, RotationB, RotationC]
+    _primitive_ordering = [
+        slots.Distance, slots.Angle, slots.LinearAngle,
+        slots.OutOfPlane, slots.Dihedral,
+        slots.CartesianX, slots.CartesianY, slots.CartesianZ,
+        slots.TranslationX, slots.TranslationY, slots.TranslationZ,
+        slots.RotationA, slots.RotationB, slots.RotationC
+    ]
     def reorderPrimitives(self):
         # Reorder primitives to be in line with cc's code
         newPrims = []
@@ -503,7 +519,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                     newPrims.append(p)
         if len(newPrims) != len(self.Internals):
             raise RuntimeError("Not all internal coordinates have been accounted for. You may need to add something to reorderPrimitives()")
-        self.Internals = newPrims
+        self.Internals = tuple(newPrims)
 
         if not self.connect:
             self.reorderPrimsByFrag()
@@ -534,12 +550,12 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                     if aa not in aline:
                         # If the angle that AA makes with AB and ALL other atoms AC in the line are linear:
                         # Add AA to the front of the list
-                        if all([np.abs(np.cos(Angle(aa, ab, ac).value(coords))) > linear_threshold for ac in aline[1:] if
+                        if all([np.abs(np.cos(slots.Angle(aa, ab, ac).value(coords))) > linear_threshold for ac in aline[1:] if
                                 ac != ab]):
                             aline.insert(0, aa)
                 for az in frag.neighbors(ay):
                     if az not in aline:
-                        if all([np.abs(np.cos(Angle(ax, ay, az).value(coords))) > linear_threshold for ax in aline[:-1] if
+                        if all([np.abs(np.cos(slots.Angle(ax, ay, az).value(coords))) > linear_threshold for ax in aline[:-1] if
                                 ax != ay]):
                             aline.append(az)
             if len(line_lens) == len(atom_lines) and line_lens == [len(l) for l in atom_lines]:
@@ -613,6 +629,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                 frag = info[2]
                 noncov = []
                 if connect:
+                    raise NotImplementedError("disabled code path")
                     # Connect all non-bonded fragments together
                     # Make a distance matrix mapping atom pairs to interatomic distances
                     AtomIterator, dxij = Topology.distance_matrix(xyz, pbc=False)
@@ -635,37 +652,37 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                 else:  # Add Cart or TR
                     if addcart:
                         for i in range(info[0], info[1]):
-                            cls._dispatch_add(CartesianX(i, w=1.0), tmp_internals)
-                            cls._dispatch_add(CartesianY(i, w=1.0), tmp_internals)
-                            cls._dispatch_add(CartesianZ(i, w=1.0), tmp_internals)
+                            cls._dispatch_add(slots.CartesianX(i, w=1.0), tmp_internals)
+                            cls._dispatch_add(slots.CartesianY(i, w=1.0), tmp_internals)
+                            cls._dispatch_add(slots.CartesianZ(i, w=1.0), tmp_internals)
                             nprims += 3
                     elif addtr:
                         nodes = frag.nodes()
                         # print(" Nodes")
                         # print(nodes)
                         if len(nodes) >= 2:
-                            cls._dispatch_add(TranslationX(nodes, w=np.ones(len(nodes))/len(nodes)), tmp_internals)
-                            cls._dispatch_add(TranslationY(nodes, w=np.ones(len(nodes))/len(nodes)), tmp_internals)
-                            cls._dispatch_add(TranslationZ(nodes, w=np.ones(len(nodes))/len(nodes)), tmp_internals)
+                            cls._dispatch_add(slots.TranslationX(nodes, w=np.ones(len(nodes))/len(nodes)), tmp_internals)
+                            cls._dispatch_add(slots.TranslationY(nodes, w=np.ones(len(nodes))/len(nodes)), tmp_internals)
+                            cls._dispatch_add(slots.TranslationZ(nodes, w=np.ones(len(nodes))/len(nodes)), tmp_internals)
                             sel = xyz.reshape(-1, 3)[nodes, :]
                             sel -= np.mean(sel, axis=0)
                             rg = np.sqrt(np.mean(np.sum(sel**2, axis=1)))
-                            cls._dispatch_add(RotationA(nodes, coords, Rotators, w=rg), tmp_internals)
-                            cls._dispatch_add(RotationB(nodes, coords, Rotators, w=rg), tmp_internals)
-                            cls._dispatch_add(RotationC(nodes, coords, Rotators, w=rg), tmp_internals)
+                            cls._dispatch_add(slots.RotationA(nodes, coords, Rotators, w=rg), tmp_internals)
+                            cls._dispatch_add(slots.RotationB(nodes, coords, Rotators, w=rg), tmp_internals)
+                            cls._dispatch_add(slots.RotationC(nodes, coords, Rotators, w=rg), tmp_internals)
                             nprims += 6
                         else:
                             for j in nodes:
-                                cls._dispatch_add(CartesianX(j, w=1.0), tmp_internals)
-                                cls._dispatch_add(CartesianY(j, w=1.0), tmp_internals)
-                                cls._dispatch_add(CartesianZ(j, w=1.0), tmp_internals)
+                                cls._dispatch_add(slots.CartesianX(j, w=1.0), tmp_internals)
+                                cls._dispatch_add(slots.CartesianY(j, w=1.0), tmp_internals)
+                                cls._dispatch_add(slots.CartesianZ(j, w=1.0), tmp_internals)
                                 nprims += 3
 
                 # # Build a list of noncovalent distances
                 # Add an internal coordinate for all interatomic distances
                 for (a, b) in frag.edges():
                     # if a in list(range(info[0],info[1])):
-                    if cls._dispatch_add(Distance(a, b), tmp_internals):
+                    if cls._dispatch_add(slots.Distance(a, b), tmp_internals):
                         nprims += 1
 
                 # Add an internal coordinate for all angles
@@ -675,13 +692,13 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                         for c in frag.neighbors(b):
                             if a < c:
                                 # if (a, c) in self.topology.edges() or (c, a) in self.topology.edges(): continue
-                                Ang = Angle(a, b, c)
+                                Ang = slots.Angle(a, b, c)
                                 nnc = (min(a, b), max(a, b)) in noncov
                                 nnc += (min(b, c), max(b, c)) in noncov
                                 # if nnc >= 2: continue
                                 # logger.info("LPW: cosine of angle", a, b, c, "is", np.abs(np.cos(Ang.value(coords))))
                                 if np.abs(np.cos(Ang.value(coords))) < linear_threshold:
-                                    if cls._dispatch_add(Angle(a, b, c), tmp_internals):
+                                    if cls._dispatch_add(slots.Angle(a, b, c), tmp_internals):
                                         nprims += 1
                                     AngDict[b].append(Ang)
                                 elif connect or not addcart:
@@ -692,9 +709,9 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                                     # Bringing back old code to use "translations" for the latter case, but should be investigated
                                     # more deeply in the future.
                                     if nnc == 0:
-                                        if cls._dispatch_add(LinearAngle(a, b, c, 0), tmp_internals):
+                                        if cls._dispatch_add(slots.LinearAngle(a, b, c, 0), tmp_internals):
                                             nprims += 1
-                                        if cls._dispatch_add(LinearAngle(a, b, c, 1), tmp_internals):
+                                        if cls._dispatch_add(slots.LinearAngle(a, b, c, 1), tmp_internals):
                                             nprims += 1
                                     else:
                                         # Unit vector connecting atoms a and c
@@ -705,7 +722,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                                         # Functions for adding Cartesian coordinate
                                         # carts = [CartesianX, CartesianY, CartesianZ]
                                         # print("warning, adding translation, did you mean this?")
-                                        trans = [TranslationX, TranslationY, TranslationZ]
+                                        trans = [slots.TranslationX, slots.TranslationY, slots.TranslationZ]
                                         w = np.array([-1.0, 2.0, -1.0])
                                         # Add two of the most perpendicular Cartesian coordinates
                                         for i in np.argsort(dots)[:2]:
@@ -723,16 +740,16 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                                     nnc += (min(b, d), max(b, d)) in noncov
                                     # if nnc >= 1: continue
                                     for i, j, k in sorted(list(itertools.permutations([a, c, d], 3))):
-                                        Ang1 = Angle(b, i, j)
-                                        Ang2 = Angle(i, j, k)
+                                        Ang1 = slots.Angle(b, i, j)
+                                        Ang2 = slots.Angle(i, j, k)
                                         if np.abs(np.cos(Ang1.value(coords))) > linear_threshold:
                                             continue
                                         if np.abs(np.cos(Ang2.value(coords))) > linear_threshold:
                                             continue
                                         if np.abs(np.dot(Ang1.normal_vector(coords), Ang2.normal_vector(coords))) > linear_threshold:
-                                            if cls._dispatch_add(Angle(i, b, j), tmp_internals):
+                                            if cls._dispatch_add(slots.Angle(i, b, j), tmp_internals):
                                                 nprims -= 1
-                                            if cls._dispatch_add(OutOfPlane(b, i, j, k), tmp_internals):
+                                            if cls._dispatch_add(slots.OutOfPlane(b, i, j, k), tmp_internals):
                                                 nprims += 1
                                             break
 
@@ -758,21 +775,21 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                                     nnc += (min(b, c), max(b, c)) in noncov
                                     nnc += (min(c, d), max(c, d)) in noncov
                                     # print aline, a, b, c, d
-                                    Ang1 = Angle(a, b, c)
-                                    Ang2 = Angle(b, c, d)
+                                    Ang1 = slots.Angle(a, b, c)
+                                    Ang2 = slots.Angle(b, c, d)
                                     # Eliminate dihedrals containing angles that are almost linear
                                     # (should be eliminated already)
                                     if np.abs(np.cos(Ang1.value(coords))) > linear_threshold:
                                         continue
                                     if np.abs(np.cos(Ang2.value(coords))) > linear_threshold:
                                         continue
-                                    if cls._dispatch_add(Dihedral(a, b, c, d), tmp_internals):
+                                    if cls._dispatch_add(slots.Dihedral(a, b, c, d), tmp_internals):
                                         nprims += 1
 
             else:   # THIS ELSE CORRESPONS TO FRAGMENTS BUILT WITH THE HYBRID REGION (below)
-                cls._dispatch_add(CartesianX(info[0], w=1.0), tmp_internals)
-                cls._dispatch_add(CartesianY(info[0], w=1.0), tmp_internals)
-                cls._dispatch_add(CartesianZ(info[0], w=1.0), tmp_internals)
+                cls._dispatch_add(slots.CartesianX(info[0], w=1.0), tmp_internals)
+                cls._dispatch_add(slots.CartesianY(info[0], w=1.0), tmp_internals)
+                cls._dispatch_add(slots.CartesianZ(info[0], w=1.0), tmp_internals)
                 nprims = 3
 
             # Add all elements in tmp_Internals to Internals and then clear list
@@ -868,9 +885,9 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                         newPrims.append(p)
                         nprims += 1
             else:
-                newPrims.append(CartesianX(info[0], w=1.0))
-                newPrims.append(CartesianY(info[0], w=1.0))
-                newPrims.append(CartesianZ(info[0], w=1.0))
+                newPrims.append(slots.CartesianX(info[0], w=1.0))
+                newPrims.append(slots.CartesianY(info[0], w=1.0))
+                newPrims.append(slots.CartesianZ(info[0], w=1.0))
                 nprims = 3
 
             ep = sp+nprims
@@ -884,7 +901,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         # if len(newPrims) != len(self.Internals):
         #    #print(np.setdiff1d(self.Internals,newPrims))
         #    raise RuntimeError("Not all internal coordinates have been accounted for. You may need to add something to reorderPrimitives()")
-        self.Internals = newPrims
+        self.Internals = tuple(newPrims)
 
         self.logger.log_print(self.Internals)
         self.clearCache()
@@ -902,7 +919,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
     def calculate_constraint_violation(cls, xyz, primitive_set, target_values):
         maxdiff = 0.0
         for ic, c in enumerate(primitive_set):
-            w = c.w if type(c) in [RotationA, RotationB, RotationC] else 1.0
+            w = c.w if c.type_class == slots.CoordinateTypeClasses.Rotation else 1.0
             current = c.value(xyz) / w
             reference = target_values[ic] / w
             diff = (current - reference)
@@ -911,7 +928,11 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                     diff -= 2 * np.pi
                 if np.abs(diff + 2 * np.pi) < np.abs(diff):
                     diff += 2 * np.pi
-            if type(c) in [TranslationX, TranslationY, TranslationZ, CartesianX, CartesianY, CartesianZ, Distance]:
+            if c.type_class in {
+                slots.CoordinateTypeClasses.Translation,
+                slots.CoordinateTypeClasses.Cartesian,
+                slots.CoordinateTypeClasses.Distance
+            }:
                 factor = 1.
             elif c.isAngular:
                 factor = 180.0 / np.pi
@@ -925,7 +946,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         out_lines = []
         header = "Constraint                         Current      Target       Diff.\n"
         for ic, c in enumerate(self.cPrims):
-            w = c.w if type(c) in [RotationA, RotationB, RotationC] else 1.0
+            w = c.w if c.type_class == slots.CoordinateTypeClasses.Rotation else 1.0
             current = c.value(xyz)/w
             reference = self.cVals[ic]/w
             diff = (current - reference)
@@ -934,7 +955,11 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                     diff -= 2*np.pi
                 if np.abs(diff+2*np.pi) < np.abs(diff):
                     diff += 2*np.pi
-            if type(c) in [TranslationX, TranslationY, TranslationZ, CartesianX, CartesianY, CartesianZ, Distance]:
+            if c.type_class in {
+                slots.CoordinateTypeClasses.Translation,
+                slots.CoordinateTypeClasses.Cartesian,
+                slots.CoordinateTypeClasses.Distance,
+            }:
                 factor = 1.
             elif c.isAngular:
                 factor = 180.0/np.pi
@@ -951,9 +976,13 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         cNames = []
         cVals = []
         for ic, c in enumerate(self.cPrims):
-            w = c.w if type(c) in [RotationA, RotationB, RotationC] else 1.0
+            w = c.w if c.type_class == slots.CoordinateTypeClasses.Rotation else 1.0
             reference = self.cVals[ic]/w
-            if type(c) in [TranslationX, TranslationY, TranslationZ, CartesianX, CartesianY, CartesianZ, Distance]:
+            if c.type_class in {
+                slots.CoordinateTypeClasses.Translation,
+                slots.CoordinateTypeClasses.Cartesian,
+                slots.CoordinateTypeClasses.Distance,
+            }:
                 factor = 1.
             elif c.isAngular:
                 factor = 180.0/np.pi
@@ -961,20 +990,23 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             cVals.append(reference*factor)
         return(cNames, cVals)
 
-    def guess_hessian(self, coords):
+    def guess_hessian(self, coords, bonds=None):
         """
         Build a guess Hessian that roughly follows Schlegel's guidelines.
         """
         xyzs = coords.reshape(-1, 3)
 
         def covalent(a, b):
-            r = np.linalg.norm(xyzs[a]-xyzs[b])
-            rcov = self.atoms[a].covalent_radius + self.atoms[b].covalent_radius
-            return r/rcov < 1.2
+            if bonds is None:
+                r = np.linalg.norm(xyzs[a]-xyzs[b])
+                rcov = self.atoms[a].covalent_radius + self.atoms[b].covalent_radius
+                return r/rcov < 1.2
+            else:
+                return b in bonds.neighbors(a)
 
         Hdiag = []
         for ic in self.Internals:
-            if type(ic) is Distance:
+            if ic.type_class == slots.CoordinateTypeClasses.Distance:
                 # r = np.linalg.norm(xyzs[ic.a]-xyzs[ic.b])
                 # elem1 = min(self.atoms[ic.a].atomic_num, self.atoms[ic.b].atomic_num)
                 # elem2 = max(self.atoms[ic.a].atomic_num, self.atoms[ic.b].atomic_num)
@@ -998,7 +1030,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                     # Hdiag.append(A/(r-B)**3)
                 else:
                     Hdiag.append(0.1)
-            elif type(ic) in [Angle, LinearAngle]:
+            elif ic.type_class == slots.CoordinateTypeClasses.Angle:
                 a = ic.a
                 c = ic.c
                 if min(self.atoms[a].atomic_num,
@@ -1011,12 +1043,12 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                     Hdiag.append(A)
                 else:
                     Hdiag.append(0.1)
-            elif type(ic) in [Dihedral]:
+            elif ic.type_class == slots.CoordinateTypeClasses.Dihedral:
                 # r = np.linalg.norm(xyzs[ic.b]-xyzs[ic.c])
                 # rcov = self.atoms[ic.b].covalent_radius + self.atoms[ic.c].covalent_radius
                 # Hdiag.append(0.1)
                 Hdiag.append(0.023)
-            elif type(ic) is OutOfPlane:
+            elif ic.type_class == slots.CoordinateTypeClasses.OutOfPlane:
                 # r1 = xyzs[ic.b]-xyzs[ic.a]
                 # r2 = xyzs[ic.c]-xyzs[ic.a]
                 # r3 = xyzs[ic.d]-xyzs[ic.a]
@@ -1026,11 +1058,11 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                     Hdiag.append(0.045)
                 else:
                     Hdiag.append(0.023)
-            elif type(ic) in [CartesianX, CartesianY, CartesianZ]:
-                Hdiag.append(0.05)
-            elif type(ic) in [TranslationX, TranslationY, TranslationZ]:
-                Hdiag.append(0.05)
-            elif type(ic) in [RotationA, RotationB, RotationC]:
+            elif ic.type_class in {
+                slots.CoordinateTypeClasses.Cartesian,
+                slots.CoordinateTypeClasses.Translation,
+                slots.CoordinateTypeClasses.Rotation,
+            }:
                 Hdiag.append(0.05)
             else:
                 raise RuntimeError('Failed to build guess Hessian matrix. Make sure all IC types are supported')
@@ -1259,7 +1291,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             sa2, ea2, sp2, ep2 = info2
             for i in other.Internals[sp2:ep2]:
                 # Dont check Cartesians
-                if type(i) not in [CartesianX, CartesianY, CartesianZ]:
+                if i.type_class != slots.CoordinateTypeClasses.Cartesian:
                     if i not in self.Internals[sp1:ep1]:
                         self.logger.log_print("Adding prim {} that is in Other to Internals".format(i))
                         self.append_prim_to_block(i, count)
@@ -1278,7 +1310,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             if prim is not None:
                 driving_coord_prims.append(prim)
         for dc in driving_coord_prims:
-            if type(dc) != Distance:  # Already handled in topology
+            if dc.type_class != slots.CoordinateTypeClasses.Distance:  # Already handled in topology
                 if dc not in self.Internals:
                     self.logger.log_print("Adding driving coord prim {} to Internals".format(dc))
                     self.append_prim_to_block(dc)
@@ -1288,22 +1320,22 @@ def get_driving_coord_prim(dc):
     prim = None
     if "ADD" in dc or "BREAK" in dc:
         if dc[1] < dc[2]:
-            prim = Distance(dc[1]-1, dc[2]-1)
+            prim = slots.Distance(dc[1]-1, dc[2]-1)
         else:
-            prim = Distance(dc[2]-1, dc[1]-1)
+            prim = slots.Distance(dc[2]-1, dc[1]-1)
     elif "ANGLE" in dc:
         if dc[1] < dc[3]:
-            prim = Angle(dc[1]-1, dc[2]-1, dc[3]-1)
+            prim = slots.Angle(dc[1]-1, dc[2]-1, dc[3]-1)
         else:
-            prim = Angle(dc[3]-1, dc[2]-1, dc[1]-1)
+            prim = slots.Angle(dc[3]-1, dc[2]-1, dc[1]-1)
     elif "TORSION" in dc:
         if dc[1] < dc[4]:
-            prim = Dihedral(dc[1]-1, dc[2]-1, dc[3]-1, dc[4]-1)
+            prim = slots.Dihedral(dc[1]-1, dc[2]-1, dc[3]-1, dc[4]-1)
         else:
-            prim = Dihedral(dc[4]-1, dc[3]-1, dc[2]-1, dc[1]-1)
+            prim = slots.Dihedral(dc[4]-1, dc[3]-1, dc[2]-1, dc[1]-1)
     elif "OOP" in dc:
         # if dc[1]<dc[4]:
-        prim = OutOfPlane(dc[1]-1, dc[2]-1, dc[3]-1, dc[4]-1)
+        prim = slots.OutOfPlane(dc[1]-1, dc[2]-1, dc[3]-1, dc[4]-1)
         # else:
         #    prim = OutOfPlane(dc[4]-1,dc[3]-1,dc[2]-1,dc[1]-1)
     return prim

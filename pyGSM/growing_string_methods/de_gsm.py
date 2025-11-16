@@ -4,14 +4,19 @@ import traceback as tb
 
 # from ..utilities import manage_xyz, nifty
 # from ..molecule import Molecule
-from .main_gsm import MainGSM
+from .gsm import NodeAdditionStrategy
+from .main_gsm import MainGSM, GrowthType
 # from ..utilities import Devutils as dev
 
+__all__ = [
+    "DE_GSM"
+]
 
 class DE_GSM(MainGSM):
+    growth_type = GrowthType.DoubleEnded
 
     # TODO Change rtype to a more meaningful argument name
-    def go_gsm(self, max_iters=50, opt_steps=3, rtype=2):
+    def go_gsm(self, max_iters=50, opt_steps=3, *, rtype=2):
         """
         rtype=2 Find and Climb TS,
         1 Climb with no exact find,
@@ -21,11 +26,11 @@ class DE_GSM(MainGSM):
 
         with self.logger.block(tag="Running GSM"):
             if not self.isRestarted:
-                if self.growth_direction == 0:
+                if self.growth_direction  == NodeAdditionStrategy.Normal:
                     self.add_GSM_nodes(2)
-                elif self.growth_direction == 1:
+                elif self.growth_direction  == NodeAdditionStrategy.Reactant:
                     self.add_GSM_nodeR(1)
-                elif self.growth_direction == 2:
+                elif self.growth_direction  == NodeAdditionStrategy.Product:
                     self.add_GSM_nodeP(1)
 
                 # Grow String
@@ -81,11 +86,11 @@ class DE_GSM(MainGSM):
 
     def set_active(self, nR, nP):
         # print(" Here is active:",self.active)
-        if nR != nP and self.growth_direction == 0:
+        if nR != nP and self.growth_direction  == NodeAdditionStrategy.Normal:
             print((" setting active nodes to %i and %i" % (nR, nP)))
-        elif self.growth_direction == 1:
+        elif self.growth_direction  == NodeAdditionStrategy.Reactant:
             print((" setting active node to %i " % nR))
-        elif self.growth_direction == 2:
+        elif self.growth_direction  == NodeAdditionStrategy.Product:
             print((" setting active node to %i " % nP))
         else:
             print((" setting active node to %i " % nR))
@@ -99,9 +104,9 @@ class DE_GSM(MainGSM):
         self.logger.log_print(" conv_tol of node %d is %.4f" % (nP, self.optimizer[nP].conv_grms))
         self.active[nR] = True
         self.active[nP] = True
-        if self.growth_direction == 1:
+        if self.growth_direction  == NodeAdditionStrategy.Reactant:
             self.active[nP] = False
-        if self.growth_direction == 2:
+        if self.growth_direction  == NodeAdditionStrategy.Product:
             self.active[nR] = False
         # print(" Here is new active:",self.active)
 
@@ -118,14 +123,18 @@ class DE_GSM(MainGSM):
         Grow nodes
         '''
 
-        if self.nodes[self.nR-1].gradrms < self.tolerances['ADD_NODE_TOL'] and self.growth_direction != 2:
+        if self.nodes[self.nR-1].gradrms < self.tolerances['ADD_NODE_TOL'] and self.growth_direction  != NodeAdditionStrategy.Product:
             if self.nodes[self.nR] is None:
                 self.add_GSM_nodeR()
                 print(" getting energy for node %d: %5.4f" % (self.nR-1, self.nodes[self.nR-1].energy - self.nodes[0].V0))
-        if self.nodes[self.nnodes-self.nP].gradrms < self.tolerances['ADD_NODE_TOL'] and self.growth_direction != 1:
+        if self.nodes[self.nnodes-self.nP].gradrms < self.tolerances['ADD_NODE_TOL'] and self.growth_direction  != NodeAdditionStrategy.Reactant:
             if self.nodes[-self.nP-1] is None:
                 self.add_GSM_nodeP()
-                print(" getting energy for node %d: %5.4f" % (self.nnodes-self.nP, self.nodes[-self.nP].energy - self.nodes[0].V0))
+                self.logger.log_print(
+                    " getting energy for node {node_num}: {E:5.4f}",
+                    node_num=self.nnodes-self.nP,
+                    E=self.nodes[-self.nP].energy - self.nodes[0].V0
+                )
         return
 
     def make_tan_list(self):
@@ -186,7 +195,7 @@ class DE_GSM(MainGSM):
 
         # TODO should be actual gradient
         self.nodes[0].gradrms = 0.
-        if self.growth_direction != 1:
+        if self.growth_direction  != NodeAdditionStrategy.Reactant:
             self.nodes[-1].gradrms = 0.
             print(" Energy of the end points are %4.3f, %4.3f" % (self.nodes[0].energy, self.nodes[-1].energy))
             print(" relative E %4.3f, %4.3f" % (0.0, self.nodes[-1].energy-self.nodes[0].energy))

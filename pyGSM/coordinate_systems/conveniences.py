@@ -1,5 +1,6 @@
+import enum
 
-from .internal_coordinates import InternalCoordinates
+from .internal_coordinates import InternalCoordinates, get_coordinate_type_name
 from .cartesian import CartesianCoordinates
 from .primitive_internals import PrimitiveInternalCoordinates
 from .delocalized_coordinates import DelocalizedInternalCoordinates
@@ -9,8 +10,25 @@ from .topology import guess_bonds
 
 __all__ = [
     "construct_internal",
-    "construct_coordinate_system"
+    "construct_coordinate_system",
+    "get_coordinate_system_type",
+    "is_cartesian",
+    "is_dlc",
+    "InternalCoordinateTypes"
 ]
+
+class InternalCoordinateTypes(enum.Enum):
+    Delocalized = "delocalized"
+    Primitive = "primitive"
+    Cartesian = "cartesian"
+def get_coordinate_system_type(system):
+    return InternalCoordinateTypes(get_coordinate_type_name(system))
+def is_cartesian(system):
+    return get_coordinate_system_type(system) == InternalCoordinateTypes.Cartesian
+def is_dlc(system):
+    return get_coordinate_system_type(system) == InternalCoordinateTypes.Delocalized
+def is_prim(system):
+    return get_coordinate_system_type(system) == InternalCoordinateTypes.Primitive
 
 def infer_spec(coord_data):
     if len(coord_data) == 2:

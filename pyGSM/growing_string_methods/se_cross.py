@@ -1,7 +1,6 @@
 from __future__ import print_function
 import numpy as np
 
-from ..potential_energy_surfaces import Avg_PES, PES, Penalty_PES
 from .se_gsm import SE_GSM
 from ..molecule import Molecule
 from ..utilities import nifty
@@ -10,7 +9,7 @@ from ..utilities import nifty
 
 class SE_Cross(SE_GSM):
 
-    def go_gsm(self, max_iters=50, opt_steps=3, rtype=0):
+    def go_gsm(self, max_iters=50, opt_steps=3, *, rtype=0):
         """rtype=0 MECI search
            rtype=1 MESX search
         """

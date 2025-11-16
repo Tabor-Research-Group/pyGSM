@@ -47,6 +47,7 @@ class CartesianCoordinates(InternalCoordinates):
     def guess_hessian(self, xyz):
         return 0.5*np.eye(len(xyz.flatten()))
 
+
     def calcGrad(self, xyz, gradx, frozen_atoms=None):
         #TODO: handle freezing
         return gradx
@@ -56,6 +57,9 @@ class CartesianCoordinates(InternalCoordinates):
     
     def calculate(self,coords):
         return coords
+
+    def calcDiff(self, xyz2, xyz1):
+        raise NotImplementedError("shouldn't hit this code path for Cartesian coordinates")
 
     def derivatives(self, xyz):
         raise NotImplementedError("shouldn't hit this code path for Cartesian coordinates")

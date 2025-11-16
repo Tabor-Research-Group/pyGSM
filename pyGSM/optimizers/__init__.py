@@ -3,3 +3,4 @@ from .eigenvector_follow import eigenvector_follow
 from .lbfgs import lbfgs
 from ._linesearch import backtrack,NoLineSearch
 from .beales_cg import beales_cg
+from .conveniences import construct_optimizer

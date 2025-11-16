@@ -1,4 +1,4 @@
-from .internal_coordinates import InternalCoordinates
+from .internal_coordinates import InternalCoordinates, register_coordinate_system, get_coordinate_type_name
 from .delocalized_coordinates import DelocalizedInternalCoordinates
 from .primitive_internals import PrimitiveInternalCoordinates
 from .cartesian import CartesianCoordinates

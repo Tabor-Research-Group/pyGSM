@@ -16,15 +16,15 @@ import pprint
 import tempfile as tf
 
 __all__ = [
-    "GeometryTests"
+    "GSMTests"
 ]
 
 def test_data(filename):
     return os.path.join(root, "tests", "data", filename)
 
-class GeometryTests(unittest.TestCase):
+class GSMTests(unittest.TestCase):
 
-    # @unittest.skip
+    @unittest.skip
     def test_ConstructMolecules(self):
         from pyGSM.molecule import Molecule
         from pyGSM.coordinate_systems import construct_coordinate_system
@@ -45,6 +45,13 @@ class GeometryTests(unittest.TestCase):
             energy_evaluator="ase",
             energy_evaluator_options={'calculator':'aimnet2ase'},
             coordinate_type='TRIC'
+        )
+
+    def test_DEGSM(cls):
+        from pyGSM.gsm_runner import GSMRunner
+
+        GSMRunner.run_simple(
+            xyzfile=test_data('diels_alder.xyz')
         )
 
 if __name__ == '__main__':

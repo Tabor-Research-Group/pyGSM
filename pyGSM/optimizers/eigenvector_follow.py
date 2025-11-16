@@ -10,11 +10,139 @@ import numpy as np
 
 # local application imports
 from ._linesearch import NoLineSearch
-from .base_optimizer import base_optimizer
+from .hessian_update_optimizers import hessian_update_optimizer
 from ..utilities import units, block_matrix, manage_xyz
+from .. import coordinate_systems as coordops
 
 
-class eigenvector_follow(base_optimizer):
+class eigenvector_follow(hessian_update_optimizer):
+
+    def eigenvector_step(self, molecule, g):
+
+        SCALE = self.SCALEQN
+        if molecule.newHess > 0:
+            SCALE = SCALE*molecule.newHess
+        if self.SCALEQN > 10.0: # ? just SCALEQN, what about SCALE?
+            SCALE = 10.0
+
+        self.logger.log_print("new_hess {scaling}", scaling=molecule.newHess, log_level=self.logger.LogLevel.Debug)
+        self.logger.log_print("constraints {constraints}", constraints=molecule.constraints.T,
+                              log_level=self.logger.LogLevel.Debug)
+
+        P = np.eye(len(molecule.constraints), dtype=float)
+        for c in molecule.constraints.T:
+            P -= np.outer(c[:, np.newaxis], c[:, np.newaxis].T)
+        self.Hessian = np.dot(np.dot(P, molecule.Hessian), P)
+
+        e, v_temp = np.linalg.eigh(self.Hessian)
+        gqe = np.dot(v_temp.T, g)
+        lambda1 = self.set_lambda1('NOT-TS', e)
+
+        self.logger.log_print([
+            "eigenvalues {e}",
+            "eigenvectors {v}",
+            "g {g}"
+            "gqe {gqe}",
+            ],
+            e=e,
+            v=v_temp,
+            g=g.T,
+            gqe=gqe.T,
+            log_level=self.logger.LogLevel.Debug)
+
+        dqe0 = -gqe.flatten()/(e+lambda1)/SCALE
+        dqe0 = [np.sign(i)*self.MAXAD if abs(i) > self.MAXAD else i for i in dqe0]
+        dqe0 = np.asarray(dqe0)
+
+        # => Convert step back to DLC basis <= #
+        dq = np.dot(v_temp, dqe0)
+        dq = [np.sign(i)*self.MAXAD if abs(i) > self.MAXAD else i for i in dq]
+        dq = np.asarray(dq)
+
+        dq = np.reshape(dq, (-1, 1))
+        for c in molecule.constraints.T:
+            dq -= np.dot(c[:, np.newaxis].T, dq)*c[:, np.newaxis]
+
+        # print("check overlap")
+        # print(np.dot(dq.T,molecule.constraints))
+        self.logger.log_print("dq {dq}", dq=dq.T, log_level=self.logger.LogLevel.Debug)
+        return np.reshape(dq, (-1, 1))
+
+    # need to modify this only for the DLC region
+    def TS_eigenvector_step(self, molecule, g, ictan):
+        '''
+        Takes an eigenvector step using the Bofill updated Hessian ~1 negative eigenvalue in the
+        direction of the reaction path.
+
+        '''
+        SCALE = self.SCALEQN
+        if molecule.newHess > 0:
+            SCALE = self.SCALEQN*molecule.newHess
+        if self.SCALEQN > 10.0:
+            SCALE = 10.0
+
+        # constraint vector
+        norm = np.linalg.norm(ictan)
+        C = ictan/norm
+        Vecs = molecule.coord_basis
+        Cn = block_matrix.dot(block_matrix.dot(Vecs, block_matrix.transpose(Vecs)), C)
+        norm = np.linalg.norm(Cn)
+        Cn = Cn/norm
+
+        # => get eigensolution of Hessian <=
+        self.Hessian = molecule.Hessian.copy()
+        eigen, tmph = np.linalg.eigh(self.Hessian)  # nicd,nicd
+        tmph = tmph.T
+
+        # TODO nneg should be self and checked
+        self.nneg = sum(1 for e in eigen if e < -0.01)
+
+        # => Overlap metric <= #
+        overlap = np.dot(block_matrix.dot(tmph, block_matrix.transpose(Vecs)), Cn)
+
+        print(" overlap", overlap[:4].T)
+        print(" nneg", self.nneg)
+        # Max overlap metrics
+        path_overlap, maxoln = self.maxol_w_Hess(overlap[0:4])
+        print(" t/ol %i: %3.2f" % (maxoln, path_overlap))
+
+        # => set lamda1 scale factor <=#
+        lambda1 = self.set_lambda1('TS', eigen, maxoln)
+
+        self.maxol_good = True
+        if path_overlap < self.HESS_TANG_TOL_TS:
+            self.maxol_good = False
+
+        if self.maxol_good:
+            # => grad in eigenvector basis <= #
+            gqe = np.dot(tmph, g)
+            path_overlap_e_g = gqe[maxoln]
+            print(' gtse: {:1.4f} '.format(path_overlap_e_g[0]))
+            # save gtse in memory ...
+            self.gtse = abs(path_overlap_e_g[0])
+            # => calculate eigenvector step <=#
+            dqe0 = np.zeros((molecule.num_coordinates, 1))
+            for i in range(molecule.num_coordinates):
+                if i != maxoln:
+                    dqe0[i] = -gqe[i] / (abs(eigen[i])+lambda1) / SCALE
+            lambda0 = 0.0025
+            dqe0[maxoln] = gqe[maxoln] / (abs(eigen[maxoln]) + lambda0)/SCALE
+
+            # => Convert step back to DLC basis <= #
+            dq = np.dot(tmph.T, dqe0)  # should it be transposed?
+            dq = [np.sign(i)*self.MAXAD if abs(i) > self.MAXAD else i for i in dq]
+            dq = np.asarray(dq)
+
+            dq = np.reshape(dq, (-1, 1))
+        else:
+            # => if overlap is small use Cn as Constraint <= #
+            molecule.update_coordinate_basis(ictan)
+            g = molecule.gradient
+            print(molecule.constraints.T)
+            molecule.form_Hessian_in_basis()
+            dq = self.eigenvector_step(molecule, g)
+
+        return dq
 
     def optimize(
             self,
@@ -25,7 +153,7 @@ class eigenvector_follow(base_optimizer):
             ictan=None,
             xyzframerate=4,
             verbose=False,
-            path=os.getcwd(),
+            path=None
     ):
 
         # stash/initialize some useful attributes
@@ -74,7 +202,7 @@ class eigenvector_follow(base_optimizer):
             self.opt_cross = True
 
         # TODO are these used? -- n is used for gradrms,linesearch
-        if molecule.coord_obj.__class__.__name__ == 'CartesianCoordinates':
+        if coord_ops.is_cartesian(molecule.coord_obj):
             n = molecule.num_coordinates
         else:
             n_actual = molecule.num_coordinates
@@ -99,7 +227,7 @@ class eigenvector_follow(base_optimizer):
             update_hess = True
 
             # => Form eigenvector step <= #
-            if molecule.coord_obj.__class__.__name__ == 'CartesianCoordinates':
+            if coord_ops.is_cartesian(molecule.coord_obj):
                 raise NotImplementedError
             else:
                 if opt_type != 'TS':
@@ -126,7 +254,7 @@ class eigenvector_follow(base_optimizer):
             xyzp = xyz.copy()
             fxp = fx
             pgradrms = molecule.gradrms
-            if not molecule.coord_obj.__class__.__name__ == 'CartesianCoordinates':
+            if not coord_ops.is_cartesian(molecule.coord_obj):
                 # xp_prim = self.x_prim.copy()
                 gp_prim = self.g_prim.copy()
 
@@ -154,11 +282,11 @@ class eigenvector_follow(base_optimizer):
                 # return ls['status']
 
             if ls['step'] > self.DMAX:
-                if ls['step'] <= self.options['abs_max_step']:  # absolute max
+                if ls['step'] <= self.max_step:  # absolute max
                     print(" Increasing DMAX to {}".format(ls['step']))
                     self.DMAX = ls['step']
                 else:
-                    self.DMAX = self.options['abs_max_step']
+                    self.DMAX = self.max_step
             elif ls['step'] < self.DMAX:
                 if ls['step'] >= self.DMIN:     # absolute min
                     print(" Decreasing DMAX to {}".format(ls['step']))
@@ -200,7 +328,7 @@ class eigenvector_follow(base_optimizer):
                 manage_xyz.write_xyzs_w_comments('{}/opt_{}.xyz'.format(path, molecule.node_id), geoms, energies, scale=1.)
 
             # save variables for update Hessian!
-            if not molecule.coord_obj.__class__.__name__ == 'CartesianCoordinates':
+            if not coord_ops.is_cartesian(molecule.coord_obj):
                 # only form g_prim for non-constrained
                 self.g_prim = block_matrix.dot(molecule.coord_basis, gc)
                 self.dx = x-xp
@@ -214,9 +342,21 @@ class eigenvector_follow(base_optimizer):
             else:
                 raise NotImplementedError(" ef not implemented for CART")
 
-            if self.options['print_level'] > 0:
-                print(" Node: %d Opt step: %d E: %5.4f predE: %5.4f ratio: %1.3f gradrms: %1.5f ss: %1.3f DMAX: %1.3f" % (molecule.node_id, ostep+1, fx-refE, dEpre, ratio, molecule.gradrms, step, self.DMAX))
-            self.buf.write(u' Node: %d Opt step: %d E: %5.4f predE: %5.4f ratio: %1.3f gradrms: %1.5f ss: %1.3f DMAX: %1.3f\n' % (molecule.node_id, ostep+1, fx-refE, dEpre, ratio, molecule.gradrms, step, self.DMAX))
+            log_str = (
+                " Node: {node_id} Opt step: {step} E: {E:5.4f} predE: {predE:5.4f} ratio: {ratio:1.3f}"
+                " gradrms: {gradrms:1.5f} ss: {step_size:1.3f} DMAX: {DMAX:1.3f}"
+            ).format(
+                node_id=molecule.node_id,
+                step=ostep+1,
+                E=fx-refE,
+                predE=dEpre,
+                ratio=ratio,
+                gradrms=molecule.gradrms,
+                step_size=step,
+                DMAX=self.DMAX
+            )
+            self.logger.log_print(log_str)
+            self.buf.write(log_str)
 
             # check for convergence TODO
             fx = molecule.energy
@@ -261,7 +401,7 @@ class eigenvector_follow(base_optimizer):
                 break
 
             # update DLC  --> this changes q, g, Hint
-            if not molecule.coord_obj.__class__.__name__ == 'CartesianCoordinates':
+            if not coord_ops.is_cartesian(molecule.coord_obj):
                 if opt_type != 'TS':
                     constraints = self.get_constraint_vectors(molecule, opt_type, ictan)
                     molecule.update_coordinate_basis(constraints=constraints)

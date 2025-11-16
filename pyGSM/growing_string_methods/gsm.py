@@ -6,8 +6,8 @@ import enum
 from ..coordinate_systems import Distance, Angle, Dihedral, OutOfPlane
 from .. import utilities as util #import nifty, options, block_matrix
 from ..utilities import manage_xyz, Devutils as dev
-from pyGSM.molecule import Molecule
-import tempfile
+from ..molecule import Molecule
+from ..optimizers import base_optimizer, construct_optimizer
 
 # third party
 import numpy as np
@@ -22,18 +22,21 @@ def worker(arg):
    return getattr(obj, methname)(*arg[2:])
 
 
-#######################################################################################
-#### This class contains the main constructor, object properties and staticmethods ####
-#######################################################################################
+__all__ = [
+    "NodeAdditionStrategy",
+    "ReparametrizationMethod",
+    "GSM"
+]
 
 
 # TODO interpolate is still sloppy. It shouldn't create a new molecule node itself
 # but should create the xyz. GSM should create the new molecule based off that xyz.
 # TODO nconstraints in ic_reparam and write_iters is irrelevant
 
-class GrowthDirectionType(enum.Enum):
+class NodeAdditionStrategy(enum.Enum):
      Normal = 0
      Reactant = 1
+     Product = 2
 
 class ReparametrizationMethod(enum.Enum):
     Geodesic = "Geodesic"
@@ -224,12 +227,13 @@ class GSM(metaclass=abc.ABCMeta):
     def __init__(
             self,
             *,
-            optimizer,
+            optimizers,
             driving_coords=None,
             reactant=None,
             product=None,
             nodes:'list[Molecule]'=None,
             nnodes=None,
+            fixed_nodes=None,
             scratch_dir=None,
             growth_direction=0,
             tolerances=None,
@@ -249,21 +253,26 @@ class GSM(metaclass=abc.ABCMeta):
             nodes = [None]*nnodes
             nodes[0] = reactant
             nodes[-1] = product
-        self.nodes = nodes
+        elif (
+            reactant is not None
+            or product is not None
+        ):
+            raise ValueError("explicit node list passed, `reactant` and `product` will not be used")
+        self.nodes = list(nodes)
+        self.fixed_nodes = self._prep_fixed_nodes(self.nnodes, fixed_nodes)
         self.driving_coords = driving_coords
-        self.growth_direction = GrowthDirectionType(growth_direction)
+        self.growth_direction = NodeAdditionStrategy(growth_direction)
         self.isRestarted = False
         if tolerances is None:
             tolerances = {}
         self.tolerances = dict(self.get_default_tolerances(), **tolerances)
         self.ID = id
-        self.optimizer = []
+        self.optimizer = self._initialize_optimizers(self.nodes, optimizers)
         self.interp_method = ReparametrizationMethod(interp_method)
         self.noise = noise
         self.mp_cores = mp_cores
         self.xyz_writer = xyz_writer
         self.logger = dev.Logger.lookup(logger)
-        self.optimizer = optimizer
 
         # Set initial values
         self.current_nnodes = len([x for x in self.nodes if x is not None])
@@ -298,7 +307,58 @@ class GSM(metaclass=abc.ABCMeta):
         self.pot_min = []
         self.ran_out = False   # if it ran out of iterations
 
-        self.newic = Molecule.copy_from_options(self.nodes[0])  # newic object is used for coordinate transformations
+        self.newic = self.nodes[0].copy()  # newic object is used for coordinate transformations
+
+    @classmethod
+    def _initialize_optimizers(cls, nodes, base_optimizers):
+        if isinstance(base_optimizers, (dict, str, base_optimizer)):
+            base_optimizers = [base_optimizer for _ in nodes]
+        return [
+            construct_optimizer(b) for b in base_optimizers
+        ]
+
+    @classmethod
+    def _prep_fixed_nodes(cls, nnodes, fixed_nodes):
+        if fixed_nodes is None:
+            return None
+        else:
+            return {
+                nnodes + i if i < 0 else i
+                for i in fixed_nodes
+            }
+
+    def preoptimize(self):
+        for prep_node in [
+            0, # reactant
+            self.nnodes - 1 # product
+        ]:
+            if self.fixed_nodes is None or prep_node not in self.fixed_nodes:
+                self.nodes[prep_node] = self.nodes[prep_node].optimize()
+
+        # if not cfg['reactant_geom_fixed']:
+        #     path = os.path.join(os.getcwd(), 'scratch/{:03}/{}/'.format(cfg["ID"], 0))
+        #     nifty.printcool("REACTANT GEOMETRY NOT FIXED!!! OPTIMIZING")
+        #     print(reactant.geometry)
+        #     optimizer.optimize(
+        #         molecule=reactant,
+        #         refE=reactant.energy,
+        #         opt_steps=1000,
+        #         path=path
+        #     )
+
+        # if self.fixed_nodes is None or self.nnodes-1 not in self.fixed_nodes:
+        #     self.nodes[0].optimize()
+        #
+        # if not cfg['product_geom_fixed'] and cfg.mode == 'DE_GSM':
+        #     path = os.path.join(os.getcwd(), 'scratch/{:03}/{}/'.format(cfg["ID"], cfg["num_nodes"] - 1))
+        #     nifty.printcool("PRODUCT GEOMETRY NOT FIXED!!! OPTIMIZING")
+        #     print('product geometry:\n', product.geometry)
+        #     optimizer.optimize(
+        #         molecule=product,
+        #         refE=product.energy,
+        #         opt_steps=1000,
+        #         path=path
+        #     )
 
     @property
     def reactant(self):

@@ -4,12 +4,13 @@ from io import StringIO
 
 # third party
 import numpy as np
-from scipy.optimize.lbfgsb import LbfgsInvHessProduct
+from scipy.optimize import LbfgsInvHessProduct
 
 # local application imports
 from ._linesearch import backtrack, NoLineSearch
 from .base_optimizer import base_optimizer
 from ..utilities import manage_xyz, block_matrix, units
+from .. import coordinate_systems as coordops
 
 
 class iterationData:
@@ -39,7 +40,7 @@ class lbfgs(base_optimizer):
             ictan=None,
             xyzframerate=4,
             verbose=False,
-            path=os.getcwd(),
+            path=None,
     ):
 
         # stash/initialize some useful attributes
@@ -318,7 +319,7 @@ class lbfgs(base_optimizer):
             # print " ########## DONE WITH TOTAL STEP #########"
 
             # update DLC  --> this changes q, g, Hint
-            if not molecule.coord_obj.__class__.__name__ == 'CartesianCoordinates':
+            if not coord_ops.is_cartesian(molecule.coord_obj):
                 if opt_type == 'SEAM' or opt_type == "MECI":
                     constraints = self.get_constraint_vectors(molecule, opt_type, ictan)
                     molecule.update_coordinate_basis(constraints=constraints)

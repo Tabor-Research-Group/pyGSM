@@ -91,6 +91,21 @@ class ASELoT(LoT):
             calculator_kwargs = {}
         return cls(calc_class(**calculator_kwargs), **kwargs)
 
+    @classmethod
+    def read_constraints_file(cls, constraints_file):
+        with open(constraints_file) as f:
+            tmp = filter(None, (line.rstrip() for line in f))
+            lines = []
+            for line in tmp:
+                lines.append(line)
+        constraints = []
+        for line in lines:
+            idx1 = int(line.split()[0])
+            idx2 = int(line.split()[1])
+            value = float(line.split()[2])
+            constraints.append([idx1, idx2, value])
+        return constraints
+
     def run(self, coords, mult, ad_idx, *, runtypes):
         # run ASE
         atoms = Atoms(numbers=self.numbers, positions=coords)

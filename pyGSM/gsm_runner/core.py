@@ -1,170 +1,116 @@
-from aimnet2calc import AIMNet2ASE
-import argparse
-import importlib
-import json
 import os
-import textwrap
 import numpy as np
 import glob
-from pyGSM.gsm_runner.gsm_config import GSMConfig
+import dataclasses
 
+from ..coordinate_systems import (
+    DelocalizedInternalCoordinates, Distance, PrimitiveInternalCoordinates, construct_coordinate_system
+)
+from ..level_of_theories import construct_lot
+from ..optimizers import construct_optimizer
+from ..utilities import manage_xyz, nifty, Devutils as dev
+from ..molecule import Molecule
 
-from pyGSM.coordinate_systems import DelocalizedInternalCoordinates, Distance, PrimitiveInternalCoordinates, Topology
-from pyGSM.growing_string_methods import DE_GSM, SE_Cross, SE_GSM
-from pyGSM.level_of_theories.ase import ASELoT
-from pyGSM.level_of_theories.xtb_lot import xTB_lot
-from pyGSM.optimizers import beales_cg, conjugate_gradient, eigenvector_follow, lbfgs
-from pyGSM.potential_energy_surfaces import Avg_PES, PES, Penalty_PES
-from pyGSM.utilities import elements, manage_xyz, nifty
-from pyGSM.utilities.manage_xyz import XYZ_WRITERS
-from pyGSM.molecule import Molecule
-from pyGSM.utilities.cli_utils import get_driving_coord_prim, plot
+from .gsm_config import GSMConfig
 
-
-def _initializing(cfg: GSMConfig):
-
-    # XYZ
-    if cfg["restart_file"]:
-        geoms = manage_xyz.read_molden_geoms(cfg["restart_file"])
+def load_structures(cfg: GSMConfig):
+    mol_opts = cfg.molecule_settings
+    geoms = mol_opts.coords
+    restart_file = cfg.runner_settings.restart_file
+    if geoms is not None:
+        if restart_file is not None: raise ValueError("can't have explicit coords and a `restart_file`")
+        atoms = mol_opts.atoms
+        if mol_opts.atoms is None: raise ValueError("can't have coords without atoms")
     else:
-        geoms = manage_xyz.read_xyzs(cfg['xyzfile'])
+        if mol_opts.xyzfile is not None:
+            if restart_file is not None: raise ValueError("can't have an `xyzfile` and a `restart_file`")
+            raw_geoms = manage_xyz.read_xyzs(mol_opts.xyzfile)
+        elif restart_file is not None:
+            raw_geoms = manage_xyz.read_molden_geoms(restart_file)
+        else:
+            raise ValueError("no `coords`, `xyzfile`, or `restart_file` provided")
+        atoms = manage_xyz.get_atoms(raw_geoms[0])
+        geoms = np.array([manage_xyz.xyz_to_np(g) for g in raw_geoms])
+    return atoms, geoms
 
-    # LOT
-    nifty.printcool("Build the {} level of theory (LOT) object".format(cfg['EST_Package']))
-    lot = create_lot(cfg, geoms[0])
-
-    nifty.printcool("Building the {} objects".format(cfg['PES_type']))
-    pes = choose_pes(lot, cfg)
-
-    return geoms, lot, pes
-
-def create_lot(cfg: GSMConfig, geom):
-    # decision making
-    #cfg['states'] = [(int(m), int(s)) for m, s in zip(cfg["multiplicity"], cfg["adiabatic_index"])]     # doing this with GSMConfig __postinit__
-    do_coupling = cfg['PES_type'] == "Avg_PES"
-    coupling_states = cfg['states'] if cfg['PES_type'] == "Avg_PES" else []
+def create_lot(cfg: GSMConfig, mol):
+    lot_opts = cfg.evaluator_settings
 
     # common options for LoTs
     lot_options = dict(
-        ID=cfg['ID'],
-        lot_inp_file=cfg['lot_inp_file'],
-        states=cfg['states'],
-        gradient_states=cfg['states'],
-        coupling_states=coupling_states,
-        geom=geom,
-        nproc=cfg["nproc"],
-        charge=cfg["charge"],
-        do_coupling=do_coupling,
+        atoms=mol.atoms,
+        xyz=mol.xyz,
+        lot_inp_file=lot_opts.lot_inp_file,
+        states=lot_opts.states,
+        gradient_states=lot_opts.gradient_states,
+        coupling_states=lot_opts.coupling_states,
+        nproc=lot_opts.nproc,
+        charge=mol.charge,
+        lot_options=lot_opts.lot_options
     )
 
     # actual LoT choice
-    lot_name = cfg["EST_Package"]
-    if lot_name.lower() == "ase":
+    return construct_lot(lot_opts.EST_Package, **lot_options)
 
-        # de-serialise the JSON argument given
-        # ase_kwargs = dict(json.loads(cfg.get("ase_kwargs", "{}")))
-        calc = AIMNet2ASE('aimnet2',charge=0)
-        if cfg['constraints_file'] != None:
-            constraints = read_constraints_file(cfg['constraints_file'])
-        else:
-            constraints = [[None]]
-        return ASELoT.from_options(calc, constraints, **lot_options)
+def load_optimizer(cfg: GSMConfig):
+    opt_settings = dataclasses.asdict(cfg.optimizer_settings)
+    only_climb = cfg.gsm_settings.only_climb
+    name = opt_settings.pop('optimizer')
+    if only_climb:
+        opt_settings['update_hess_in_bg'] = False
 
-    if lot_name == "xTB_lot":
-        # raise NotImplementedError("xTB_lot has been disabled temporarily.")
-        return xTB_lot.from_options(
-            xTB_Hamiltonian=cfg['xTB_Hamiltonian'],
-            xTB_accuracy=cfg['xTB_accuracy'],
-            xTB_electronic_temperature=cfg['xTB_electronic_temperature'],
-            solvent=cfg['solvent'],
-            **lot_options,
+    return construct_optimizer(name, **opt_settings)
+
+def construct_mols(cfg:GSMConfig, *, atoms, coords, evaluator):
+    coords = np.asarray(coords)
+    smol = coords.ndim == 2
+    if smol: coords = coords[np.newaxis]
+    mol_opts = dataclasses.asdict(cfg.molecule_settings)
+    coord_opts = dataclasses.asdict(cfg.coordinate_system_settings)
+    mol_opts = {
+        # structures have been preloaded, we _might_ need to keep this up to date with gsm_config.py
+        k:mol_opts[k] for k in mol_opts.keys() - {
+            "atoms",
+            "coords",
+            "xyzfile"
+    }}
+    mols = [
+        Molecule.from_xyz(
+            atoms,
+            xyz,
+            energy_evaluator=evaluator,
+            **mol_opts,
+            **coord_opts
         )
-    else:
-        est_package = importlib.import_module("pyGSM.level_of_theories." + lot_name.lower())
-        lot_class = getattr(est_package, lot_name)
-        return lot_class.from_options(**lot_options)
+        for xyz in coords
+    ]
+    if smol:
+        mols = mols[0]
+    return mols
 
-def choose_pes(lot, cfg: GSMConfig):
-    if cfg['PES_type'] == 'PES':
-        pes = PES.from_options(
-            lot=lot,
-            ad_idx=cfg['adiabatic_index'][0],
-            multiplicity=cfg['multiplicity'][0],
-            # FORCE=cfg['FORCE'],
-            # RESTRAINTS=cfg['RESTRAINTS'],
-        )
-    else:
-        pes1 = PES.from_options(
-            lot=lot, multiplicity=cfg['states'][0][0],
-            ad_idx=cfg['states'][0][1],
-            # FORCE=cfg['FORCE'],
-            # RESTRAINTS=cfg['RESTRAINTS'],
-        )
-        pes2 = PES.from_options(
-            lot=lot,
-            multiplicity=cfg['states'][1][0],
-            ad_idx=cfg['states'][1][1],
-            # FORCE=cfg['FORCE'],
-            # RESTRAINTS=cfg['RESTRAINTS'],
-        )
-        if cfg['PES_type'] == "Avg_PES":
-            pes = Avg_PES(PES1=pes1, PES2=pes2, lot=lot)
-        elif cfg['PES_type'] == "Penalty_PES":
-            pes = Penalty_PES(PES1=pes1, PES2=pes2, lot=lot, sigma=cfg['sigma'])
-        else:
-            raise NotImplementedError
-
-    return pes
-
-
-def choose_optimizer(cfg: GSMConfig):
-    update_hess_in_bg = True
-    if cfg["only_climb"] or cfg['optimizer'] == "lbfgs":
-        update_hess_in_bg = False
-
-    # choose the class
-    if cfg['optimizer'] == "conjugate_gradient":
-        opt_class = conjugate_gradient
-    elif cfg['optimizer'] == "eigenvector_follow":
-        opt_class = eigenvector_follow
-    elif cfg['optimizer'] == "lbfgs":
-        opt_class = lbfgs
-    elif cfg['optimizer'] == "beales_cg":
-        opt_class = beales_cg
-    else:
-        raise NotImplementedError(f"Optimizer `{cfg['optimizer']}` not implemented")
-
-    optimizer = opt_class.from_options(
-        print_level=cfg['opt_print_level'],
-        Linesearch=cfg['linesearch'],
-        update_hess_in_bg=update_hess_in_bg,
-        conv_Ediff=cfg['conv_Ediff'],
-        conv_dE=cfg['conv_dE'],
-        conv_gmax=cfg['conv_gmax'],
-        DMAX=cfg['DMAX'],
-        # opt_climb=True if cfg["only_climb"] else False,
-    )
-
-    return optimizer
-
-def setup_topologies(cfg: GSMConfig, geoms = None, pes = None):
+def setup_topologies(cfg: GSMConfig, **mol_args):
     '''
     Returns (reactant: Molecule, product: Molecule, driving_coordinates: list)
     if SE_GSM: returns (reactant, None, driving_coordinates)    
     if DE_GSM, returns (reactant, product, None)
     '''
-    if geoms is None or pes is None:
-        geoms, lot, pes = _initializing(cfg)
 
-    nifty.printcool("Building the reactant object with {}".format(cfg['coordinate_type']))
+    coord_settings = cfg.coordinate_system_settings
+    mols = construct_mols(cfg, **mol_args)
+    print(mols)
+
+    raise Exception(...)
+
+
+    reactant = Molecule.from_xyz()
+    nifty.printcool("Building the reactant object with {}".format(coord_settings.coordinate_type))
+
+    mol_1 = Molecule
     Form_Hessian = True if cfg['optimizer'] == 'eigenvector_follow' else False
 
     # Build the topology
     nifty.printcool("Building the topology")
-    atom_symbols = manage_xyz.get_atoms(geoms[0])
-    ELEMENT_TABLE = elements.ElementData()
-    atoms = [ELEMENT_TABLE.from_symbol(atom) for atom in atom_symbols]
-    xyz1 = manage_xyz.xyz_to_np(geoms[0])
+    xyz1 = coords[0]
     top1 = Topology.build_topology(
         xyz1,
         atoms,
@@ -196,7 +142,7 @@ def setup_topologies(cfg: GSMConfig, geoms = None, pes = None):
                 else:
                     top1.add_edge(bond[1], bond[0])
 
-    if cfg['mode'] == 'SE_GSM' or cfg['mode'] == 'SE_Cross':  
+    if cfg['mode'] == 'SE_GSM' or cfg['mode'] == 'SE_Cross':
         driving_coordinates = read_isomers_file(cfg['isomers_file'])
 
         driving_coord_prims = []
@@ -263,7 +209,7 @@ def setup_topologies(cfg: GSMConfig, geoms = None, pes = None):
                 if dc not in p1.Internals:
                     print("Adding driving coord prim {} to Internals".format(dc))
                     p1.append_prim_to_block(dc)
-                    
+
     nifty.printcool("Building Delocalized Internal Coordinates")
     coord_obj1 = DelocalizedInternalCoordinates.from_options(
         xyz=xyz1,
@@ -388,20 +334,6 @@ def read_isomers_file(isomers_file):
 
     nifty.printcool("driving coordinates {}".format(driving_coordinates))
     return driving_coordinates
-
-def read_constraints_file(constraints_file):
-    with open(constraints_file) as f:
-        tmp = filter(None, (line.rstrip() for line in f))
-        lines = []
-        for line in tmp:
-            lines.append(line)
-    constraints = []
-    for line in lines:
-        idx1 = int(line.split()[0])
-        idx2 = int(line.split()[1])
-        value = float(line.split()[2])
-        constraints.append([idx1, idx2, value])
-    return constraints
 
 
 def cleanup_scratch(ID):

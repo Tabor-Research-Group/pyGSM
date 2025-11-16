@@ -9,6 +9,7 @@ import numpy as np
 # local application imports
 from .base_optimizer import base_optimizer
 from ..utilities import units
+from .. import coordinate_systems as coord_ops
 
 
 class conjugate_gradient(base_optimizer):
@@ -39,7 +40,7 @@ class conjugate_gradient(base_optimizer):
         # xyz = np.copy(molecule.xyz)
 
         # number of coordinates
-        if molecule.coord_obj.__class__.__name__ == 'CartesianCoordinates':
+        if coord_ops.is_cartesian(molecule.coord_obj):
             n = molecule.num_coordinates
         else:
             n_actual = molecule.num_coordinates
@@ -83,8 +84,8 @@ class conjugate_gradient(base_optimizer):
             actual_step = np.linalg.norm(d)
             print(" actual_step= %1.2f" % actual_step)
             d = d/actual_step  # normalize
-            if actual_step > self.options['DMAX']:
-                step = self.options['DMAX']
+            if actual_step > self.DMAX:
+                step = self.DMAX
                 print(" reducing step, new step = %1.2f" % step)
             else:
                 step = actual_step
@@ -119,13 +120,13 @@ class conjugate_gradient(base_optimizer):
 
             # control step size
             if step < p_step:
-                self.options['DMAX'] /= 2.
+                self.DMAX /= 2.
             elif step > p_step:
-                self.options['DMAX'] *= 2.
-            if self.options['DMAX'] < 0.01:
-                self.options['DMAX'] = 0.01
-            elif self.options['DMAX'] > 0.25:
-                self.options['DMAX'] = 0.25
+                self.DMAX *= 2.
+            if self.DMAX < 0.01:
+                self.DMAX = 0.01
+            elif self.DMAX > 0.25:
+                self.DMAX = 0.25
 
             # dE
             dEstep = fx - fxp
@@ -136,9 +137,9 @@ class conjugate_gradient(base_optimizer):
             geoms.append(molecule.geometry)
             energies.append(molecule.energy-refE)
 
-            if self.options['print_level'] > 0:
-                print(" Opt step: %d E: %5.4f gradrms: %1.5f ss: %1.3f DMAX: %1.3f" % (ostep+1, fx-refE, molecule.gradrms, step, self.options['DMAX']))
-            self.buf.write(u' Opt step: %d E: %5.4f gradrms: %1.5f ss: %1.3f DMAX: %1.3f\n' % (ostep+1, fx-refE, molecule.gradrms, step, self.options['DMAX']))
+            log_str = " Opt step: %d E: %5.4f gradrms: %1.5f ss: %1.3f DMAX: %1.3f" % (ostep+1, fx-refE, molecule.gradrms, step, self.DMAX)
+            self.logger.log_print(log_str)
+            self.buf.write(log_str)
 
             # gmax = np.max(g)/units.ANGSTROM_TO_AU/KCAL_MOL_PER_AU
             # print "current gradrms= %r au" % gradrms
@@ -164,7 +165,7 @@ class conjugate_gradient(base_optimizer):
             #    break
 
             # update DLC  --> this changes q, g, Hint
-            if not molecule.coord_obj.__class__.__name__ == 'CartesianCoordinates':
+            if not coord_ops.is_cartesian(molecule.coord_obj):
                 constraints = self.get_constraint_vectors(molecule, opt_type, ictan)
                 molecule.update_coordinate_basis(constraints=constraints)
                 x = np.copy(molecule.coordinates)

@@ -13,49 +13,6 @@ from .base_lot import LoT
 
 
 class xTB_lot(LoT):
-    _default_options = None
-    @classmethod
-    def default_options(cls):
-        if cls._default_options is not None:
-            return cls._default_options.copy()
-
-        opt = super().default_options()
-
-        opt.add_option(
-                key='xTB_Hamiltonian',
-                value='GFN2-xTB',
-                required=False,
-                allowed_types=[str],
-                doc='xTB hamiltonian'
-                )
-
-        opt.add_option(
-                key='xTB_accuracy',
-                value=1.0,
-                required=False,
-                allowed_types=[float],
-                doc='xTB accuracy'
-                )
-
-        opt.add_option(
-                key='xTB_electronic_temperature',
-                value=300,
-                required=False,
-                allowed_types=[float],
-                doc='xTB electronic_temperature'
-                )
-
-        opt.add_option(
-            key='solvent',
-            value=None,
-            required=False,
-            allowed_types=[str],
-            doc='xTB solvent'
-        )
-
-        cls._default_options = opt
-        return cls._default_options.copy()
-
     def __init__(self,
                  *,
                  xTB_Hamiltonian='GFN2-xTB',

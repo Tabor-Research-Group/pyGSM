@@ -1,24 +1,21 @@
 from __future__ import print_function
 
-
-# local application imports
-import sys
-import os
-from os import path
-sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
-
-from coordinate_systems import Distance, Angle, Dihedral, OutOfPlane
-from .main_gsm import MainGSM
-from molecule import Molecule
-from utilities import nifty
+from ..coordinate_systems import Distance, Angle, Dihedral, OutOfPlane
+from .main_gsm import MainGSM, GrowthType
+from ..molecule import Molecule
+from ..utilities import nifty
 # standard library imports
 
 # third party
 from collections import Counter
 import numpy as np
 
+__all__ = [
+    "SE_GSM"
+]
 
 class SE_GSM(MainGSM):
+    growth_type = GrowthType.SingleEnded
 
     def __init__(
             self,
@@ -96,7 +93,7 @@ class SE_GSM(MainGSM):
         self.nodes[0].coord_obj.Prims.reorderPrimitives()
         self.nodes[0].update_coordinate_basis()
 
-    def go_gsm(self, max_iters=50, opt_steps=10, rtype=2):
+    def go_gsm(self, max_iters=50, opt_steps=10, *, rtype=2):
         """
         rtype=2 Find and Climb TS,
         1 Climb with no exact find,

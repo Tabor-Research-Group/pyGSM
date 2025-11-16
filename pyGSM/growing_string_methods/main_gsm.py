@@ -1,10 +1,11 @@
 from __future__ import print_function
 
 import abc
+import enum
 
 import numpy as np
 import os
-from .gsm import GSM
+from .gsm import GSM, NodeAdditionStrategy
 
 # from molecule.molecule import Molecule
 # from utilities.nifty import printcool
@@ -22,13 +23,24 @@ def worker(arg):
     obj, methname = arg[:2]
     return getattr(obj, methname)(*arg[2:])
 
+__all__ = [
+    "GrowthType",
+    "TSOptimizationStrategy",
+    "MainGSM"
+]
 
-#######################################################################################
-############### This class contains the main GSM functions  ###########################
-#######################################################################################
+class GrowthType(enum.Enum):
+    DoubleEnded = "DE_GSM"
+    SingleEnded = "SE_GSM"
 
+class TSOptimizationStrategy(enum.Enum):
+    NoClimb = 0
+    Climb = 1
+    Exact = 2
 
 class MainGSM(GSM):
+    growth_type:GrowthType
+
     @abc.abstractmethod
     def make_difference_node_list(self):
         ...
@@ -108,12 +120,14 @@ class MainGSM(GSM):
 
             # create newic object
             print(" creating newic molecule--used for ic_reparam")
-            self.newic = Molecule.copy_from_options(self.nodes[0])
+            self.newic = self.nodes[0].copy()
 
             # TODO should something be done for growthdirection 2?
-            if self.growth_direction == 1:
+            if self.growth_direction == NodeAdditionStrategy.Reactant:
                 print("Setting LOT of last node")
-                self.nodes[-1] = Molecule.copy_from_options(
+                new_mol = self.nodes[-2].copy()
+                self.nodes[-1] = new_mol
+                Molecule.copy_from_options(
                     MoleculeA=self.nodes[-2],
                     xyz=self.nodes[-1].xyz,
                     new_node_id=self.nnodes-1
@@ -378,7 +392,7 @@ class MainGSM(GSM):
                     path=path,
                 )
 
-        if self.__class__.__name__ == "SE-GSM" and self.done_growing:
+        if self.done_growing and self.growth_type == GrowthType.SingleEnded:
             fp = self.find_peaks('opting')
             if self.energies[self.nnodes-1] > self.energies[self.nnodes-2] and fp > 0 and self.nodes[self.nnodes-1].gradrms > self.CONV_TOL:
                 printcool('Last node is not a minimum, Might need to verify that the last node is a minimum')
@@ -1145,7 +1159,7 @@ class MainGSM(GSM):
         '''
 
         printcool("Restarting GSM from geometries")
-        self.growth_direction = 0
+        self.growth_direction = NodeAdditionStrategy.Normal
         nstructs = len(input_geoms)
 
         if nstructs != self.nnodes:
@@ -1230,7 +1244,6 @@ class MainGSM(GSM):
 
         self.nodes = new_node_list
         self.optimizer = new_optimizers
-        self.nnodes = len(self.nodes)
         print(' New number of nodes %d' % self.nnodes)
         self.active = [True] * self.nnodes
         self.active[0] = False

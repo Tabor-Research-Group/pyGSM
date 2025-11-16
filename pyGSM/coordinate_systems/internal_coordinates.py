@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import abc
+import enum
 # standard library imports
 import time
 
@@ -14,44 +15,26 @@ ELEMENT_TABLE = elements.ElementData()
 
 CacheWarning = False
 
+__all__ = [
+    "InternalCoordinates",
+    "get_coordinate_type_name",
+    "register_coordinate_system"
+]
+
+coordinate_type_registry = {}
+def get_coordinate_type_name(system):
+    for base_type, name in coordinate_type_registry:
+        if isinstance(system, base_type):
+            return name
+    else:
+        return None
+def register_coordinate_system(name):
+    def decorate(cls):
+        coordinate_type_registry[name] = cls
+        return cls
+    return decorate
+
 class InternalCoordinates(metaclass=abc.ABCMeta):
-
-    _default_options = None
-    @classmethod
-    def default_options(cls):
-        if cls._default_options is not None:
-            return cls._default_options.copy()
-
-        opt = options.Options()
-
-        opt.add_option(
-            key="xyz",
-            required=True,
-            doc='cartesian coordinates in angstrom'
-        )
-
-        opt.add_option(
-            key='atoms',
-            required=True,
-            # allowed_types=[],
-            doc='atom element named tuples/dictionary must be of type list[elements].'
-        )
-
-        opt.add_option(
-            key='print_level',
-            value=1,
-            required=False,
-            allowed_types=[int],
-            doc='0-- no printing, 1-- printing')
-
-        opt.add_option(
-            key='logger',
-            value=True,
-            required=False,
-            doc='whether or not to use a logger (or an explicit `Logger` object or filepath)')
-
-        cls._default_options = opt
-        return cls._default_options.copy()
 
     def __init__(self, atoms, xyz, logger=None):
         self.atoms = atoms
@@ -59,10 +42,13 @@ class InternalCoordinates(metaclass=abc.ABCMeta):
         self.stored_wilsonB = OrderedDict()
         self.logger = dev.Logger.lookup(logger)
 
-    @classmethod
-    def construct(cls, **opts):
-        full_dict = cls.default_options().update(opts)
-        return cls(**full_dict)
+    @abc.abstractmethod
+    def calcDiff(self, xyz2, xyz1):
+        ...
+
+    @abc.abstractmethod
+    def guess_hess(self):
+        ...
 
     @abc.abstractmethod
     def derivatives(self, xyz):
@@ -77,11 +63,11 @@ class InternalCoordinates(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def addConstraint(self, cPrim, cVal, xyz):
-        raise NotImplementedError("Constraints not supported with Cartesian coordinates")
+        ...
 
     @abc.abstractmethod
     def haveConstraints(self):
-        raise NotImplementedError("Constraints not supported with Cartesian coordinates")
+        ...
 
     def clearCache(self):
         self.stored_wilsonB = OrderedDict()
