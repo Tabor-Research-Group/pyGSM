@@ -26,7 +26,9 @@ class Molecule:
                  logger=None,
                  energy=None,
                  gradient=None,
+                 primitive_gradient=None,
                  derivative_coupling=None,
+                 primitive_coupling=None,
                  energy_evaluator=None,
                  hessian=None,
                  primitive_hessian=None,
@@ -34,24 +36,25 @@ class Molecule:
                  ):
 
         self.coord_obj = coord_obj
-        atoms = np.asarray(coord_obj.atoms)
+        self.using_dlcs = coord_ops.is_dlc(self.coord_obj)
+        atoms = coord_obj.atoms
+        if isinstance(atoms[0], str):
+            atoms = [ELEMENT_TABLE.from_symbol(atom) for atom in atoms]
         self.charge = charge
 
         self.logger = dev.Logger.lookup(logger)
-        if not np.issubdtype(atoms.dtype, np.str_):
-            raise ValueError(f"list of atom strings required, got {atoms}")
-
         if self.xyz.shape[-1] != 3 or len(atoms) != self.xyz.shape[-2]:
             raise ValueError(f"expected `xyz` to be {len(atoms)}x3, got {self.xyz.shape}")
 
         # create a dictionary from atoms
         # atoms contain info you need to know about the atoms
-        self.atoms = [ELEMENT_TABLE.from_symbol(atom) for atom in atoms]
+        self.atoms = atoms
         self.frozen_atoms = frozen_atoms
 
-        if energy_evaluator_options is None:
-            energy_evaluator_options = {}
-        if energy_evaluator is not None:
+        if energy_evaluator is not None and not hasattr(energy_evaluator, 'get_gradient'):
+            # just gonna duck type this, all we need really
+            if energy_evaluator_options is None:
+                energy_evaluator_options = {}
             energy_evaluator = construct_lot(energy_evaluator, atoms=self.atoms, **energy_evaluator_options)
         self.evaluator = energy_evaluator
 
@@ -67,7 +70,47 @@ class Molecule:
         self._primitive_hessian = primitive_hessian
         self._energy = energy
         self._gradient = gradient
+        self._primitive_gradient = primitive_gradient
         self._derivative_coupling = derivative_coupling
+        self._primitive_coupling = primitive_coupling
+
+    def get_state_dict(self):
+        return dict(
+            coord_obj=self.coord_obj,
+            charge=self.charge,
+            energy_evaluator=self.evaluator,
+            comment=self.comment,
+            frozen_atoms=self.frozen_atoms,
+            logger=self.logger,
+            energy=self._energy,
+            gradient=self._gradient,
+            primitive_gradient=self._primitive_gradient,
+            derivative_coupling=self._derivative_coupling,
+            primitive_coupling=self._primitive_coupling,
+            hessian=self._hessian,
+            primitive_hessian=self._primitive_hessian
+        )
+    def modify(self, coord_obj=dev.default, energy_evaluator=dev.default, **changes):
+        new_state = dict(self.get_state_dict(), **changes)
+        no_cache = False
+        if not dev.is_default(coord_obj, allow_None=False):
+            no_cache = True
+            new_state['coord_obj'] = coord_obj
+        if not dev.is_default(energy_evaluator, allow_None=False):
+            no_cache = True
+            new_state['energy_evaluator'] = energy_evaluator
+        new =  type(self)(**new_state)
+        if no_cache:
+            new.invalidate_cache()
+        return new
+    def copy(self):
+        return self.modify()
+    def modify_coordinate_system(self, **changes):
+        return self.modify(
+            coord_obj=self.coord_obj.modify(**changes)
+        )
+    def attach_evaluator(self, evaluator):
+        return self.modify(energy_evaluator=evaluator)
 
     # @classmethod
     # def construct(cls, coord_sys, **opts):
@@ -83,18 +126,20 @@ class Molecule:
                  internals=None,
                  coordinate_type=None,
                  coordinate_system_options=None,
+                 logger=None,
                  **opts):
         if coordinate_system_options is None:
             coordinate_system_options = {}
+        logger = dev.Logger.lookup(logger)
         coord_sys = coord_ops.construct_coordinate_system(atoms, xyz,
                                                           bonds=bonds,
                                                           primitives=primitives,
                                                           internals=internals,
                                                           coordinate_type=coordinate_type,
+                                                          logger=logger,
                                                           **coordinate_system_options
                                                           )
-
-        return cls(coord_sys, **opts)
+        return cls(coord_sys, logger=logger, **opts)
 
     @classmethod
     def from_file(cls, filename, **opts):
@@ -217,9 +262,9 @@ class Molecule:
         xyz1 -= com
         return np.sum(self.atomic_mass[i]*np.dot(x, x) for i, x in enumerate(xyz1))/M
 
-    @property
-    def geometry(self):
-        return manage_xyz.combine_atom_xyz(self.atom_symbols, self.xyz)
+    # @property
+    # def geometry(self):
+    #     return manage_xyz.combine_atom_xyz(self.atom_symbols, self.xyz)
 
     @property
     def atom_symbols(self):
@@ -231,28 +276,37 @@ class Molecule:
 
     @property
     def energy(self):
-        return self.evaluator.get_energy(self.xyz)
-        #return 0.
+        if self._energy is None:
+            self._energy = self.evaluator.get_energy(self.xyz)
+        return self._energy
 
     @property
     def gradx(self):
-        return np.reshape(self.PES.get_gradient(self.xyz, frozen_atoms=self.frozen_atoms), (-1, 3))
+        if self._primitive_gradient is None:
+            self._primitive_gradient = self.evaluator.get_gradient(self.xyz, frozen_atoms=self.frozen_atoms)
+        return np.reshape(self._primitive_gradient, (-1, 3))
 
     @property
     def gradient(self):
-        gradx = self.PES.get_gradient(self.xyz, frozen_atoms=self.frozen_atoms)
+        if self._gradient is None:
+            self._gradient = self.coord_obj.calcGrad(self.xyz, self.gradx.flatten())
+        return self._gradient
+        gradx = self.evaluator.get_gradient(self.xyz, frozen_atoms=self.frozen_atoms)
         return self.coord_obj.calcGrad(self.xyz, gradx)  # CartesianCoordinate just returns gradx
 
     # for PES seams
-    @property
-    def avg_gradient(self):
-        gradx = self.PES.get_avg_gradient(self.xyz, frozen_atoms=self.frozen_atoms)
-        return self.coord_obj.calcGrad(self.xyz, gradx)  # CartesianCoordinate just returns gradx
+    # @property
+    # def avg_gradient(self):
+    #     gradx = self.PES.get_avg_gradient(self.xyz, frozen_atoms=self.frozen_atoms)
+    #     return self.coord_obj.calcGrad(self.xyz, gradx)  # CartesianCoordinate just returns gradx
 
     @property
     def derivative_coupling(self):
-        dvecx = self.PES.get_coupling(self.xyz, frozen_atoms=self.frozen_atoms)
-        return self.coord_obj.calcGrad(self.xyz, dvecx)
+        if self._derivative_coupling is None:
+            if self._primitive_coupling is None:
+                self._primitive_coupling = self.evaluator.get_coupling(self.xyz, frozen_atoms=self.frozen_atoms)
+            self._derivative_coupling = self.coord_obj.calcGrad(self.xyz, self._primitive_coupling)
+        return self._derivative_coupling
 
     @property
     def difference_gradient(self):
@@ -280,7 +334,10 @@ class Molecule:
         self._primitive_hessian = prim
 
     def form_Primitive_Hessian(self):
-        prim = self.coord_obj.Prims.guess_hessian(self.xyz)
+        if coord_ops.is_dlc(self.coord_obj):
+            prim = self.coord_obj.Prims.guess_hessian(self.xyz)
+        else:
+            prim = self.coord_obj.guess_hessian(self.xyz)
         return prim
 
     def update_Primitive_Hessian(self, change=None):
@@ -303,6 +360,15 @@ class Molecule:
         # print " forming Hessian in current basis"
         return block_matrix.dot(block_matrix.dot(block_matrix.transpose(self.coord_basis), self._primitive_hessian), self.coord_basis)
 
+    def invalidate_cache(self):
+        self._energy = None
+        self._gradient = None
+        self._primitive_gradient = None
+        self._primitive_hessian = None
+        self._hessian = None
+        self._coupling = None
+        self._primitive_coupling = None
+
     @property
     def xyz(self):
         return self.coord_obj.xyz
@@ -311,10 +377,7 @@ class Molecule:
         if newxyz is not None:
             #TODO: check whether or not I should actually invalidate the cache
             self.coord_obj.xyz = newxyz
-            self._energy = None
-            self._gradient = None
-            self._primitive_hessian = None
-            self._hessian = None
+            self.invalidate_cache()
 
     @property
     def bond_graph(self):
@@ -328,7 +391,6 @@ class Molecule:
             return 0
 
     def update_xyz(self, dq=None, verbose=True):
-        #print " updating xyz"
         if dq is not None:
             self.xyz = self.coord_obj.newCartesian(self.xyz, dq, frozen_atoms=self.frozen_atoms, verbose=verbose)
         return self.xyz
@@ -344,7 +406,10 @@ class Molecule:
 
     @property
     def primitive_internal_coordinates(self):
-        return self.coord_obj.Prims.Internals
+        if self.using_dlcs:
+            return self.coord_obj.Prims.Internals
+        else:
+            raise ValueError(f"coord_obj {self.coord_obj} has not primitive internals")
 
     @property
     def num_primitives(self):

@@ -23,7 +23,7 @@ class SE_GSM(MainGSM):
     default_max_opt_steps = 3
 
     @classmethod
-    def preadjust_nodes(cls, nodes, evaluator, optimizer, driving_coords):
+    def preadjust_nodes(cls, nodes, evaluator, driving_coords):
         if isinstance(driving_coords, str) or hasattr(driving_coords, 'read'):
             driving_coords = cls.read_isomers_file(driving_coords)
 
@@ -48,7 +48,6 @@ class SE_GSM(MainGSM):
         )
 
         nodes = cls.add_evaluator_to_nodes(nodes, evaluator)
-        nodes = cls.add_optimizer_to_nodes(nodes, optimizer)
 
         return nodes
 

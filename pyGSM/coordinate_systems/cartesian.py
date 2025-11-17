@@ -1,8 +1,9 @@
 import numpy as np
-from .internal_coordinates import InternalCoordinates
+from .internal_coordinates import InternalCoordinates, register_coordinate_system
 from .primitive_internals import PrimitiveInternalCoordinates
 from .slots import *
 
+@register_coordinate_system("cartesian")
 class CartesianCoordinates(InternalCoordinates):
     """
     Cartesian coordinate system, written as a kind of internal coordinate class.  

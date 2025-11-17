@@ -24,7 +24,7 @@ __all__ = [
 
 coordinate_type_registry = {}
 def get_coordinate_type_name(system):
-    for base_type, name in coordinate_type_registry:
+    for name, base_type in coordinate_type_registry.items():
         if isinstance(system, base_type):
             return name
     else:
@@ -44,6 +44,22 @@ class InternalCoordinates(metaclass=abc.ABCMeta):
         self._topology = None
         self.stored_wilsonB = OrderedDict()
         self.logger = dev.Logger.lookup(logger)
+
+    def get_state_dict(self):
+        return dict(
+            atoms=self.atoms,
+            xyz=self.xyz,
+            bonds=(
+                self._input_topology
+                    if self._topology is None else
+                self._topology
+            ),
+            logger=self.logger
+        )
+    def modify(self, **changes):
+        return type(self)(
+            **dict(self.get_state_dict(), **changes)
+        )
 
     @property
     def topology(self):

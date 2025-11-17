@@ -38,7 +38,7 @@ def load_structures(cfg: GSMConfig):
         geoms = np.array([manage_xyz.xyz_to_np(g) for g in raw_geoms])
     return atoms, geoms
 
-def construct_mols(cfg:GSMConfig, *, atoms, coords):
+def construct_mols(cfg:GSMConfig, *, atoms, coords, logger=None):
     coords = np.asarray(coords)
     smol = coords.ndim == 2
     if smol: coords = coords[np.newaxis]
@@ -60,6 +60,7 @@ def construct_mols(cfg:GSMConfig, *, atoms, coords):
             atoms,
             xyz,
             coordinate_system_options=coord_opts,
+            logger=logger,
             **mol_opts,
             **cs_base_opts,
         )
@@ -69,36 +70,37 @@ def construct_mols(cfg:GSMConfig, *, atoms, coords):
         mols = mols[0]
     return mols
 
-def load_mols(cfg):
+def load_mols(cfg, *, logger=None):
     #TODO: add in support for a `trajectory_file` argument
     #      that can store charges and other potentially relevant information
     atoms, geoms = load_structures(cfg)
-    return construct_mols(cfg, atoms=atoms, coords=geoms)
+    return construct_mols(cfg, atoms=atoms, coords=geoms, logger=logger)
 
-def construct_lot(cfg: GSMConfig, mol):
+def construct_lot(cfg: GSMConfig, mol, *, logger=None):
     lot_opts = dataclasses.asdict(cfg.evaluator_settings)
 
     package = lot_opts.pop('EST_Package')
     # common options for LoTs
     lot_options = dict(lot_opts,
-        atoms=mol.atoms,
-        # xyz=mol.xyz,
-        charge=mol.charge,
-    )
+                       atoms=mol.atoms,
+                       # xyz=mol.xyz,
+                       charge=mol.charge,
+                       logger=logger
+                       )
 
     # actual LoT choice
     return _construct_lot(package, **lot_options)
 
-def construct_optimizer(cfg: GSMConfig):
+def construct_optimizer(cfg: GSMConfig, *, logger=None):
     opt_settings = dataclasses.asdict(cfg.optimizer_settings)
     only_climb = cfg.runner_settings.only_climb # I think this is in the wrong spot...
     name = opt_settings.pop('optimizer')
     if only_climb:
         opt_settings['update_hess_in_bg'] = False
 
-    return _construct_optimizer(name, **opt_settings)
+    return _construct_optimizer(name, logger=logger, **opt_settings)
 
-def construct_gsm(cfg:GSMConfig, *, mols, evaluator, optimizer):
+def construct_gsm(cfg:GSMConfig, *, mols, evaluator, optimizer, logger=None):
     gsm_opts = dataclasses.asdict(cfg.gsm_settings)
     for o in ['reactant_geom_fixed', 'product_geom_fixed']:
         gsm_opts.pop(o)
@@ -115,6 +117,7 @@ def construct_gsm(cfg:GSMConfig, *, mols, evaluator, optimizer):
         restart_options=dataclasses.asdict(cfg.restart_settings),
         tolerances=dataclasses.asdict(cfg.tolerance_settings),
         driving_coords=driving_coords,
+        logger=logger,
         **gsm_opts
     )
 

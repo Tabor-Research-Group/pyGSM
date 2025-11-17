@@ -21,7 +21,7 @@ class GSMRunner:
                  *,
                  max_gsm_iters:int,
                  max_opt_steps:int=None,
-                 rtype:GSM.TSOptimizationStrategy=None,
+                 rtype:int|GSM.TSOptimizationStrategy=None,
                  scratch_dir=None):
         self.gsm = gsm
         self.scratch_dir = scratch_dir
@@ -33,6 +33,7 @@ class GSMRunner:
 
     @classmethod
     def from_config(cls, cfg: GSMConfig):
+        logger = dev.Logger.lookup(cfg.runner_settings.logger)
         run_opts = cfg.runner_settings
         eval_settings = cfg.evaluator_settings
         gsm_opts = cfg.gsm_settings
@@ -40,21 +41,21 @@ class GSMRunner:
 
         # nifty.printcool_dictionary(cfg.to_dict(), title="GSM Configuration")
 
-        mols = core.load_mols(cfg) #TODO: allow direct loading of mols
-        optimizer = core.construct_optimizer(cfg)
-        evaluator = core.construct_lot(cfg, mols[0])
+        mols = core.load_mols(cfg, logger=logger) #TODO: allow direct loading of mols
+        optimizer = core.construct_optimizer(cfg, logger=logger)
+        evaluator = core.construct_lot(cfg, mols[0], logger=logger)
 
-        gsm = core.construct_gsm(cfg, mols=mols, evaluator=evaluator, optimizer=optimizer)
-
-        if cfg['restart_file'] is not None:
-            gsm.setup_from_geometries(geoms, reparametrize=cfg['reparametrize'],
-                                      start_climb_immediately=cfg['start_climb_immediately'])
+        gsm = core.construct_gsm(cfg,
+                                 mols=mols,
+                                 evaluator=evaluator,
+                                 optimizer=optimizer,
+                                 logger=logger)
 
         return cls(
             gsm,
             max_gsm_iters=run_opts.max_gsm_iters,
             max_opt_steps=run_opts.max_opt_steps,
-            rtype=gsm_opts.rtype,
+            rtype=run_opts.rtype,
             scratch_dir=run_opts.scratch_dir
         )
 

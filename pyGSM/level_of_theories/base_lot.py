@@ -8,7 +8,7 @@ import numpy as np
 import tempfile as tmp
 
 # local application imports
-from ..utilities import manage_xyz, options, elements, nifty, units
+from ..utilities import manage_xyz, elements, units, Devutils as dev
 from .file_options import File_Options
 
 ELEMENT_TABLE = elements.ElementData()
@@ -35,10 +35,12 @@ class LoT(metaclass=abc.ABCMeta):
                  calc_grad=None,
                  do_coupling=None,
                  atoms=None,
-                 numbers=None
+                 numbers=None,
+                 logger=None
                  ):
         """ Constructor """
         # self.options = options
+        self.logger = dev.Logger.lookup(logger)
 
         if states is None: states = self.default_states
         self.charge = charge
@@ -157,7 +159,7 @@ class LoT(metaclass=abc.ABCMeta):
     def coupling_obj(self, cup):
         return Coupling(cup, self.energy_units + "/" + self.distance_units)
 
-    def runall(self, coords, *, ID, node_id, runtype="energy"):
+    def runall(self, coords, *, runtype="energy"):
         results = {}
         if isinstance(runtype, str):
             runtype = [runtype]
@@ -169,10 +171,14 @@ class LoT(metaclass=abc.ABCMeta):
             if state in self.coupling_states:
                 runtypes.add('coupling')
             results[(mult, ad_idx)] = self.run(coords, mult, ad_idx, runtypes=runtypes)
-        return LoTResults(ID, node_id, results,
+        return LoTResults(results,
                           energy_units=self.energy_units,
                           distance_units=self.distance_units,
                           )
+    def get_energy(self, coords):
+        return self.runall(coords, runtype={"energy"})
+    def get_gradient(self, coords):
+        return self.runall(coords, runtype={"energy", "gradient"})
 
     def search_PES_tuple(self, tups, multiplicity, state):
         '''returns tuple in list of tuples that matches multiplicity and state'''
@@ -213,27 +219,8 @@ class LoT(metaclass=abc.ABCMeta):
         return
 
 class LoTResults:
-    default_id_format = "{:03}"
-    default_node_id_format = "{:03}"
-    def __init__(self,
-                 result_data,
-                 *,
-                 scratch_dir="scratch",
-                 ID=None,
-                 node_id=None,
-                 id_format=None,
-                 node_id_format=None,
-                 ):
+    def __init__(self, result_data):
         self.results = result_data
-        self.scratch_dir = scratch_dir
-        self.ID = ID
-        if id_format is None:
-            id_format = self.default_id_format
-        self.id_format = id_format
-        self.node_id = node_id
-        if node_id_format is None:
-            node_id_format = self.default_node_id_format
-        self.node_id_format = node_id_format
 
     def list_energies(self):
         if Energy.unit == "Hartree":

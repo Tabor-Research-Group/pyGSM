@@ -56,7 +56,7 @@ class GSM(metaclass=abc.ABCMeta):
 
     @classmethod
     @abc.abstractmethod
-    def preadjust_nodes(cls, nodes, evaluator, optimizer, driving_coords):
+    def preadjust_nodes(cls, nodes, evaluator, driving_coords):
         ...
 
     @classmethod
@@ -205,9 +205,8 @@ class GSM(metaclass=abc.ABCMeta):
             or product is not None
         ):
             raise ValueError("explicit node list passed, `reactant` and `product` will not be used")
-        optimizer = self._initialize_optimizers(nodes, optimizer)
-        self.nodes = self.preadjust_nodes(nodes,
-                                          evaluator=evaluator, optimizer=optimizer, driving_coords=driving_coords)
+        self.nodes = self.preadjust_nodes(nodes, evaluator=evaluator, driving_coords=driving_coords)
+        self.optimizer = self._initialize_optimizers(self.nodes, optimizer)
         self.fixed_nodes = self._prep_fixed_nodes(self.num_nodes, fixed_nodes)
 
         self.growth_direction = NodeAdditionStrategy(growth_direction)
@@ -242,7 +241,7 @@ class GSM(metaclass=abc.ABCMeta):
         self.end_early = False
         self.tscontinue = True  # whether to continue with TS opt or not
         self.found_ts = False
-        self.rn3m6 = self._get_num_coords()
+        self.rn3m6 = self._get_num_coords
 
         self.ictan = [None] * self.num_nodes
         self.active = [False] * self.num_nodes

@@ -16,7 +16,7 @@ class DE_GSM(MainGSM):
     default_max_opt_steps = 20
 
     @classmethod
-    def preadjust_nodes(cls, nodes, evaluator, optimizer, driving_coords):
+    def preadjust_nodes(cls, nodes, evaluator, driving_coords):
         # Add bonds to top1 that are present in top2
         # It's not clear if we should form the topology so the bonds
         # are the same since this might affect the Primitives of the xyz1 (slightly)
@@ -35,7 +35,6 @@ class DE_GSM(MainGSM):
         )
 
         nodes = cls.add_evaluator_to_nodes(nodes, evaluator)
-        nodes = cls.add_optimizer_to_nodes(nodes, optimizer)
 
         return nodes
 

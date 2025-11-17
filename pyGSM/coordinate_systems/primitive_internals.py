@@ -13,13 +13,13 @@ from collections import OrderedDict, defaultdict
 from scipy.linalg import block_diag
 
 # local application import
-from .internal_coordinates import InternalCoordinates
+from .internal_coordinates import InternalCoordinates, register_coordinate_system
 from .topology import EdgeGraph, guess_bonds
 from . import slots
 
 CacheWarning = False
 
-
+@register_coordinate_system("primitive")
 class PrimitiveInternalCoordinates(InternalCoordinates):
     Internals: tuple[slots.PrimitiveCoordinate]
 
@@ -241,21 +241,21 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             for cons, cval in zip(constraints, cvals):
                 self.addConstraint(cons, cval, xyz)
 
-    def __repr__(self):
-        lines = ["Internal coordinate system (atoms numbered from 1):"]
-        typedict = OrderedDict()
-        for Internal in self.Internals:
-            lines.append(Internal.__repr__())
-            if str(type(Internal)) not in typedict:
-                typedict[str(type(Internal))] = 1
-            else:
-                typedict[str(type(Internal))] += 1
-        if len(lines) > 200:
-            # Print only summary if too many
-            lines = []
-        for k, v in list(typedict.items()):
-            lines.append("%s : %i" % (k, v))
-        return '\n'.join(lines)
+    # def __repr__(self):
+    #     lines = ["Internal coordinate system (atoms numbered from 1):"]
+    #     typedict = OrderedDict()
+    #     for Internal in self.Internals:
+    #         lines.append(Internal.__repr__())
+    #         if str(type(Internal)) not in typedict:
+    #             typedict[str(type(Internal))] = 1
+    #         else:
+    #             typedict[str(type(Internal))] += 1
+    #     if len(lines) > 200:
+    #         # Print only summary if too many
+    #         lines = []
+    #     for k, v in list(typedict.items()):
+    #         lines.append("%s : %i" % (k, v))
+    #     return '\n'.join(lines)
 
     def __eq__(self, other):
         answer = True
@@ -582,7 +582,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             nodes = frag.L()
             tmp_block_info.append((nodes[0], nodes[-1]+1, frag, 'reg'))
             # TODO can assert blocks are contiguous here
-        logger.log_print(" number of primitive blocks is ", len(fragments))
+        logger.log_print(" number of primitive blocks is {nfrag}", nfrag=len(fragments))
 
         # get hybrid blocks
         for tup in hybrid_idx_start_stop:
@@ -597,7 +597,10 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         tmp_block_info.sort(key=lambda tup: tup[0])
         # print("block info")
         # print(tmp_block_info)
-        logger.log_print(" Done creating block info,\n Now Making Primitives by block")
+        logger.log_print([
+            " Done creating block info",
+            "Now Making Primitives by block"
+        ])
 
         natoms = len(atoms)
         tmp_internals = []
@@ -788,13 +791,16 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             else:
                 prim_only_block_info.append(info2)
 
-        logger.log_print(" Done making primitives")
-        logger.log_print(" Made a total of {} primitives".format(len(Internals)))
-        # print(self.Internals)
-        # print(" block info")
-        # print(self.block_info)
-        logger.log_print(" num blocks ", len(block_info))
-        logger.log_print(" num prim blocks ", len(prim_only_block_info))
+        logger.log_print([
+            " Done making primitives",
+            " Made a total of {nprim} primitives",
+            " num blocks {nblock}",
+            " num prim blocks {nprim_block}"
+            ],
+            nprim=len(Internals),
+            nblock=len(block_info),
+            nprim_block=len(prim_only_block_info)
+        )
         # print(self.prim_only_block_info)
         # if len(newPrims) != len(self.Internals):
         #    #print(np.setdiff1d(self.Internals,newPrims))

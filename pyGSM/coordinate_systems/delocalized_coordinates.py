@@ -70,8 +70,8 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
         super().clearCache()
         self.Prims.clearCache()
 
-    def __repr__(self):
-        return self.Prims.__repr__()
+    # def __repr__(self):
+    #     return self.Prims.__repr__()
 
     def update(self, other):
         return self.Prims.update(other.Prims)

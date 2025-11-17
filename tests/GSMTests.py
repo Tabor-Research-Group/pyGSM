@@ -52,7 +52,8 @@ class GSMTests(unittest.TestCase):
 
         GSMRunner.run_simple(
             xyzfile=test_data('diels_alder.xyz'),
-            EST_Package='dummy'
+            EST_Package='dummy',
+            logger=True
         )
 
 if __name__ == '__main__':
