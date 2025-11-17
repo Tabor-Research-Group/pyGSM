@@ -52,7 +52,7 @@ class GSMTests(unittest.TestCase):
 
         GSMRunner.run_simple(
             xyzfile=test_data('diels_alder.xyz'),
-            EST_Package='dummy',
+            EST_Package='rdkit',
             logger=True
         )
 

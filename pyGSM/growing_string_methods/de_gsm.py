@@ -3,8 +3,8 @@ from __future__ import print_function
 import traceback as tb
 
 from ..molecule import Molecule
-from .gsm import NodeAdditionStrategy
-from .main_gsm import MainGSM, TSOptimizationStrategy
+from .gsm import NodeAdditionStrategy, TSOptimizationStrategy
+from .main_gsm import MainGSM
 # from ..utilities import Devutils as dev
 
 __all__ = [
@@ -171,6 +171,7 @@ class DE_GSM(MainGSM):
                 param_list.append(nlist[2*n])
         return param_list
 
+
     def make_move_list(self):
         ncurrent, nlist = self.make_difference_node_list()
         param_list = []
@@ -178,6 +179,13 @@ class DE_GSM(MainGSM):
             if nlist[2*n+1] not in param_list:
                 param_list.append(nlist[2*n+1])
         return param_list
+
+    def get_tangent_vector_guess(self, nlist, n):
+        # print(" getting tangent [%i ]from between %i %i pointing towards %i" % (nlist[2 * n], nlist[2 * n],
+        #                                                                         nlist[2 * n + 1], nlist[2 * n]))
+        return self.get_tangent_xyz(self.nodes[nlist[2 * n]].xyz,
+                                      self.nodes[nlist[2 * n + 1]].xyz,
+                                      self.nodes[0].primitive_internal_coordinates)
 
     def make_difference_node_list(self):
         '''

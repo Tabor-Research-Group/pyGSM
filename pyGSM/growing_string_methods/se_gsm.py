@@ -5,7 +5,8 @@ from ..coordinate_systems import (
     PrimitiveInternalCoordinates
 )
 from ..coordinate_systems import slots
-from .main_gsm import MainGSM, TSOptimizationStrategy
+from .gsm import TSOptimizationStrategy
+from .main_gsm import MainGSM
 from ..molecule import Molecule
 from ..utilities import nifty
 # standard library imports
@@ -53,9 +54,9 @@ class SE_GSM(MainGSM):
 
     def __init__(
             self,
-            options,
+            **kwargs
     ):
-        super(SE_GSM, self).__init__(options)
+        super().__init__(**kwargs)
         self.current_nnodes = 1
 
         print(" Assuming the isomers are initialized!")
@@ -204,6 +205,15 @@ class SE_GSM(MainGSM):
         self.xyz_writer(filename, self.geometries, self.energies, self.gradrmss, self.dEs)
         print("Finished GSM!")
 
+    def set_new_node_tolerances(self, index):
+        super().set_new_node_tolerances(index)
+
+        ictan, bdist = self.get_tangent(
+            self.nodes[index],
+            None,
+            driving_coords=self.driving_coords,
+        )
+        self.nodes[self.nR].bdist = bdist
     def add_last_node(self, rtype):
         assert rtype == 1 or rtype == 2, "rtype must be 1 or 2"
         noptsteps = 100
@@ -570,7 +580,7 @@ class SE_GSM(MainGSM):
             fp = self.find_peaks('opting')
             if self.energies[self.num_nodes-1] > self.energies[self.num_nodes-2] and fp > 0 and self.nodes[self.num_nodes-1].gradrms > self.CONV_TOL:
                 printcool('Last node is not a minimum, Might need to verify that the last node is a minimum')
-                path = os.path.join(os.getcwd(), 'scratch/{:03d}/{}'.format(self.ID, self.num_nodes-1))
+                # path = os.path.join(os.getcwd(), 'scratch/{:03d}/{}'.format(self.ID, self.num_nodes-1))
                 self.optimizer[self.num_nodes-1].optimize(
                     molecule=self.nodes[self.num_nodes-1],
                     refE=refE,
@@ -579,6 +589,14 @@ class SE_GSM(MainGSM):
                     ictan=None,
                     # path=path
                 )
+
+    def get_tangent_vector_guess(self, nlist, n):
+        ictan0, _ = self.get_tangent(
+            node1=self.nodes[nlist[2 * n]],
+            node2=self.nodes[nlist[2 * n + 1]],
+            driving_coords=self.driving_coords,
+        )
+        return ictan0
 
 if __name__ == '__main__':
     from .qchem import QChem

@@ -424,7 +424,7 @@ class Molecule:
         if self.using_dlcs:
             return self.coord_obj.Prims.Internals
         else:
-            raise ValueError(f"coord_obj {self.coord_obj} has not primitive internals")
+            raise ValueError(f"coord_obj {self.coord_obj} has no primitive internals")
 
     @property
     def num_primitives(self):

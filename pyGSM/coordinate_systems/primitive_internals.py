@@ -148,7 +148,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             #ALEX CHANGE for lines 86-91
             self.get_hybrid_indices(xyz)
             #nifty.click()
-            with self.logger.block(tag="Constructing primitives"):
+            with self.logger.block(tag="Constructing primitives", log_level=self.logger.LogLevel.Debug):
                 internals, self.block_info = self.newMakePrimitives(
                     atoms,
                     xyz,
@@ -575,14 +575,14 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         # coordinates in Angstrom
         coords = xyz.flatten()
 
-        logger.log_print(" Creating block info")
+        logger.log_print(" Creating block info", log_level=logger.LogLevel.Debug)
         tmp_block_info = []
         # get primitive blocks
         for frag in fragments:
             nodes = frag.L()
             tmp_block_info.append((nodes[0], nodes[-1]+1, frag, 'reg'))
             # TODO can assert blocks are contiguous here
-        logger.log_print(" number of primitive blocks is {nfrag}", nfrag=len(fragments))
+        logger.log_print(" number of primitive blocks is {nfrag}", nfrag=len(fragments), log_level=logger.LogLevel.Debug)
 
         # get hybrid blocks
         for tup in hybrid_idx_start_stop:
@@ -600,7 +600,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         logger.log_print([
             " Done creating block info",
             "Now Making Primitives by block"
-        ])
+        ], log_level=logger.LogLevel.Debug)
 
         natoms = len(atoms)
         tmp_internals = []
@@ -799,7 +799,8 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             ],
             nprim=len(Internals),
             nblock=len(block_info),
-            nprim_block=len(prim_only_block_info)
+            nprim_block=len(prim_only_block_info),
+            log_level=logger.LogLevel.Debug
         )
         # print(self.prim_only_block_info)
         # if len(newPrims) != len(self.Internals):

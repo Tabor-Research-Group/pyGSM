@@ -167,6 +167,7 @@ class GSM(metaclass=abc.ABCMeta):
             BDIST_RATIO=0.5
         )
 
+    nodes: list[Molecule] # giving a type hint to pycharm
     def __init__(
             self,
             *,
@@ -205,9 +206,12 @@ class GSM(metaclass=abc.ABCMeta):
             or product is not None
         ):
             raise ValueError("explicit node list passed, `reactant` and `product` will not be used")
+        elif num_nodes is not None and len(nodes) != num_nodes:
+            raise ValueError(f"{num_nodes} requested by {len(nodes)} passed")
         self.nodes = self.preadjust_nodes(nodes, evaluator=evaluator, driving_coords=driving_coords)
         self.optimizer = self._initialize_optimizers(self.nodes, optimizer)
         self.fixed_nodes = self._prep_fixed_nodes(self.num_nodes, fixed_nodes)
+        self.driving_coords = driving_coords
 
         self.growth_direction = NodeAdditionStrategy(growth_direction)
         self.isRestarted = False
@@ -231,6 +235,7 @@ class GSM(metaclass=abc.ABCMeta):
 
         # Set initial values
         self.current_nnodes = len([x for x in self.nodes if x is not None])
+        print(len([x for x in self.nodes if x is not None]), self.num_nodes)
         # TODO: figure this out
         self.nR = 1
         self.nP = 1
@@ -285,6 +290,28 @@ class GSM(metaclass=abc.ABCMeta):
                 nnodes + i if i < 0 else i
                 for i in fixed_nodes
             }
+
+    @property
+    def ADD_NODE_TOL(self):
+        return self.tolerances["ADD_NODE_TOL"]
+    @property
+    def CONV_dE(self):
+        return self.tolerances["CONV_dE"]
+    @property
+    def CONV_Ediff(self):
+        return self.tolerances["CONV_Ediff"]
+    @property
+    def CONV_gmax(self):
+        return self.tolerances["CONV_gmax"]
+    @property
+    def DQMAG_MAX(self):
+        return self.tolerances["DQMAG_MAX"]
+    @property
+    def DQMAG_MIN(self):
+        return self.tolerances["DQMAG_MIN"]
+    @property
+    def BDIST_RATIO(self):
+        return self.tolerances["BDIST_RATIO"]
 
     def preoptimize(self):
         for prep_node in [
@@ -448,6 +475,9 @@ class GSM(metaclass=abc.ABCMeta):
             nodeP,
             stepsize,
             node_id,
+            *,
+            node_idR,
+            node_idP=None,
             driving_coords=None,
             DQMAG_MAX=0.8,
             DQMAG_MIN=0.2,
@@ -491,7 +521,7 @@ class GSM(metaclass=abc.ABCMeta):
             new_node.bdist = bdist
 
         else:
-            ictan, _ = cls.get_tangent(nodeR, nodeP)
+            ictan, _ = cls.get_tangent(nodeR, nodeP, node_id_1=node_idR, node_id_2=node_idP)
             nodeR.update_coordinate_basis(constraints=ictan)
             constraint = nodeR.constraints[:, 0]
             dqmag = np.linalg.norm(ictan)
@@ -588,17 +618,20 @@ class GSM(metaclass=abc.ABCMeta):
         return np.reshape(PMDiff, (-1, 1))
 
     @classmethod
-    def get_tangent(cls, node1, node2, *, driving_coords, logger=None):
+    def get_tangent(cls, node1, node2, *, node_id_1, node_id_2, driving_coords=None, logger=None):
         '''
         Get internal coordinate tangent between two nodes, assumes they have unique IDs
         '''
         logger = dev.Logger.lookup(logger)
 
-        if node2 is not None and node1.node_id != node2.node_id:
+        if node2 is not None:# and node1.node_id != node2.node_id: ## that check is fundamentally a logic error
+            if node_id_1 == node_id_2:
+                raise ValueError(f"can't get tangent between identical nodes ({node_id_1}, {node_id_2})")
+
             logger.log_print(
                 " getting tangent from between {node2} {node1} pointing towards {node2}",
-                node2=node2.node_id,
-                node1=node1.node_id
+                node2=node_id_2,
+                node1=node_id_1
             )
 
             PMDiff = np.zeros(node2.num_primitives)

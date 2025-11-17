@@ -1,15 +1,16 @@
 from __future__ import print_function
 
 import abc
-import enum
 
 import numpy as np
 import os
-from .gsm import GSM, NodeAdditionStrategy, TSOptimizationStrategy
 
-from ..utilities import Devutils as dev
 import multiprocessing as mp
 from itertools import chain
+
+from .gsm import GSM, NodeAdditionStrategy
+from ..utilities import Devutils as dev
+from ..molecule import Molecule
 
 def worker(arg):
     obj, methname = arg[:2]
@@ -137,7 +138,6 @@ class MainGSM(GSM):
 
         if self.only_drive:
             raise NotImplementedError("need to handle plain interpolation")
-        printcool("In opt_iters Cody")
 
         self.nclimb = 0
         self.nhessreset = 10  # are these used??? TODO
@@ -146,153 +146,165 @@ class MainGSM(GSM):
         self.set_finder(rtype)
 
         self.isConverged = False
-        oi = 0
 
         # enter loop
-        while oi < max_iter:
-            printcool("Starting opt iter %i" % oi)
-            if self.climb and not self.find:
-                print(" CLIMBING")
-            elif self.find:
-                print(" TS SEARCHING")
+        self.logger.log_print("performing opts up to {max_iter} iterations", max_iter=max_iter)
+        for oi in range(max_iter):
+            with self.logger.block(tag="Starting opt iter {oi}", oi=oi):
+                if self.climb and not self.find:
+                    self.logger.log_print("CLIMBING")
+                elif self.find:
+                    self.logger.log_print("TS SEARCHING")
 
-            # stash previous TSnode
-            self.pTSnode = self.TSnode
-            self.emaxp = self.emax
-            ts_node_changed = False
+                # stash previous TSnode
+                self.pTSnode = self.TSnode
+                self.emaxp = self.emax
+                ts_node_changed = False
 
-            # store reparam energies
-            print(" V_profile (beginning of iteration): ", end=' ')
-            self.print_energies()
+                # store reparam energies
+                self.logger.log_print(
+                    [
+                    "V_profile (beginning of iteration): {eng_list}"
+                    ],
+                    eng_list=self.energies,
+                    preformatter=lambda *, eng_list, **kw:dict(kw, eng_list=' '.join(f"{e:7.3f}" for e in eng_list))
+                )
 
-            # => Get all tangents 3-way <= #
-            self.get_tangents_opting()
-            self.refresh_coordinates()
-
-            # => do opt steps <= #
-            self.set_node_convergence()
-            self.optimize_iteration(opt_steps)
-
-            print(" V_profile: ", end=' ')
-            self.print_energies()
-
-            # TODO resetting
-            # TODO special SSM criteria if first opt'd node is too high?
-            if self.TSnode == self.num_nodes-2 and (self.climb or self.find):
-                printcool("WARNING\n: TS node shouldn't be second to last node for tangent reasons")
-                self.add_node_after_TS()
-                added = True
-            elif self.TSnode == 1 and (self.climb or self.find):
-                printcool("WARNING\n: TS node shouldn't be first  node for tangent reasons")
-                self.add_node_before_TS()
-                added = True
-            else:
-                added = False
-
-            # => find peaks <= #
-            fp = self.find_peaks('opting')
-
-            ts_cgradq = 0.
-            if not self.find:
-                ts_cgradq = np.linalg.norm(np.dot(self.nodes[self.TSnode].gradient.T, self.nodes[self.TSnode].constraints[:, 0])*self.nodes[self.TSnode].constraints[:, 0])
-                print(" ts_cgradq %5.4f" % ts_cgradq)
-
-            ts_gradrms = self.nodes[self.TSnode].gradrms
-            self.dE_iter = abs(self.emax-self.emaxp)
-            print(" dE_iter ={:2.2f}".format(self.dE_iter))
-
-            # => calculate totalgrad <= #
-            totalgrad, gradrms, sum_gradrms = self.calc_optimization_metrics(self.nodes)
-
-            # Check if allup or alldown
-            energies = np.array(self.energies)
-            if (np.all(energies[1:]+0.5 >= energies[:-1]) or np.all(energies[1:]-0.5 <= energies[:-1])) and (self.climber or self.finder):
-                printcool(" There is no TS, turning off TS search")
-                rtype = 0
-                self.climber = self.finder = self.find = self.climb = False
-                self.CONV_TOL = self.options['CONV_TOL']*5
-
-            # if self.has_intermediate(5) and rtype>0 and (self.climb or self.find):
-            #    printcool(" THERE IS AN INTERMEDIATE, OPTIMIZE THE INTERMEDIATE AND TRY AGAIN")
-            #    self.endearly=True
-            #    isConverged=True
-            #    self.tscontinue=False
-
-            # => Check Convergence <= #
-            self.isConverged = self.is_converged(totalgrad, fp, rtype, ts_cgradq)
-
-            # => set stage <= #
-            stage_changed = self.set_stage(totalgrad, sum_gradrms, ts_cgradq, ts_gradrms, fp)
-
-            if not stage_changed:
-                # Decrement stuff that controls stage
-                if self.climb:
-                    self.nclimb -= 1
-                self.nhessreset -= 1
-                if self.nopt_intermediate > 0:
-                    self.nopt_intermediate -= 1
-
-                if self.pTSnode != self.TSnode and self.climb:
-                    print("TS node changed after opting")
-                    self.climb = False
-                    #self.slow_down_climb()
-                    ts_node_changed = True
-                    self.pTSnode = self.TSnode
-
-                # opt decided Hess is not good because of overlap
-                if self.find and (not self.optimizer[self.TSnode].maxol_good or added):
-                    self.ictan, self.dqmaga = self.get_three_way_tangents(self.nodes, self.energies)
-                    self.modify_TS_Hess()
-                elif self.find and (self.optimizer[self.TSnode].nneg > 3 or self.optimizer[self.TSnode].nneg == 0 or self.hess_counter > 10 or np.abs(self.TS_E_0 - self.emax) > 10.) and not self.optimizer[self.TSnode].converged:
-
-                    # Reform the guess primitive Hessian
-                    self.nodes[self.TSnode].form_Primitive_Hessian()
-                    if self.hessrcount < 1 and self.pTSnode == self.TSnode:
-                        print(" resetting TS node coords Ut (and Hessian)")
-                        self.ictan, self.dqmaga = self.get_three_way_tangents(self.nodes, self.energies)
-                        self.modify_TS_Hess()
-                        self.nhessreset = 10
-                        self.hessrcount = 1
-                    else:
-                        print(" Hessian consistently bad, going back to climb (for 3 iterations)")
-                        self.find = False
-                        self.nclimb = 2
-                elif self.find and self.optimizer[self.TSnode].nneg <= 3:
-                    self.hessrcount -= 1
-                    self.hess_counter += 1
-            print(f'{stage_changed=}: {self.climb=} {self.find=}')
-
-            # => write Convergence to file <= #
-            filename = 'scratch/opt_iters_{:03}_{:03}.xyz'.format(self.ID, oi)
-            self.xyz_writer(filename, self.geometries, self.energies, self.gradrmss, self.dEs)
-
-            print(" End early counter {}".format(self.endearly_counter))
-
-            # TODO prints tgrads and jobGradCount
-            print("opt_iter: {:2} totalgrad: {:4.3} gradrms: {:5.4} max E({}) {:5.4}\n".format(oi, float(totalgrad), float(gradrms), self.TSnode, float(self.emax)))
-            oi += 1
-            
-            if self.isConverged and not added and not ts_node_changed and not stage_changed:
-                print("Converged")
-                return
-
-            # => Reparam the String <= #
-            if oi < max_iter and not self.isConverged and not stage_changed:
-                self.reparameterize(nconstraints=nconstraints)
+                # => Get all tangents 3-way <= #
                 self.get_tangents_opting()
                 self.refresh_coordinates()
-                if self.pTSnode != self.TSnode and self.climb:
-                    print("TS node changed after reparameterizing")
-                    self.slow_down_climb()
-            elif oi == max_iter and not self.isConverged:
-                self.ran_out = True
-                print(" Ran out of iterations")
-                return
-                # raise Exception(" Ran out of iterations")
 
-        # TODO Optimize TS node to a finer convergence
-        # if rtype==2:
-        return
+                # => do opt steps <= #
+                self.set_node_convergence()
+                self.optimize_iteration(opt_steps)
+
+                self.logger.log_print(
+                    [
+                    "V_profile: {eng_list}"
+                    ],
+                    eng_list=self.energies,
+                    preformatter=lambda *, eng_list, **kw:dict(kw, eng_list=' '.join(f"{e:7.3f}" for e in eng_list))
+                )
+
+                # TODO resetting
+                # TODO special SSM criteria if first opt'd node is too high?
+                if self.TSnode == self.num_nodes-2 and (self.climb or self.find):
+                    self.logger.log_print("WARNING\n: TS node shouldn't be second to last node for tangent reasons")
+                    self.add_node_after_TS()
+                    added = True
+                elif self.TSnode == 1 and (self.climb or self.find):
+                    self.logger.log_print("WARNING\n: TS node shouldn't be first  node for tangent reasons")
+                    self.add_node_before_TS()
+                    added = True
+                else:
+                    added = False
+
+                # => find peaks <= #
+                fp = self.find_peaks('opting')
+
+                ts_cgradq = 0.
+                if not self.find:
+                    ts_cgradq = np.linalg.norm(
+                        np.dot(self.nodes[self.TSnode].gradient.T,
+                               self.nodes[self.TSnode].constraints[:, 0])*self.nodes[self.TSnode].constraints[:, 0])
+                    print(" ts_cgradq %5.4f" % ts_cgradq)
+
+                ts_gradrms = self.nodes[self.TSnode].gradrms
+                self.dE_iter = abs(self.emax-self.emaxp)
+                print(" dE_iter ={:2.2f}".format(self.dE_iter))
+
+                # => calculate totalgrad <= #
+                totalgrad, gradrms, sum_gradrms = self.calc_optimization_metrics(self.nodes)
+
+                # Check if allup or alldown
+                energies = np.array(self.energies)
+                if (np.all(energies[1:]+0.5 >= energies[:-1]) or np.all(energies[1:]-0.5 <= energies[:-1])) and (self.climber or self.finder):
+                    printcool(" There is no TS, turning off TS search")
+                    rtype = 0
+                    self.climber = self.finder = self.find = self.climb = False
+                    self.CONV_TOL = self.options['CONV_TOL']*5
+
+                # if self.has_intermediate(5) and rtype>0 and (self.climb or self.find):
+                #    printcool(" THERE IS AN INTERMEDIATE, OPTIMIZE THE INTERMEDIATE AND TRY AGAIN")
+                #    self.endearly=True
+                #    isConverged=True
+                #    self.tscontinue=False
+
+                # => Check Convergence <= #
+                self.isConverged = self.is_converged(totalgrad, fp, rtype, ts_cgradq)
+
+                # => set stage <= #
+                stage_changed = self.set_stage(totalgrad, sum_gradrms, ts_cgradq, ts_gradrms, fp)
+
+                if not stage_changed:
+                    # Decrement stuff that controls stage
+                    if self.climb:
+                        self.nclimb -= 1
+                    self.nhessreset -= 1
+                    if self.nopt_intermediate > 0:
+                        self.nopt_intermediate -= 1
+
+                    if self.pTSnode != self.TSnode and self.climb:
+                        print("TS node changed after opting")
+                        self.climb = False
+                        #self.slow_down_climb()
+                        ts_node_changed = True
+                        self.pTSnode = self.TSnode
+
+                    # opt decided Hess is not good because of overlap
+                    if self.find and (not self.optimizer[self.TSnode].maxol_good or added):
+                        self.ictan, self.dqmaga = self.get_three_way_tangents(self.nodes, self.energies)
+                        self.modify_TS_Hess()
+                    elif self.find and (self.optimizer[self.TSnode].nneg > 3 or self.optimizer[self.TSnode].nneg == 0 or self.hess_counter > 10 or np.abs(self.TS_E_0 - self.emax) > 10.) and not self.optimizer[self.TSnode].converged:
+
+                        # Reform the guess primitive Hessian
+                        self.nodes[self.TSnode].form_Primitive_Hessian()
+                        if self.hessrcount < 1 and self.pTSnode == self.TSnode:
+                            print(" resetting TS node coords Ut (and Hessian)")
+                            self.ictan, self.dqmaga = self.get_three_way_tangents(self.nodes, self.energies)
+                            self.modify_TS_Hess()
+                            self.nhessreset = 10
+                            self.hessrcount = 1
+                        else:
+                            print(" Hessian consistently bad, going back to climb (for 3 iterations)")
+                            self.find = False
+                            self.nclimb = 2
+                    elif self.find and self.optimizer[self.TSnode].nneg <= 3:
+                        self.hessrcount -= 1
+                        self.hess_counter += 1
+                print(f'{stage_changed=}: {self.climb=} {self.find=}')
+
+                # => write Convergence to file <= #
+                filename = 'scratch/opt_iters_{:03}_{:03}.xyz'.format(self.ID, oi)
+                self.xyz_writer(filename, self.geometries, self.energies, self.gradrmss, self.dEs)
+
+                print(" End early counter {}".format(self.endearly_counter))
+
+                # TODO prints tgrads and jobGradCount
+                print("opt_iter: {:2} totalgrad: {:4.3} gradrms: {:5.4} max E({}) {:5.4}\n".format(oi, float(totalgrad), float(gradrms), self.TSnode, float(self.emax)))
+                oi += 1
+
+                if self.isConverged and not added and not ts_node_changed and not stage_changed:
+                    print("Converged")
+                    return
+
+                # => Reparam the String <= #
+                if oi < max_iter and not self.isConverged and not stage_changed:
+                    self.reparameterize(nconstraints=nconstraints)
+                    self.get_tangents_opting()
+                    self.refresh_coordinates()
+                    if self.pTSnode != self.TSnode and self.climb:
+                        print("TS node changed after reparameterizing")
+                        self.slow_down_climb()
+                elif oi == max_iter and not self.isConverged:
+                    self.ran_out = True
+                    print(" Ran out of iterations")
+                    return
+                    # raise Exception(" Ran out of iterations")
+
+            # TODO Optimize TS node to a finer convergence
+            # if rtype==2:
+            # return
 
     def refresh_coordinates(self, update_TS=False):
         '''
@@ -362,9 +374,7 @@ class MainGSM(GSM):
 
         for n in range(self.num_nodes):
             if self.nodes[n] and self.active[n]:
-                print()
-                path = os.path.join(os.getcwd(), 'scratch/{:03d}/{}'.format(self.ID, n))
-                printcool("Optimizing node {}".format(n))
+                self.logger.log_print("Optimizing node {n}", n=n)
                 opt_type = self.set_opt_type(n)
                 osteps = self.mult_steps(n, opt_steps)
                 self.optimizer[n].optimize(
@@ -373,8 +383,7 @@ class MainGSM(GSM):
                     opt_type=opt_type,
                     opt_steps=osteps,
                     ictan=self.ictan[n],
-                    xyzframerate=1,
-                    path=path,
+                    xyzframerate=1
                 )
 
         return self.isConverged, refE
@@ -384,6 +393,10 @@ class MainGSM(GSM):
             self.ictan, self.dqmaga = self.get_three_way_tangents(self.nodes, self.energies)
         else:
             self.ictan, self.dqmaga = self.get_tangents(self.nodes)
+
+    @abc.abstractmethod
+    def get_tangent_vector_guess(self, nlist, n):
+        ...
 
     def get_tangents_growing(self, print_level=1):
         """
@@ -397,10 +410,15 @@ class MainGSM(GSM):
         dqmaga = [0.]*self.num_nodes
         ictan = [[]]*self.num_nodes
 
-        if self.print_level > 1:
-            print("ncurrent, nlist")
-            print(ncurrent)
-            print(nlist)
+        self.logger.log_print(
+            [
+                "ncurrent {ncurrent}",
+                "nlist {nlist}"
+            ],
+            ncurrent=ncurrent,
+            nlist=nlist,
+            log_level=self.logger.LogLevel.Debug
+        )
 
         for n in range(ncurrent):
             # ictan0,_ = self.get_tangent(
@@ -409,17 +427,7 @@ class MainGSM(GSM):
             #        driving_coords=self.driving_coords,
             #        )
 
-            if self.__class__.__name__ == "DE_GSM":  # or self.__class__.__name__=="SE_Cross":
-                print(" getting tangent [%i ]from between %i %i pointing towards %i" % (nlist[2*n], nlist[2*n], nlist[2*n+1], nlist[2*n]))
-                ictan0 = self.get_tangent_xyz(self.nodes[nlist[2*n]].xyz,
-                                              self.nodes[nlist[2*n+1]].xyz,
-                                              self.nodes[0].primitive_internal_coordinates)
-            else:
-                ictan0, _ = self.get_tangent(
-                    node1=self.nodes[nlist[2*n]],
-                    node2=self.nodes[nlist[2*n+1]],
-                    driving_coords=self.driving_coords,
-                )
+            ictan0 = self.get_tangent_vector()
 
             if self.print_level > 1:
                 print("forming space for", nlist[2*n+1])
@@ -522,93 +530,91 @@ class MainGSM(GSM):
         '''
         Add a node between endpoints on the reactant side, should only be called inside GSM
         '''
-        printcool("Adding reactant node")
+        with self.logger.block(tag="Adding reactant node"):
 
-        if self.current_nnodes+newnodes > self.num_nodes:
-            raise ValueError("Adding too many nodes, cannot interpolate")
-        for i in range(newnodes):
-            iR = self.nR-1
-            iP = self.num_nodes-self.nP
-            iN = self.nR
-            print(" adding node: %i between %i %i from %i" % (iN, iR, iP, iR))
-            if self.num_nodes - self.current_nnodes > 1:
-                stepsize = 1./float(self.num_nodes-self.current_nnodes+1)
-            else:
-                stepsize = 0.5
+            if self.current_nnodes+newnodes > self.num_nodes:
+                raise ValueError("Adding too many nodes, cannot interpolate")
+            for i in range(newnodes):
+                iR = self.nR-1
+                iP = self.num_nodes-self.nP
+                iN = self.nR
+                print(" adding node: %i between %i %i from %i" % (iN, iR, iP, iR))
+                if self.num_nodes - self.current_nnodes > 1:
+                    stepsize = 1./float(self.num_nodes-self.current_nnodes+1)
+                else:
+                    stepsize = 0.5
 
-            self.nodes[self.nR] = GSM.add_node(
-                self.nodes[iR],
-                self.nodes[iP],
-                stepsize,
-                iN,
-                DQMAG_MAX=self.DQMAG_MAX,
-                DQMAG_MIN=self.DQMAG_MIN,
-                driving_coords=self.driving_coords,
-            )
-
-            if self.nodes[self.nR] is None:
-                raise Exception('Ran out of space')
-
-            if self.__class__.__name__ != "DE_GSM":
-                ictan, bdist = self.get_tangent(
-                    self.nodes[self.nR],
-                    None,
+                self.nodes[self.nR] = self.add_node(
+                    self.nodes[iR],
+                    self.nodes[iP],
+                    stepsize,
+                    iN,
+                    node_idR=iR,
+                    node_idP=iP,
+                    DQMAG_MAX=self.DQMAG_MAX,
+                    DQMAG_MIN=self.DQMAG_MIN,
                     driving_coords=self.driving_coords,
                 )
-                self.nodes[self.nR].bdist = bdist
 
-            self.optimizer[self.nR].DMAX = self.optimizer[self.nR-1].DMAX
-            self.current_nnodes += 1
-            self.nR += 1
-            print(" nn=%i,nR=%i" % (self.current_nnodes, self.nR))
-            self.active[self.nR-1] = True
+                if self.nodes[self.nR] is None:
+                    raise ValueError('Ran out of space')
 
-            # align center of mass  and rotation
-            # print("%i %i %i" %(iR,iP,iN))
+                self.set_new_node_tolerances(self.nR)
 
-            # print(" Aligning")
-            # self.nodes[self.nR-1].xyz = self.com_rotate_move(iR,iP,iN)
+                self.current_nnodes += 1
+                self.nR += 1
+                print(" nn=%i,nR=%i" % (self.current_nnodes, self.nR))
+                self.active[self.nR-1] = True
+
+                # align center of mass  and rotation
+                # print("%i %i %i" %(iR,iP,iN))
+
+                # print(" Aligning")
+                # self.nodes[self.nR-1].xyz = self.com_rotate_move(iR,iP,iN)
+
+    def set_new_node_tolerances(self, index):
+        self.optimizer[index].DMAX = self.optimizer[index - 1].DMAX
 
     def add_GSM_nodeP(self, newnodes=1):
         '''
         Add a node between endpoints on the product side, should only be called inside GSM
         '''
-        printcool("Adding product node")
-        if self.current_nnodes+newnodes > self.num_nodes:
-            raise ValueError("Adding too many nodes, cannot interpolate")
+        with self.logger.block(tag="Adding product node"):
+            if self.current_nnodes+newnodes > self.num_nodes:
+                raise ValueError("Adding too many nodes, cannot interpolate")
 
-        for i in range(newnodes):
-            # self.nodes[-self.nP-1] = BaseClass.add_node(self.num_nodes-self.nP,self.num_nodes-self.nP-1,self.num_nodes-self.nP)
-            n1 = self.num_nodes-self.nP
-            n2 = self.num_nodes-self.nP-1
-            n3 = self.nR-1
-            print(" adding node: %i between %i %i from %i" % (n2, n1, n3, n1))
-            if self.num_nodes - self.current_nnodes > 1:
-                stepsize = 1./float(self.num_nodes-self.current_nnodes+1)
-            else:
-                stepsize = 0.5
+            for i in range(newnodes):
+                # self.nodes[-self.nP-1] = BaseClass.add_node(self.num_nodes-self.nP,self.num_nodes-self.nP-1,self.num_nodes-self.nP)
+                n1 = self.num_nodes-self.nP
+                n2 = self.num_nodes-self.nP-1
+                n3 = self.nR-1
+                print(" adding node: %i between %i %i from %i" % (n2, n1, n3, n1))
+                if self.num_nodes - self.current_nnodes > 1:
+                    stepsize = 1./float(self.num_nodes-self.current_nnodes+1)
+                else:
+                    stepsize = 0.5
 
-            self.nodes[-self.nP-1] = GSM.add_node(
-                self.nodes[n1],
-                self.nodes[n3],
-                stepsize,
-                n2
-            )
-            if self.nodes[-self.nP-1] is None:
-                raise Exception('Ran out of space')
+                self.nodes[-self.nP-1] = GSM.add_node(
+                    self.nodes[n1],
+                    self.nodes[n3],
+                    stepsize,
+                    n2
+                )
+                if self.nodes[-self.nP-1] is None:
+                    raise Exception('Ran out of space')
 
-            self.optimizer[n2].DMAX = self.optimizer[n1].DMAX
-            self.current_nnodes += 1
-            self.nP += 1
-            print(" nn=%i,nP=%i" % (self.current_nnodes, self.nP))
-            self.active[-self.nP] = True
+                self.optimizer[n2].DMAX = self.optimizer[n1].DMAX
+                self.current_nnodes += 1
+                self.nP += 1
+                print(" nn=%i,nP=%i" % (self.current_nnodes, self.nP))
+                self.active[-self.nP] = True
 
-            # align center of mass  and rotation
-            # print("%i %i %i" %(n1,n3,n2))
-            # print(" Aligning")
-            # self.nodes[-self.nP].xyz = self.com_rotate_move(n1,n3,n2)
-            # print(" getting energy for node %d: %5.4f" %(self.num_nodes-self.nP,self.nodes[-self.nP].energy - self.nodes[0].V0))
-        return
+                # align center of mass  and rotation
+                # print("%i %i %i" %(n1,n3,n2))
+                # print(" Aligning")
+                # self.nodes[-self.nP].xyz = self.com_rotate_move(n1,n3,n2)
+                # print(" getting energy for node %d: %5.4f" %(self.num_nodes-self.nP,self.nodes[-self.nP].energy - self.nodes[0].V0))
+            return
 
     def reparameterize(self, ic_reparam_steps=8, n0=0, nconstraints=1):
         '''
@@ -1077,11 +1083,6 @@ class MainGSM(GSM):
 
         return False
 
-    def print_energies(self):
-        for n in range(len(self.energies)):
-            print(" {:7.3f}".format(float(self.energies[n])), end=' ')
-        print()
-
     def get_intermediate(self, noise):
         '''
         Check string for intermediates
@@ -1215,7 +1216,7 @@ class MainGSM(GSM):
             new_node_list[n] = Molecule.copy_from_options(MoleculeA=self.nodes[n-1], new_node_id=n)
             new_optimizers[n] = self.optimizer[n-1]
 
-        self.nodes = new_node_list
+        self.nodes:list[Molecule] = new_node_list
         self.optimizer = new_optimizers
         print(' New number of nodes %d' % self.num_nodes)
         self.active = [True] * self.num_nodes

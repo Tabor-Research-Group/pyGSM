@@ -41,6 +41,7 @@ class LoT(metaclass=abc.ABCMeta):
                  do_coupling=None,
                  atoms=None,
                  numbers=None,
+                 bonds=None,
                  logger=None
                  ):
         """ Constructor """
@@ -50,6 +51,7 @@ class LoT(metaclass=abc.ABCMeta):
         if states is None: states = self.default_states
         self.charge = charge
         self.atoms = atoms
+        self.bonds = bonds
 
         if calc_grad is None:
             calc_grad = gradient_states is not None

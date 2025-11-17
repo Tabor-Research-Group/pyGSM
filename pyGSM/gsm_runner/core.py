@@ -84,6 +84,7 @@ def construct_lot(cfg: GSMConfig, mol, *, logger=None):
     lot_options = dict(lot_opts,
                        atoms=mol.atoms,
                        # xyz=mol.xyz,
+                       bonds=mol.bond_graph,
                        charge=mol.charge,
                        logger=logger
                        )
@@ -106,13 +107,18 @@ def construct_gsm(cfg:GSMConfig, *, mols, evaluator, optimizer, logger=None):
         gsm_opts.pop(o)
     driving_coords = gsm_opts.pop("driving_coords")
     isomers_file = gsm_opts.pop("isomers_file")
+    num_nodes = gsm_opts.pop("num_nodes")
     if driving_coords is None:
         driving_coords = isomers_file
     elif isomers_file is not None:
         raise ValueError("got values for both `driving_coords` and `isomers_file`")
+    if len(mols) < num_nodes:
+        split = len(mols) // 2
+        mols = list(mols[:split]) + [None]* (num_nodes - len(mols)) + list(mols[split:])
     return _construct_gsm(
         optimizer=optimizer,
         nodes=mols,
+        num_nodes=num_nodes,
         evaluator=evaluator,
         restart_options=dataclasses.asdict(cfg.restart_settings),
         tolerances=dataclasses.asdict(cfg.tolerance_settings),
