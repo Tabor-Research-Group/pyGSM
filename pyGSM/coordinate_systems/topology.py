@@ -28,11 +28,18 @@ def guess_bonds(atoms, xyz, charge=0):
 
 class EdgeGraph:
     # adapted from McUtils to fix the terrible networkx graph extension
-    def __init__(self, labels, edges):
+    def __init__(self, labels, edges, edge_types=None):
         self.labels = labels
         self.label_map = {l:i for i,l in enumerate(labels)}
-        self.graph = self.adj_mat(len(labels), np.asanyarray(edges))
-        self._edges = edges
+        self._edges = np.asanyarray(edges)
+        self.graph = self.adj_mat(len(labels), self._edges)
+        self._edge_types = (
+            None
+                if edge_types is None else
+            edge_types
+                if isinstance(edge_types, np.ndarray) and edge_types.ndim == 2 else
+            self.type_graph(len(labels), self._edges, edge_types)
+        )
         self.edge_map = self.build_edge_map(self._edges)
     def edges(self):
         return [
@@ -43,6 +50,12 @@ class EdgeGraph:
         return self.labels
     def neighbors(self, a):
         return [self.labels[i] for i in self.edge_map[self.label_map[a]]]
+    def edge_types(self):
+        if self._edge_types is None:
+            return None
+        else:
+            rows, cols = self._edges.T
+            return self._edge_types[rows, cols]
 
     @classmethod
     def adj_mat(cls, num_nodes, edges):
@@ -53,6 +66,16 @@ class EdgeGraph:
             adj[cols, rows] = 1
 
         return sparse.csr_matrix(adj)
+
+    @classmethod
+    def type_graph(cls, num_nodes, edges, types): # win no awards for keeping this sparse
+        adj = np.zeros((num_nodes, num_nodes), dtype=float)
+        if len(edges) > 0:
+            rows,cols = edges.T
+            adj[rows, cols] = np.array(types)
+            adj[cols, rows] = np.array(types)
+
+        return adj
 
     @classmethod
     def build_edge_map(cls, edge_list, num_nodes=None):
@@ -90,7 +113,7 @@ class EdgeGraph:
 
         return [labels[p] for p in pos], edge_list
     @classmethod
-    def _take(cls, pos, labels, adj_mat:sparse.compressed) -> 'typing.Self':
+    def _take(cls, pos, labels, adj_mat:sparse.compressed, edge_types=None) -> 'typing.Self':
         rows, cols, _ = sparse.find(adj_mat)
         utri = cols >= rows
         rows = rows[utri]
@@ -100,10 +123,12 @@ class EdgeGraph:
         cont = np.logical_and(row_cont, col_cont)
 
         labels, edge_list = cls._remap(labels, pos, rows[cont], cols[cont])
-        return cls(labels, edge_list)
+        if edge_types is not None:
+            edge_types = edge_types[np.ix_(rows[cont], cols[cont])]
+        return cls(labels, edge_list, edge_types=edge_types)
 
     def take(self, pos):
-        return self._take(pos, self.labels, self.graph)
+        return self._take(pos, self.labels, self.graph, edge_types=self._edge_types)
 
     def L(self):
         """ Return a list of the sorted atom numbers in this graph. """

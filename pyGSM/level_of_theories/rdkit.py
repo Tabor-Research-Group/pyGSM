@@ -4,6 +4,7 @@ import numpy as np
 from .base_lot import LoT
 
 from rdkit.Chem import AllChem
+from rdkit.rdBase import BlockLogs
 
 class rdkit(LoT):
     energy_units = "kcal/mol"
@@ -14,9 +15,12 @@ class rdkit(LoT):
                  atoms,
                  bonds,
                  force_field="mmff",
+                 verbose=False,
                  **kwargs
                  ):
-        self.mol = self.setup_rdmol([a.symbol for a in atoms], bonds.edges())
+        self.mol = self.setup_rdmol([a.symbol for a in atoms],
+                                    [b + (t,) for b, t in zip(bonds.edges(), bonds.edge_types())])
+        self.verbose = verbose
         self._conf = None
         self.force_field = force_field
         super().__init__(atoms=atoms, bonds=bonds, **kwargs)
@@ -93,6 +97,10 @@ class rdkit(LoT):
         self._conf.SetId(0)
         self.mol.AddConformer(self._conf)
 
+        # print([a.symbol for a in self.atoms])
+        # import pprint
+        # pprint.pprint(coords.tolist())
+
         if force_field_type is None:
             force_field_type = self.force_field
         force_field_type = self.get_force_field_type(force_field_type)
@@ -112,7 +120,12 @@ class rdkit(LoT):
             return force_field_type(self.mol, confId=0, **extra_props)
 
     def run_raw(self, coords, mult, ad_idx, *, runtypes):
-        ff = self.get_force_field(coords)
+        if self.verbose:
+            ff = self.get_force_field(coords)
+        else:
+            with BlockLogs():
+                ff = self.get_force_field(coords)
+
         res = {}
         if 'gradient' in runtypes:
             res['gradient'] = np.array(ff.CalcGrad())

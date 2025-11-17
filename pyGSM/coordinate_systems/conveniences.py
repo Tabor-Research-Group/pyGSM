@@ -14,6 +14,10 @@ __all__ = [
     "get_coordinate_system_type",
     "is_cartesian",
     "is_dlc",
+    "is_prim",
+    "is_dist",
+    "is_angle",
+    "is_dihed",
     "InternalCoordinateTypes"
 ]
 
@@ -70,7 +74,7 @@ def construct_internal(spec):
 
 coordinate_type_definitions = {
     "TRIC": {
-        "internals": "auto",
+        "primitives": "auto",
         "connect": False,
         "addtr": True,
         "addcart": False
@@ -97,12 +101,14 @@ def construct_coordinate_system(atoms, xyz,
                                 **opts
                                 ) -> InternalCoordinates:
     if coordinate_type is not None:
-        new_opts = coordinate_type_definitions[coordinate_type]
+        new_opts = coordinate_type_definitions[coordinate_type].copy()
+        new_prim = new_opts.pop('primitives', None)
+        new_ints = new_opts.pop('internals', None)
         opts = dict(new_opts, **opts)
-        if primitives is None:
-            primitives = opts.pop("primitives", None)
-        if internals is None:
-            internals = opts.pop("internals", None)
+        if primitives is None and internals is None:
+            primitives = new_prim
+            if primitives is None:
+                internals = new_ints
 
     if internals is not None:
         form_topology = dev.str_is(internals, 'auto')
@@ -143,3 +149,10 @@ def construct_coordinate_system(atoms, xyz,
         return DelocalizedInternalCoordinates(atoms, xyz, primitives)
     else:
         return CartesianCoordinates(atoms, xyz, **opts)
+
+def is_dist(prim:slots.PrimitiveCoordinate):
+    return prim.type_class == slots.CoordinateTypeClasses.Distance
+def is_angle(prim:slots.PrimitiveCoordinate):
+    return prim.type_class == slots.CoordinateTypeClasses.Angle
+def is_dihed(prim:slots.PrimitiveCoordinate):
+    return prim.type_class == slots.CoordinateTypeClasses.Dihedral

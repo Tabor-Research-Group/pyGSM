@@ -7,7 +7,7 @@ import numpy as np
 import os
 # from collections import Counter
 
-from ..coordinate_systems import InternalCoordinates, CartesianCoordinates
+from ..coordinate_systems import InternalCoordinates
 from .. import coordinate_systems as coord_ops
 from ..level_of_theories.base_lot import LoT
 from ..level_of_theories.conveniences import construct_lot
@@ -355,7 +355,7 @@ class Molecule:
         return prim
 
     def update_Primitive_Hessian(self, change=None):
-        print(" updating prim hess")
+        self.logger.log_print("updating prim hess", log_level=self.logger.LogLevel.Debug)
         if change is not None:
             self.Primitive_Hessian += change
         return self.Primitive_Hessian
@@ -452,14 +452,14 @@ class Molecule:
         self.coord_obj.Vecs = value
 
     def update_coordinate_basis(self, constraints=None):
-        if isinstance(self.coord_obj, CartesianCoordinates):
+        if coord_ops.is_cartesian(self.coord_obj):
             return None
         # if constraints is not None:
         #     assert constraints.shape[0] == self.coord_basis.shape[0], '{} does not equal {} dimensions'.format(constraints.shape[0],self.coord_basis.shape[0])
 
         print(" updating coord basis")
         self.coord_obj.clearCache()
-        self.coord_obj.build_dlc(self.xyz, constraints)
+        self.coord_obj.update_dlc(self.xyz, constraints=constraints)
         return self.coord_basis
 
     @property

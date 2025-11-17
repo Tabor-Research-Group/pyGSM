@@ -60,6 +60,8 @@ class InternalCoordinates(metaclass=abc.ABCMeta):
         return type(self)(
             **dict(self.get_state_dict(), **changes)
         )
+    def copy(self):
+        return self.modify()
 
     @property
     def topology(self):
@@ -71,7 +73,11 @@ class InternalCoordinates(metaclass=abc.ABCMeta):
         if bonds is None:
             bonds = guess_bonds(atoms, coords)
         if not isinstance(bonds, EdgeGraph):
-            bonds = EdgeGraph(np.arange(len(atoms)), [b[:2] for b in bonds])
+            if len(bonds[0]) > 2:
+                edge_types = [b[2] for b in bonds]
+            else:
+                edge_types = 1
+            bonds = EdgeGraph(np.arange(len(atoms)), [b[:2] for b in bonds], edge_types)
         return bonds
 
     @abc.abstractmethod
@@ -87,10 +93,6 @@ class InternalCoordinates(metaclass=abc.ABCMeta):
         ...
     @abc.abstractmethod
     def second_derivatives(self, xyz):
-        ...
-
-    @abc.abstractmethod
-    def copy(self):
         ...
 
     @abc.abstractmethod

@@ -26,9 +26,12 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
                  primitives,
                  constraints=None
                  ):
+        #TODO: make all of this inherited from the primitives
+        #      currently could clash
         super().__init__(
             atoms,
-            xyz
+            xyz,
+            logger=primitives.logger
         )
 
         # self.options = options
@@ -43,6 +46,27 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
         self.Vecs, self.Internals = self.build_dlc(self.Prims, xyz, logger=self.logger)
         # print("vecs after build")
         # print(self.Vecs)
+
+    def update_dlc(self, new_xyz, constraints=None):
+        self.Vecs, self.Internals = self.build_dlc(self.Prims, new_xyz, logger=self.logger, constraints=constraints)
+
+    def get_state_dict(self):
+        return dict(
+            atoms=self.atoms,
+            xyz=self.xyz,
+            primitives=self.Prims
+        )
+    def modify(self, bonds=None, primitives=None, **changes):
+        base_state = self.get_state_dict()
+        if primitives is None:
+            primitives = base_state['primitives']
+        if bonds is not None:
+            primitives = primitives.modify(bonds=bonds)
+        return type(self)(
+            **dict(base_state, primitives=primitives, **changes)
+        )
+    def copy(self):
+        return self.modify(primitives=self.Prims.copy())
 
     @classmethod
     def make_primitives(cls, primitives, **kwargs):
@@ -182,7 +206,7 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
     #    return Gq
 
     @classmethod
-    def build_dlc(cls, prims, xyz, *, logger, C=None):
+    def build_dlc(cls, prims, xyz, *, logger, constraints=None):
         """
         Build the delocalized internal coordinates (DLCs) which are linear
         combinations of the primitive internal coordinates. Each DLC is stored
@@ -202,7 +226,7 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
         ----------
         xyz     : np.ndarray
                   Flat array containing Cartesian coordinates in atomic units
-        C       : np.ndarray
+        constraints       : np.ndarray
                 Float array containing difference in primitive coordinates
         """
 
@@ -231,7 +255,8 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
         # print(self.Vecs.shape)
 
         time_eig = nifty.click()
-        logger.log_print(" Timings: Build G: %.3f Eig: %.3f" % (time_G, time_eig))
+        logger.log_print(" Timings: Build G: {time_G:.3f} Eig: {time_eig:.3f}", time_G==time_G, time_eig=time_eig,
+                         log_level=logger.LogLevel.Debug)
 
         internals = ["DLC %i" % (i+1) for i in range(vecs.shape[1])]
 
@@ -242,11 +267,11 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
         #     assert self.cVec is None, "can't have vector constraint and cprim."
         #     self.cVec = self.form_cVec_from_cPrims()
 
-        if C is not None:
+        if constraints is not None:
             # orthogonalize
-            if (C[:] == 0.).all():
-                raise RuntimeError
-            Cn = math_utils.orthogonalize(C)
+            if (constraints[:] == 0.).all():
+                raise ValueError("empty constraint passed")
+            Cn = math_utils.orthogonalize(constraints)
 
             # transform C into basis of DLC
             # CRA 3/2019 NOT SURE WHY THIS IS DONE
@@ -258,8 +283,8 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
             try:
                 # print(cVecs.T)
                 cVecs = math_utils.orthogonalize(cVecs)
-            except Exception as e:
-                raise ValueError("failed to orthogonalize constrain vectors")
+            except ValueError:
+                raise ValueError("failed to orthogonalize constraint vectors")
                 # print(cVecs)
                 # print("error forming cVec")
                 # exit(-1)

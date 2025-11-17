@@ -18,7 +18,7 @@ class CoordinateSystemOptions:
     # coords / topology
     coordinate_type: CoordType = "TRIC"
     internals: Literal['auto']|list[tuple[int, int]|tuple[int, int, int]|tuple[int, int, int, int]] = None
-    primitives:Literal['auto']|list[tuple[int, int]|tuple[int, int, int]|tuple[int, int, int, int]] = None
+    primitives:Literal['auto']|list[tuple[int, int]|tuple[int, int, int]|tuple[int, int, int, int]] = 'auto'
     bonds: tuple[int, int]|Literal['auto'] = 'auto'
     hybrid_idx_start_stop: Any = None
     # hybrid_coord_idx_file: Optional[str] = None       # Is this used?

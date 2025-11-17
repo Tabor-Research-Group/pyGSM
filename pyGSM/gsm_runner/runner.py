@@ -5,6 +5,7 @@ import numpy as np
 from .gsm_config import GSMConfig
 from . import core as core
 from .. import growing_string_methods as GSM
+from ..molecule import Molecule
 from ..utilities import nifty, manage_xyz, Devutils as dev
 
 __all__ = [
@@ -32,16 +33,16 @@ class GSMRunner:
         self.rtype = GSM.TSOptimizationStrategy(rtype)
 
     @classmethod
-    def from_config(cls, cfg: GSMConfig):
-        logger = dev.Logger.lookup(cfg.runner_settings.logger)
+    def from_config(cls, cfg: GSMConfig, validate=True):
         run_opts = cfg.runner_settings
-        eval_settings = cfg.evaluator_settings
-        gsm_opts = cfg.gsm_settings
         logger = dev.Logger.lookup(run_opts.logger)
 
-        # nifty.printcool_dictionary(cfg.to_dict(), title="GSM Configuration")
-
         mols = core.load_mols(cfg, logger=logger) #TODO: allow direct loading of mols
+        if validate:
+            for m in mols:
+                if m is not None:
+                    cls.check_gsm_mol(m)
+
         optimizer = core.construct_optimizer(cfg, logger=logger)
         evaluator = core.construct_lot(cfg, mols[0], logger=logger)
 
@@ -59,7 +60,20 @@ class GSMRunner:
             scratch_dir=run_opts.scratch_dir
         )
 
-    def run(self):#, max_iters=None, max_opt_steps=None, rtype=None):
+    @classmethod
+    def check_gsm_mol(cls, mol:Molecule):
+        if not mol.using_dlcs:
+            raise ValueError("GSM methods are only defined for molecules using delocalized internal coordinates")
+
+    @classmethod
+    def check_gsm_object(self, gsm):
+        for node in gsm.nodes:
+            if node is not None:
+                self.check_gsm_mol(node)
+
+    def run(self, validate=True):#, max_iters=None, max_opt_steps=None, rtype=None):
+        if validate:
+            self.check_gsm_object(self.gsm)
         res = self.gsm.go_gsm(
             self.max_gsm_iters,
             self.max_opt_steps,

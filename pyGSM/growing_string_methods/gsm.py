@@ -4,6 +4,7 @@ import abc
 import enum
 import dataclasses
 
+from .. import coordinate_systems as coord_ops
 from ..coordinate_systems import Distance, Angle, Dihedral, OutOfPlane
 from .. import utilities as util #import nifty, options, block_matrix
 from ..utilities import manage_xyz, Devutils as dev
@@ -235,7 +236,6 @@ class GSM(metaclass=abc.ABCMeta):
 
         # Set initial values
         self.current_nnodes = len([x for x in self.nodes if x is not None])
-        print(len([x for x in self.nodes if x is not None]), self.num_nodes)
         # TODO: figure this out
         self.nR = 1
         self.nP = 1
@@ -611,7 +611,7 @@ class GSM(metaclass=abc.ABCMeta):
     def get_tangent_xyz(xyz1, xyz2, prim_coords):
         PMDiff = np.zeros(len(prim_coords))
         for k, prim in enumerate(prim_coords):
-            if type(prim) is Distance:
+            if coord_ops.is_dist(prim):
                 PMDiff[k] = 2.5 * prim.calcDiff(xyz2, xyz1)
             else:
                 PMDiff[k] = prim.calcDiff(xyz2, xyz1)
@@ -629,14 +629,14 @@ class GSM(metaclass=abc.ABCMeta):
                 raise ValueError(f"can't get tangent between identical nodes ({node_id_1}, {node_id_2})")
 
             logger.log_print(
-                " getting tangent from between {node2} {node1} pointing towards {node2}",
+                "getting tangent from between {node2} {node1} pointing towards {node2}",
                 node2=node_id_2,
                 node1=node_id_1
             )
 
             PMDiff = np.zeros(node2.num_primitives)
             for k, prim in enumerate(node2.primitive_internal_coordinates):
-                if type(prim) is Distance:
+                if coord_ops.is_dist(prim):
                     PMDiff[k] = 2.5 * prim.calcDiff(node2.xyz, node1.xyz)
                 else:
                     PMDiff[k] = prim.calcDiff(node2.xyz, node1.xyz)
@@ -644,16 +644,16 @@ class GSM(metaclass=abc.ABCMeta):
             return np.reshape(PMDiff, (-1, 1)), None
         else:
             logger.log_print(
-                " getting tangent from node {node}",
+                "getting tangent from node {node}",
                 node=node1.node_id
             )
 
-            c = Counter(elem[0] for elem in driving_coords)
-            #TODO: why aren't these used?
-            nadds = c['ADD']
-            nbreaks = c['BREAK']
-            nangles = c['nangles']
-            ntorsions = c['ntorsions']
+            # c = Counter(elem[0] for elem in driving_coords)
+            # #TODO: why aren't these used?
+            # nadds = c['ADD']
+            # nbreaks = c['BREAK']
+            # nangles = c['nangles']
+            # ntorsions = c['ntorsions']
 
             ictan = np.zeros((node1.num_primitives, 1), dtype=float)
             # breakdq = 0.3

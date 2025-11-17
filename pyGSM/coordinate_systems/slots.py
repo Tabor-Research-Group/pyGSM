@@ -1106,9 +1106,9 @@ class MultiAngle(PrimitiveCoordinate):
 
     def __init__(self, a, b, c):
         super().__init__(isAngular=True, isPeriodic=False)
-        if type(a) is int:
+        if isinstance(a, int):
             a = (a,)
-        if type(c) is int:
+        if isinstance(c, int):
             c = (c,)
         self.a = tuple(a)
         self.b = b
@@ -1390,9 +1390,9 @@ class MultiDihedral(PrimitiveCoordinate):
 
     def __init__(self, a, b, c, d):
         super().__init__(isAngular=True, isPeriodic=True)
-        if type(a) is int:
+        if isinstance(a, int):
             a = (a, )
-        if type(d) is int:
+        if isinstance(d, int):
             d = (d, )
         self.a = tuple(a)
         self.b = b
