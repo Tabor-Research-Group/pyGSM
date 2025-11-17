@@ -91,10 +91,25 @@ class Molecule:
             hessian=self._hessian,
             primitive_hessian=self._primitive_hessian
         )
-    def modify(self, coord_obj=dev.default, energy_evaluator=dev.default, **changes):
+    def modify(self,
+               coord_obj=dev.default, energy_evaluator=dev.default,
+               xyz=None, atoms=None,
+               **changes):
         new_state = dict(self.get_state_dict(), **changes)
         no_cache = False
-        if not dev.is_default(coord_obj, allow_None=False):
+        if dev.is_default(coord_obj, allow_None=False):
+            mods = {}
+            if xyz is not None:
+                mods['xyz'] = xyz
+            if atoms is not None:
+                mods['atoms'] = atoms
+            if len(mods) > 0:
+                no_cache = True
+                coord_obj = self.coord_obj.modify(**mods)
+                new_state['coord_obj'] = coord_obj
+        else:
+            if (xyz is not None or atoms is not None):
+                raise ValueError("can't be passed `coord_obj` and atoms/coords")
             no_cache = True
             new_state['coord_obj'] = coord_obj
         if not dev.is_default(energy_evaluator, allow_None=False):

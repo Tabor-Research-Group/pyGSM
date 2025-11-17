@@ -538,7 +538,7 @@ class MainGSM(GSM):
                 iR = self.nR-1
                 iP = self.num_nodes-self.nP
                 iN = self.nR
-                print(" adding node: %i between %i %i from %i" % (iN, iR, iP, iR))
+                self.logger.log_print(" adding node: {iN} between {iR} {iP} from {iR}", iN=iN, iR=iR, iP=iP)
                 if self.num_nodes - self.current_nnodes > 1:
                     stepsize = 1./float(self.num_nodes-self.current_nnodes+1)
                 else:

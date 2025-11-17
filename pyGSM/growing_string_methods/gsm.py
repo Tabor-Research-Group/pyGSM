@@ -471,8 +471,8 @@ class GSM(metaclass=abc.ABCMeta):
     @classmethod
     def add_node(
             cls,
-            nodeR,
-            nodeP,
+            nodeR:Molecule,
+            nodeP:Molecule,
             stepsize,
             node_id,
             *,
@@ -521,8 +521,11 @@ class GSM(metaclass=abc.ABCMeta):
             new_node.bdist = bdist
 
         else:
-            ictan, _ = cls.get_tangent(nodeR, nodeP, node_id_1=node_idR, node_id_2=node_idP)
-            nodeR.update_coordinate_basis(constraints=ictan)
+            # The basis for `ictan` was incorrectly constructed
+            # and references the wrong node coordinate system in this case
+            # I've changed the direction to account for that
+            ictan, _ = cls.get_tangent(nodeP, nodeR, node_id_1=node_idP, node_id_2=node_idR, logger=logger)
+            nodeR.update_coordinate_basis(constraints=-ictan)
             constraint = nodeR.constraints[:, 0]
             dqmag = np.linalg.norm(ictan)
             logger.log_print(" dqmag: %1.3f", dqmag=dqmag)
@@ -534,7 +537,7 @@ class GSM(metaclass=abc.ABCMeta):
             dq0 = dqmag*constraint
             old_xyz = nodeR.xyz.copy()
             new_xyz = nodeR.coord_obj.newCartesian(old_xyz, dq0)
-            new_node = Molecule.copy_from_options(MoleculeA=nodeR, xyz=new_xyz, new_node_id=node_id)
+            new_node = nodeR.modify_coordinate_system(xyz=new_xyz)
 
         return new_node
 

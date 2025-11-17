@@ -205,6 +205,7 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
     #    #print("time to do efficient mult %.3f" % nifty.click())
     #    return Gq
 
+    nonzero_gel_cutoff = 1e-6
     @classmethod
     def build_dlc(cls, prims, xyz, *, logger, constraints=None):
         """
@@ -239,15 +240,16 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
         tmpvecs = []
         for A in G.matlist:
             L, Q = np.linalg.eigh(A)
-            LargeVals = 0
-            LargeIdx = []
-            for ival, value in enumerate(L):
-                # print("val=%.4f" %value,end=' ')
-                if np.abs(value) > 1e-6:
-                    LargeVals += 1
-                    LargeIdx.append(ival)
-            # print('\n')
-            # print("LargeVals %i" % LargeVals)
+            LargeIdx = np.where(np.abs(L) > cls.nonzero_gel_cutoff)[0]
+            # LargeVals = 0
+            # LargeIdx = []
+            # for ival, value in enumerate(L):
+            #     # print("val=%.4f" %value,end=' ')
+            #     if np.abs(value) > 1e-6:
+            #         LargeVals += 1
+            #         LargeIdx.append(ival)
+            # # print('\n')
+            # # print("LargeVals %i" % LargeVals)
             tmpvecs.append(Q[:, LargeIdx])
 
         vecs = block_matrix(tmpvecs)
@@ -269,7 +271,8 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
 
         if constraints is not None:
             # orthogonalize
-            if (constraints[:] == 0.).all():
+            constraints = np.asanyarray(constraints)
+            if np.sum(np.abs(constraints)) < 1e-12:
                 raise ValueError("empty constraint passed")
             Cn = math_utils.orthogonalize(constraints)
 
