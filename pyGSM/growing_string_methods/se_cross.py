@@ -130,16 +130,16 @@ class SE_Cross(SE_GSM):
         self.xyz_writer('grown_string_{:03}.xyz'.format(self.ID), self.geometries, self.energies, self.gradrmss, self.dEs)
 
         if self.optimizer[self.nR].converged:
-            self.nnodes = self.nR+1
-            self.nodes = self.nodes[:self.nnodes]
+            self.num_nodes = self.nR+1
+            self.nodes = self.nodes[:self.num_nodes]
             print("Setting all interior nodes to active")
-            for n in range(1, self.nnodes-1):
+            for n in range(1, self.num_nodes-1):
                 self.active[n] = True
-            self.active[self.nnodes-1] = False
+            self.active[self.num_nodes-1] = False
             self.active[0] = False
 
             # Convert all the PES to excited-states
-            for n in range(self.nnodes):
+            for n in range(self.num_nodes):
                 self.nodes[n].PES = PES.create_pes_from(self.nodes[n].PES.PES2,
                                                         options={'gradient_states': [(1, 1)]})
 
@@ -147,7 +147,7 @@ class SE_Cross(SE_GSM):
             self.reparameterize(ic_reparam_steps=25)
             print(" V_profile (after reparam): ", end=' ')
             energies = self.energies
-            for n in range(self.nnodes):
+            for n in range(self.num_nodes):
                 print(" {:7.3f}".format(float(energies[n])), end=' ')
             print()
             self.xyz_writer('grown_string1_{:03}.xyz'.format(self.ID), self.geometries, self.energies, self.gradrmss, self.dEs)
@@ -186,7 +186,7 @@ class SE_Cross(SE_GSM):
     @property
     def TSnode(self):
         if isinstance(self.nodes[0].PES, Penalty_PES):
-            energies = np.asarray([0.]*self.nnodes)
+            energies = np.asarray([0.]*self.num_nodes)
             for i, node in enumerate(self.nodes):
                 if node is not None:
                     energies[i] = (node.PES.PES1.energy + node.PES.PES2.energy)/2.
@@ -197,7 +197,7 @@ class SE_Cross(SE_GSM):
     def restart_string(self, xyzfile='restart.xyz'):
         super(SE_Cross, self).restart_string(xyzfile)
         self.done_growing = False
-        self.nnodes = 20
+        self.num_nodes = 20
         self.nR -= 1
         # stash bdist for node 0
         _, self.nodes[0].bdist = self.get_tangent(self.nodes[0], None, driving_coords=self.driving_coords)

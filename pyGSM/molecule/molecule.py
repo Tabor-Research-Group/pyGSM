@@ -68,6 +68,7 @@ class Molecule:
 
         self._hessian = hessian
         self._primitive_hessian = primitive_hessian
+        self._prev_eval = None
         self._energy = energy
         self._gradient = gradient
         self._primitive_gradient = primitive_gradient
@@ -275,15 +276,25 @@ class Molecule:
         if isinstance(base_lot, LoT): return base_lot
 
     @property
+    def _cached_calc(self):
+        #TODO: migrate all of this stuff up to the GSM process/optimizer where it belongs...
+        #      there's no reason this object should need to _guess_ at what a different operation
+        #      needs cached
+        if self._prev_eval is None:
+            self._prev_eval = self.evaluator.get_all(self.xyz)
+        return self._prev_eval
+
+    @property
     def energy(self):
         if self._energy is None:
-            self._energy = self.evaluator.get_energy(self.xyz)
+            self._energy = self._cached_calc["energy"]
         return self._energy
 
     @property
     def gradx(self):
         if self._primitive_gradient is None:
-            self._primitive_gradient = self.evaluator.get_gradient(self.xyz, frozen_atoms=self.frozen_atoms)
+            self._energy = self._cached_calc["gradient"]
+            # self._primitive_gradient = self.evaluator.get_gradient(self.xyz, frozen_atoms=self.frozen_atoms)
         return np.reshape(self._primitive_gradient, (-1, 3))
 
     @property
@@ -301,11 +312,14 @@ class Molecule:
     #     return self.coord_obj.calcGrad(self.xyz, gradx)  # CartesianCoordinate just returns gradx
 
     @property
+    def cupx(self):
+        if self._primitive_coupling is None:
+            self._primitive_coupling = self._cached_calc["coupling"]
+        return np.reshape(self._primitive_coupling, (-1, 3))
+    @property
     def derivative_coupling(self):
         if self._derivative_coupling is None:
-            if self._primitive_coupling is None:
-                self._primitive_coupling = self.evaluator.get_coupling(self.xyz, frozen_atoms=self.frozen_atoms)
-            self._derivative_coupling = self.coord_obj.calcGrad(self.xyz, self._primitive_coupling)
+            self._derivative_coupling = self.coord_obj.calcGrad(self.xyz, self.cupx.flatten())
         return self._derivative_coupling
 
     @property
@@ -361,6 +375,7 @@ class Molecule:
         return block_matrix.dot(block_matrix.dot(block_matrix.transpose(self.coord_basis), self._primitive_hessian), self.coord_basis)
 
     def invalidate_cache(self):
+        self._prev_eval = None
         self._energy = None
         self._gradient = None
         self._primitive_gradient = None

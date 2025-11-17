@@ -29,7 +29,7 @@ class ASELoT(LoT):
         multiplicity is not implemented, the calculator ignores it
     """
     energy_units = "kcal/mol"
-    distance_units = "Angstroms"
+    distance_units = "Angstrom"
 
     def __init__(self,
                  calculator: Calculator,
@@ -89,10 +89,10 @@ class ASELoT(LoT):
             constraints.append([idx1, idx2, value])
         return constraints
 
-    def run(self, coords, mult, ad_idx, *, runtypes):
+    def run_raw(self, coords, mult, ad_idx, *, runtypes):
         # run ASE
         atoms = Atoms(numbers=self.numbers, positions=coords)
-        self.run_ase_atoms(atoms, mult, ad_idx, runtypes)
+        return self.run_ase_atoms(atoms, mult, ad_idx, runtypes)
 
     def run_ase_atoms(self, atoms: Atoms, mult, ad_idx, runtypes):
         # set the calculator
@@ -111,3 +111,5 @@ class ASELoT(LoT):
             res['gradient'] = self.grad_obj(- atoms.get_forces())
         if 'energy' in runtypes:
             res['energy'] = self.energy_obj(atoms.get_potential_energy()[0])
+
+        return res

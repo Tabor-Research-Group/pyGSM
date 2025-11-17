@@ -72,7 +72,7 @@ class GSMRunner:
     @classmethod
     def run_simple(cls, **opts):
         runner = cls.from_config(GSMConfig.from_dict(opts))
-        return runner
+        return runner.run()
 
 
 # def run_gsm(cfg: GSMConfig, verbose=True):

@@ -100,7 +100,7 @@ class DE_GSM(MainGSM):
             return
 
     def add_GSM_nodes(self, newnodes=1):
-        if self.current_nnodes+newnodes > self.nnodes:
+        if self.current_nnodes+newnodes > self.num_nodes:
             print("Adding too many nodes, cannot add_GSM_node")
         sign = -1
         for i in range(newnodes):
@@ -121,7 +121,7 @@ class DE_GSM(MainGSM):
         else:
             print((" setting active node to %i " % nR))
 
-        for i in range(self.nnodes):
+        for i in range(self.num_nodes):
             if self.nodes[i] is not None:
                 self.optimizer[i].conv_grms = self.CONV_TOL*2.
         self.optimizer[nR].conv_grms = self.tolerances['ADD_NODE_TOL']
@@ -142,7 +142,7 @@ class DE_GSM(MainGSM):
         Returns True if grown 
         '''
 
-        return self.current_nnodes == self.nnodes
+        return self.current_nnodes == self.num_nodes
 
     def grow_nodes(self):
         '''
@@ -153,12 +153,12 @@ class DE_GSM(MainGSM):
             if self.nodes[self.nR] is None:
                 self.add_GSM_nodeR()
                 print(" getting energy for node %d: %5.4f" % (self.nR-1, self.nodes[self.nR-1].energy - self.nodes[0].V0))
-        if self.nodes[self.nnodes-self.nP].gradrms < self.tolerances['ADD_NODE_TOL'] and self.growth_direction  != NodeAdditionStrategy.Reactant:
+        if self.nodes[self.num_nodes-self.nP].gradrms < self.tolerances['ADD_NODE_TOL'] and self.growth_direction  != NodeAdditionStrategy.Reactant:
             if self.nodes[-self.nP-1] is None:
                 self.add_GSM_nodeP()
                 self.logger.log_print(
                     " getting energy for node {node_num}: {E:5.4f}",
-                    node_num=self.nnodes-self.nP,
+                    node_num=self.num_nodes-self.nP,
                     E=self.nodes[-self.nP].energy - self.nodes[0].V0
                 )
         return
@@ -186,19 +186,19 @@ class DE_GSM(MainGSM):
         '''
         # TODO: THis can probably be done more succinctly using a list of tuples
         ncurrent = 0
-        nlist = [0]*(2*self.nnodes)
+        nlist = [0]*(2*self.num_nodes)
         for n in range(self.nR-1):
             nlist[2*ncurrent] = n
             nlist[2*ncurrent+1] = n+1
             ncurrent += 1
 
-        for n in range(self.nnodes-self.nP+1, self.nnodes):
+        for n in range(self.num_nodes-self.nP+1, self.num_nodes):
             nlist[2*ncurrent] = n
             nlist[2*ncurrent+1] = n-1
             ncurrent += 1
 
         nlist[2*ncurrent] = self.nR - 1
-        nlist[2*ncurrent+1] = self.nnodes - self.nP
+        nlist[2*ncurrent+1] = self.num_nodes - self.nP
 
         if False:
             nlist[2*ncurrent+1] = self.nR - 2  # for isMAP_SE
@@ -207,7 +207,7 @@ class DE_GSM(MainGSM):
         # if self.nR == 0: nlist[2*ncurrent] += 1
         # if self.nP == 0: nlist[2*ncurrent+1] -= 1
         ncurrent += 1
-        nlist[2*ncurrent] = self.nnodes - self.nP
+        nlist[2*ncurrent] = self.num_nodes - self.nP
         nlist[2*ncurrent+1] = self.nR-1
         # #TODO is this actually used?
         # if self.nR == 0: nlist[2*ncurrent+1] += 1

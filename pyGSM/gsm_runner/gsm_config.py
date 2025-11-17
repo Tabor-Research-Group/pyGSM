@@ -33,6 +33,7 @@ class LevelOfTheoryOptions:
     states: list[tuple[int, int]] = None
     gradient_states: list[tuple[int, int]] = None
     coupling_states: list[tuple[int, int]] = None
+    aggregation_function: str = "min"
 
     # xTB / ASE options
     # xTB_Hamiltonian: str = "GFN2-xTB"

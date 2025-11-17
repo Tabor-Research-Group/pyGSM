@@ -161,7 +161,7 @@ class SE_GSM(MainGSM):
                     print("Failed to add last node, continuing.")
                     # probably need to make sure last node is optimized
 
-            self.nnodes = self.nR
+            # self.num_nodes = self.nR
             self.nodes = self.nodes[:self.nR]
             energies = self.energies
 
@@ -170,7 +170,7 @@ class SE_GSM(MainGSM):
                 print(" not continuing with TS optimization.")
                 self.tscontinue = False
 
-            print(" Number of nodes is ", self.nnodes)
+            print(" Number of nodes is ", self.num_nodes)
             print(" Warning last node still not optimized fully")
             self.xyz_writer('grown_string_{:03}.xyz'.format(self.ID), self.geometries, self.energies, self.gradrmss, self.dEs)
             print(" SSM growth phase over")
@@ -178,9 +178,9 @@ class SE_GSM(MainGSM):
 
             print(" beginning opt phase")
             print("Setting all interior nodes to active")
-            for n in range(1, self.nnodes-1):
+            for n in range(1, self.num_nodes-1):
                 self.active[n] = True
-            self.active[self.nnodes-1] = False
+            self.active[self.num_nodes-1] = False
             self.active[0] = False
 
         if not self.isRestarted:
@@ -188,7 +188,7 @@ class SE_GSM(MainGSM):
             self.reparameterize(ic_reparam_steps=25)
             print(" V_profile (after reparam): ", end=' ')
             energies = self.energies
-            for n in range(self.nnodes):
+            for n in range(self.num_nodes):
                 print(" {:7.3f}".format(float(energies[n])), end=' ')
             print()
             self.xyz_writer('grown_string1_{:03}.xyz'.format(self.ID), self.geometries, self.energies, self.gradrmss, self.dEs)
@@ -253,7 +253,7 @@ class SE_GSM(MainGSM):
 
     def grow_nodes(self):
         if self.nodes[self.nR-1].gradrms < self.options['ADD_NODE_TOL']:
-            if self.nR == self.nnodes:
+            if self.nR == self.num_nodes:
                 print(" Ran out of nodes, exiting GSM")
                 raise ValueError
             if self.nodes[self.nR] is None:
@@ -262,7 +262,7 @@ class SE_GSM(MainGSM):
         return
 
     def add_GSM_nodes(self, newnodes=1):
-        if self.nn+newnodes > self.nnodes:
+        if self.nn+newnodes > self.num_nodes:
             print("Adding too many nodes, cannot interpolate")
         for i in range(newnodes):
             self.add_GSM_nodeR()
@@ -284,7 +284,7 @@ class SE_GSM(MainGSM):
         # print(" Here is active:",self.active)
         print((" setting active node to %i " % nR))
 
-        for i in range(self.nnodes):
+        for i in range(self.num_nodes):
             if self.nodes[i] is not None:
                 self.active[i] = False
 
@@ -310,7 +310,7 @@ class SE_GSM(MainGSM):
 
     def make_difference_node_list(self):
         ncurrent = 0
-        nlist = [0]*(2*self.nnodes)
+        nlist = [0]*(2*self.num_nodes)
         for n in range(self.nR-1):
             nlist[2*ncurrent] = n
             nlist[2*ncurrent+1] = n+1
@@ -417,13 +417,13 @@ class SE_GSM(MainGSM):
             print("growth_iters over: all uphill and high energy")
             self.end_early = 2
             self.tscontinue = False
-            self.nnodes = self.nR
+            # self.num_nodes = self.nR
             isDone = True
         elif fp == -2:
             print("growth_iters over: all uphill and flattening out")
             self.end_early = 2
             self.tscontinue = False
-            self.nnodes = self.nR
+            # self.num_nodes = self.nR
             isDone = True
 
         # ADD extra criteria here to check if TS is higher energy than product
@@ -431,15 +431,15 @@ class SE_GSM(MainGSM):
 
     def is_converged(self, totalgrad, fp, rtype, ts_cgradq):
 
-        if self.TSnode == self.nnodes-2 and (self.find or totalgrad < 0.2) and fp == 1:
+        if self.TSnode == self.num_nodes-2 and (self.find or totalgrad < 0.2) and fp == 1:
             if self.nodes[self.nR-1].gradrms > self.options['CONV_TOL']:
                 print("TS node is second to last node, adding one more node")
                 self.add_last_node(1)
-                self.nnodes = self.nR
-                self.active[self.nnodes-1] = False  # GSM makes self.active[self.nnodes-1]=True as well
-                self.active[self.nnodes-2] = True  # GSM makes self.active[self.nnodes-1]=True as well
+                # self.num_nodes = self.nR
+                self.active[self.num_nodes-1] = False  # GSM makes self.active[self.num_nodes-1]=True as well
+                self.active[self.num_nodes-2] = True  # GSM makes self.active[self.num_nodes-1]=True as well
                 print("done adding node")
-                print("nnodes = ", self.nnodes)
+                print("nnodes = ", self.num_nodes)
                 self.ictan, self.dqmaga = self.get_tangents(self.nodes)
                 self.refresh_coordinates()
             return False
@@ -464,7 +464,7 @@ class SE_GSM(MainGSM):
             fp = self.find_peaks('opting')
             if fp > 1:
                 rxnocc, wint = self.check_for_reaction()
-            if fp > 1 and rxnocc and wint < self.nnodes-1:
+            if fp > 1 and rxnocc and wint < self.num_nodes-1:
                 print("Need to trim string")
                 self.tscontinue = False
                 self.endearly = True  # bools
@@ -484,9 +484,9 @@ class SE_GSM(MainGSM):
         energies = self.energies
         if energies[1] > energies[0]:
             minnodes.append(0)
-        if energies[self.nnodes-1] < energies[self.nnodes-2]:
-            minnodes.append(self.nnodes-1)
-        for n in range(self.n0, self.nnodes-1):
+        if energies[self.num_nodes-1] < energies[self.num_nodes-2]:
+            minnodes.append(self.num_nodes-1)
+        for n in range(self.n0, self.num_nodes-1):
             if energies[n+1] > energies[n]:
                 if energies[n] < energies[n-1]:
                     minnodes.append(n)
@@ -568,11 +568,11 @@ class SE_GSM(MainGSM):
 
         if self.done_growing:
             fp = self.find_peaks('opting')
-            if self.energies[self.nnodes-1] > self.energies[self.nnodes-2] and fp > 0 and self.nodes[self.nnodes-1].gradrms > self.CONV_TOL:
+            if self.energies[self.num_nodes-1] > self.energies[self.num_nodes-2] and fp > 0 and self.nodes[self.num_nodes-1].gradrms > self.CONV_TOL:
                 printcool('Last node is not a minimum, Might need to verify that the last node is a minimum')
-                path = os.path.join(os.getcwd(), 'scratch/{:03d}/{}'.format(self.ID, self.nnodes-1))
-                self.optimizer[self.nnodes-1].optimize(
-                    molecule=self.nodes[self.nnodes-1],
+                path = os.path.join(os.getcwd(), 'scratch/{:03d}/{}'.format(self.ID, self.num_nodes-1))
+                self.optimizer[self.num_nodes-1].optimize(
+                    molecule=self.nodes[self.num_nodes-1],
                     refE=refE,
                     opt_type='UNCONSTRAINED',
                     opt_steps=osteps,

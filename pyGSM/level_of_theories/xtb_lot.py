@@ -26,7 +26,7 @@ class xTB_lot(LoT):
         self.xTB_accuracy = xTB_accuracy
         self.xTB_electronic_temperature = xTB_electronic_temperature
 
-    def run(self, geom, multiplicity, state, verbose=False):
+    def run_raw(self, geom, multiplicity, state, verbose=False):
         raise NotImplementedError("needs to be cleaned up")
 
         # no reason

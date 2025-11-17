@@ -1,5 +1,6 @@
 # standard library imports
 import abc
+import numbers
 from collections import namedtuple
 import os
 
@@ -23,12 +24,16 @@ Coupling = namedtuple('Coupling','value unit')
 class LoT(metaclass=abc.ABCMeta):
     """ Lot object for level of theory calculators """
 
+    supports_gradient = True
+    supports_coupling = False # only turn on if derivative coupling can actually be calculated
     energy_units = "Hartree"
     distance_units = "BohrRadius"
 
-    default_states = [(0,1)]
+
+    default_states = [(1,0)]
     def __init__(self,
                  states=None,
+                 aggregation_function="min",
                  gradient_states=None,
                  coupling_states=None,
                  charge=0,
@@ -73,6 +78,39 @@ class LoT(metaclass=abc.ABCMeta):
             )
         self.calc_grad = calc_grad
         self.do_coupling = calc_grad
+        self.aggregation_function = self.resolve_aggregation_function(aggregation_function)
+
+    aggregation_functions = {}
+    @classmethod
+    def _default_aggregation_functions(cls):
+        return {
+            "first":cls._first_aggregation_function,
+            "min":cls._minimum_aggregation_function
+        }
+    @classmethod
+    def get_aggregation_functions(cls):
+        return dict(cls._default_aggregation_functions(), **cls.aggregation_functions)
+    @classmethod
+    def resolve_aggregation_function(cls, aggregation_function):
+        if not callable(aggregation_function):
+            agg_funcs = cls.get_aggregation_functions()
+            agg_func = agg_funcs.get(aggregation_function)
+            if agg_func is None:
+                raise ValueError(f"unknown aggregation function {aggregation_function}, valid ones are {list(agg_funcs.keys())}")
+            aggregation_function = agg_func
+        return aggregation_function
+
+    @classmethod
+    def _first_aggregation_function(cls, lot, results):
+        return results.by_state(lot.states[0])
+
+    @classmethod
+    def _minimum_aggregation_function(cls, lot, results):
+        if len(lot.states) == 1:
+            return cls._first_aggregation_function(lot, results)
+        else:
+            min_state = min(lot.states, key=lambda s:results.results[s]["energy"])
+            return results.by_state(min_state)
 
     def _resolve_state_data(self, states, gradient_states, coupling_states,
                             *,
@@ -99,7 +137,7 @@ class LoT(metaclass=abc.ABCMeta):
             state_lens = [
                 0
                     if len(s) == 0 else
-                max([j for m,j in s])
+                1 + max([j for m,j in s])
                 for s in state_vecs
             ]
 
@@ -149,36 +187,70 @@ class LoT(metaclass=abc.ABCMeta):
         return n_electrons
 
     @abc.abstractmethod
-    def run(self, coords, mult, ad_idx, *, runtypes):
+    def run_raw(self, coords, mult, ad_idx, *, runtypes) -> dict[str, float]:
         ...
 
-    def energy_obj(self, eng):
-        return Energy(eng, self.energy_units)
-    def grad_obj(self, grad):
-        return Gradient(grad, self.energy_units + "/" + self.distance_units)
-    def coupling_obj(self, cup):
-        return Coupling(cup, self.energy_units + "/" + self.distance_units)
+    def run(self, coords, mult, ad_idx, *, runtypes):
+        base = self.run_raw(coords, mult, ad_idx, runtypes=runtypes)
+        return {
+            k:(
+                self.energy_obj(v)
+                    if k == "energy" else
+                self.grad_obj(v)
+                    if k == "gradient" else
+                self.coupling_obj(v)
+                    if k == "coupling" else
+                v
+            )
+            for k,v in base.items()
+        }
 
-    def runall(self, coords, *, runtype="energy"):
+    def energy_obj(self, eng):
+        if isinstance(eng, numbers.Number):
+            eng = Energy(eng, self.energy_units)
+        return eng
+    def grad_obj(self, grad):
+        if not hasattr(grad, "unit"):
+            grad = Gradient(grad, self.energy_units + "/" + self.distance_units)
+        return grad
+    def coupling_obj(self, cup):
+        if not hasattr(cup, "unit"):
+            cup = Coupling(cup, self.energy_units + "/" + self.distance_units)
+        return cup
+
+    def runall(self, coords, *, aggregation_function=True, runtype:str|list[str]="energy"):
         results = {}
         if isinstance(runtype, str):
             runtype = [runtype]
         for state in self.states:
             mult, ad_idx = state
             runtypes = set(runtype)
-            if state in self.gradient_states:
-                runtypes.add('energy')
-            if state in self.coupling_states:
-                runtypes.add('coupling')
+            if self.supports_gradient:
+                if self.gradient_states is not None and state in self.gradient_states:
+                    runtypes.add('gradient')
+            elif 'gradient' in runtypes:
+                runtypes.remove('gradient')
+            if self.supports_coupling:
+                if self.coupling_states is not None and state in self.coupling_states:
+                    runtypes.add('coupling')
+            elif 'coupling' in runtypes:
+                runtypes.remove('coupling')
             results[(mult, ad_idx)] = self.run(coords, mult, ad_idx, runtypes=runtypes)
-        return LoTResults(results,
-                          energy_units=self.energy_units,
-                          distance_units=self.distance_units,
-                          )
+        base_res = LoTResults(results)
+        if aggregation_function is True:
+            return self.aggregation_function(self, base_res)
+        elif aggregation_function is not None:
+            return aggregation_function(self, base_res)
+        else:
+            return base_res
     def get_energy(self, coords):
         return self.runall(coords, runtype={"energy"})
     def get_gradient(self, coords):
         return self.runall(coords, runtype={"energy", "gradient"})
+    def get_coupling(self, coords):
+        return self.runall(coords, runtype={"coupling"})
+    def get_all(self, coords):
+        return self.runall(coords, runtype={"energy", "gradient", "coupling"})
 
     def search_PES_tuple(self, tups, multiplicity, state):
         '''returns tuple in list of tuples that matches multiplicity and state'''
@@ -187,7 +259,7 @@ class LoT(metaclass=abc.ABCMeta):
     def search_tuple(self, tups, multiplicity=None):
         if multiplicity is None:
             tup_data = {}
-            for tup in tup_data:
+            for tup in tups:
                 mult = tup[0]
                 if mult not in tup_data: tup_data[mult] = []
                 tup_data[mult].append(tup)
@@ -221,6 +293,20 @@ class LoT(metaclass=abc.ABCMeta):
 class LoTResults:
     def __init__(self, result_data):
         self.results = result_data
+
+    # def __getitem__(self, item):
+    #     return self.results[item]
+
+    def by_state(self, state):
+        base_res = dict(self.results[state])
+        for k,f in [
+            ("energy", self.get_energy),
+            ("gradient", self.get_gradient),
+            ("coupling", self.get_coupling),
+        ]:
+            if k in base_res:
+                base_res[k] = f(*state)
+        return base_res
 
     def list_energies(self):
         if Energy.unit == "Hartree":
@@ -259,7 +345,7 @@ class LoTResults:
                 if d_unit == "BohrRadius":
                     val = val * units.ANGSTROM_TO_AU
                 elif d_unit != "Angstrom":
-                    raise NotImplementedError(f"unhandled conversion between {e_unit} and Angstrom")
+                    raise NotImplementedError(f"unhandled conversion between {d_unit} and Angstrom")
 
                 return val
         else:
