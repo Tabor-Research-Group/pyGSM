@@ -86,8 +86,13 @@ class OutputManager:
 class XYZWriter:
     default_xyz_format = 'xyz'
     def __init__(self, output_manager:OutputManager, xyz_format=None):
-        self.manager=output_manager
+        self.manager = output_manager
         self.format = xyz_format
+
+    def __enter__(self):
+        self.manager.__enter__()
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.manager.__exit__(exc_type, exc_val, exc_tb)
 
     xyz_formats = {
         'xyz':format_xyz,
@@ -114,3 +119,6 @@ class XYZWriter:
         return self.manager.write_output_file(path, atoms, geoms, *other,
                                               writer=writer,
                                               _iherit_opts=writer_opts)
+
+    def __call__(self, path, atoms, geoms, *other, **opts):
+        return self.write_xyz(path, atoms, geoms, *other, **opts)

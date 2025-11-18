@@ -129,6 +129,7 @@ class RunnerSettings:
 
     scratch_dir: str|None = None
     output_dir: str|None = None
+    xyz_format: str = 'molden'
     setup_DE_from_SE: bool = False  # If True, will setup DE_GSM from SE_GSM run
 
     only_climb: bool = False

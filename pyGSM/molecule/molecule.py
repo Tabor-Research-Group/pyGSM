@@ -475,7 +475,7 @@ class Molecule:
         # if constraints is not None:
         #     assert constraints.shape[0] == self.coord_basis.shape[0], '{} does not equal {} dimensions'.format(constraints.shape[0],self.coord_basis.shape[0])
 
-        print(" updating coord basis")
+        self.logger.log_print(" updating coord basis")
         self.coord_obj.clearCache()
         self.coord_obj.update_dlc(self.xyz, constraints=constraints)
         return self.coord_basis

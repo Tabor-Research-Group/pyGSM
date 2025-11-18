@@ -271,6 +271,32 @@ class SE_GSM(MainGSM):
                 print(" getting energy for node %d: %5.4f" % (self.nR-1, self.nodes[self.nR-1].energy - self.nodes[0].V0))
         return
 
+    def grow_and_handle_termination(self):
+        try:
+            base = super().grow_and_handle_termination()
+        except ValueError:
+            self.logger.log_print([
+                "can't add anymore nodes, bdist too small",
+            ])
+
+            if self.nodes[self.nR - 1].PES.lot.do_coupling:
+                opt_type = 'MECI'
+            else:
+                opt_type = 'UNCONSTRAINED'
+            print(" optimizing last node")
+            self.optimizer[self.nR - 1].conv_grms = self.CONV_TOL
+            print(self.optimizer[self.nR - 1].conv_grms)
+            path = os.path.join(os.getcwd(), 'scratch/{:03d}/{}'.format(self.ID, self.nR - 1))
+            self.optimizer[self.nR - 1].optimize(
+                molecule=self.nodes[self.nR - 1],
+                refE=self.nodes[0].V0,
+                opt_steps=50,
+                opt_type=opt_type,
+                path=path,
+            )
+            return True
+        return base
+
     def add_GSM_nodes(self, newnodes=1):
         if self.nn+newnodes > self.num_nodes:
             print("Adding too many nodes, cannot interpolate")

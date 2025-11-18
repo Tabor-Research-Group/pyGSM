@@ -52,6 +52,7 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
         if constraints is not None:
             self.constraints = constraints
         self.Vecs, self.Internals = self.build_dlc(self.Prims, new_xyz, logger=self.logger, constraints=self.constraints)
+        return self.Vecs
 
     def get_state_dict(self):
         return dict(

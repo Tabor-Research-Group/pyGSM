@@ -11,7 +11,6 @@ def NoLineSearch(n, x, fx, g, d, step, xp, constraint_step, parameters, molecule
     xyz = molecule.coord_obj.newCartesian(molecule.xyz, x-xp, frozen_atoms=molecule.frozen_atoms, verbose=verbose)
 
     # use these so molecule xyz doesn't change
-    print(" evaluate fx in linesearch")
     ge_res = molecule.evaluator.get_gradient(xyz) # frozen_atoms=molecule.frozen_atoms)
     gx = ge_res['gradient']
     if 'energy' not in ge_res:
@@ -29,7 +28,6 @@ def NoLineSearch(n, x, fx, g, d, step, xp, constraint_step, parameters, molecule
 # the number of iterations was many and the energy increased
 # just return the initial point
 def backtrack(nconstraints, x, fx, g, d, step, xp, constraint_step, parameters, molecule, verbose=False):
-    print(" In backtrack")
 
     # n is the non-constrained
     count = 0

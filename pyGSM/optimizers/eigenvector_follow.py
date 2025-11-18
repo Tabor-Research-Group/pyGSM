@@ -162,8 +162,8 @@ class eigenvector_follow(hessian_update_optimizer):
         self.buf = StringIO()
 
         # print " refE %5.4f" % refE
-        print(" initial E %5.4f" % (molecule.energy - refE))
-        print(" CONV_TOL %1.5f" % self.conv_grms)
+        self.logger.log_print(" initial E {dE:5.4f}", dE=(molecule.energy - refE))
+        self.logger.log_print(" CONV_TOL {ctol:1.5f}", ctol=self.conv_grms)
         geoms = []
         energies = []
         geoms.append(molecule.xyz)
@@ -283,17 +283,17 @@ class eigenvector_follow(hessian_update_optimizer):
 
             if ls['step'] > self.max_step:
                 if ls['step'] <= self.max_step:  # absolute max
-                    print(" Increasing DMAX to {}".format(ls['step']))
+                    self.logger.log_print(" Increasing DMAX to {step}", step=ls['step'])
                     self.max_step = ls['step']
                 else:
                     self.max_step = self.max_step
             elif ls['step'] < self.max_step:
                 if ls['step'] >= self.DMIN:     # absolute min
-                    print(" Decreasing DMAX to {}".format(ls['step']))
+                    self.logger.log_print(" Decreasing DMAX to {step}", step=ls['step'])
                     self.max_step = ls['step']
                 elif ls['step'] <= self.DMIN:
                     self.max_step = self.DMIN
-                    print(" Decreasing DMAX to {}".format(self.DMIN))
+                    self.logger.log_print(" Decreasing DMAX to {step}", step=self.DMIN)
 
             # calculate predicted value from Hessian, gp is previous constrained gradient
             scaled_dq = dq*step
@@ -318,7 +318,7 @@ class eigenvector_follow(hessian_update_optimizer):
 
             # control step size
             dEstep = fx - fxp
-            print(" dEstep=%5.4f" % dEstep)
+            self.logger.log_print(" dEstep={dEstep:5.4f}", dEstep=dEstep)
             ratio = dEstep/dEpre
             molecule.gradrms = np.sqrt(np.dot(gc.T, gc)/n)[0, 0]
             if ls['status'] != -2:
@@ -360,7 +360,7 @@ class eigenvector_follow(hessian_update_optimizer):
                 DMAX=self.max_step
             )
             self.logger.log_print(log_str)
-            self.buf.write(log_str)
+            self.buf.write("\n" + log_str)
 
             # check for convergence TODO
             fx = molecule.energy
@@ -374,18 +374,25 @@ class eigenvector_follow(hessian_update_optimizer):
             if xnorm < 1.0:
                 xnorm = 1.0
 
-            print(" gmax %5.4f disp %5.4f Ediff %5.4f gradrms %5.4f\n" % (gmax, disp, dEstep, molecule.gradrms))
+            self.logger.log_print(
+                " gmax {gmax:5.4f} disp {disp:5.4f} Ediff {dEstep:5.4f} gradrms {gradrms:5.4f}",
+                gmax=gmax,
+                disp=disp,
+                dEstep=dEstep,
+                gradrms=molecule.gradrms
+            )
 
             # TODO turn back on conv_DE
-            if self.opt_cross and abs(dE) < self.conv_dE and molecule.gradrms < self.conv_grms and abs(gmax) < self.conv_gmax and abs(dEstep) < self.conv_Ediff and abs(disp) < self.conv_disp:
-                if opt_type == "TS-SEAM":
-                    gts = np.dot(g.T, molecule.constraints[:, 0])
-                    print(" gts %1.4f" % gts)
-                    if abs(gts) < self.conv_grms*5:
+            if self.opt_cross:
+                if abs(dE) < self.conv_dE and molecule.gradrms < self.conv_grms and abs(gmax) < self.conv_gmax and abs(dEstep) < self.conv_Ediff and abs(disp) < self.conv_disp:
+                    if opt_type == "TS-SEAM":
+                        gts = np.dot(g.T, molecule.constraints[:, 0])
+                        print(" gts %1.4f" % gts)
+                        if abs(gts) < self.conv_grms*5:
+                            self.converged = True
+                    else:
                         self.converged = True
-                else:
-                    self.converged = True
-            elif not self.opt_cross and molecule.gradrms < self.conv_grms and abs(gmax) < self.conv_gmax and abs(dEstep) < self.conv_Ediff and abs(disp) < self.conv_disp:
+            elif molecule.gradrms < self.conv_grms and abs(gmax) < self.conv_gmax and abs(dEstep) < self.conv_Ediff and abs(disp) < self.conv_disp:
                 if opt_type == "CLIMB":
                     gts = np.dot(g.T, molecule.constraints[:, 0])
                     if abs(gts) < self.conv_grms*5.:
@@ -397,11 +404,11 @@ class eigenvector_follow(hessian_update_optimizer):
                     self.converged = True
 
             if self.converged:
-                print(" converged")
+                self.logger.log_print(" converged")
                 if ostep % xyzframerate != 0:
                     geoms.append(molecule.geometry)
                     energies.append(molecule.energy-refE)
-                    manage_xyz.write_xyzs_w_comments('{}/opt_{}.xyz'.format(path, molecule.node_id), geoms, energies, scale=1.)
+                    # manage_xyz.write_xyzs_w_comments('{}/opt_{}.xyz'.format(path, molecule.node_id), geoms, energies, scale=1.)
                 break
 
             # update DLC  --> this changes q, g, Hint
@@ -415,11 +422,9 @@ class eigenvector_follow(hessian_update_optimizer):
                     gc = g.copy()
                     for c in molecule.constraints.T:
                         gc -= np.dot(gc.T, c[:, np.newaxis])*c[:, np.newaxis]
-            print()
-            sys.stdout.flush()
 
         with self.logger.block(tag="opt-summary"):
-            print(self.buf.getvalue())
+            self.logger.log_print(self.buf.getvalue())
         return geoms, energies
 
 

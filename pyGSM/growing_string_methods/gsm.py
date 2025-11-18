@@ -7,7 +7,7 @@ import dataclasses
 from .. import coordinate_systems as coord_ops
 from ..coordinate_systems import Distance, Angle, Dihedral, OutOfPlane
 from .. import utilities as util #import nifty, options, block_matrix
-from ..utilities import OutputManager, Devutils as dev
+from ..utilities import OutputManager, Devutils as dev, XYZWriter
 from ..molecule import Molecule
 from ..optimizers.base_optimizer import base_optimizer
 from ..optimizers import construct_optimizer
@@ -50,6 +50,9 @@ class TSOptimizationStrategy(enum.Enum):
     NoClimb = 0
     Climb = 1
     Exact = 2
+
+class OutOfIteration(StopIteration):
+    ...
 
 class GSM(metaclass=abc.ABCMeta):
     default_rtype: TSOptimizationStrategy
@@ -151,6 +154,11 @@ class GSM(metaclass=abc.ABCMeta):
     def go_gsm(self, max_iters=50, opt_steps=10, **etc):
         ...
 
+    def run(self, max_iters=50, opt_steps=10, **etc):
+        with self.output_writer:
+            with self.scratch_writer:
+                return self.go_gsm(max_iters=max_iters, opt_steps=opt_steps, **etc)
+
     @abc.abstractmethod
     def grow_nodes(self):
         ...
@@ -183,13 +191,16 @@ class GSM(metaclass=abc.ABCMeta):
             driving_coords=None,
             only_drive=False,
             scratch_dir=None,
+            scratch_writer=None,
+            output_dir=None,
+            output_writer=None,
+            xyz_format='molden',
             growth_direction=0,
             tolerances=None,
             interp_method="DLC",
             id=None,
             noise=100,
             mp_cores=None,
-            xyz_writer=None,
             reparametrize=False,
             rtype=None,
             logger=True
@@ -223,9 +234,20 @@ class GSM(metaclass=abc.ABCMeta):
         self.interp_method = ReparametrizationMethod(interp_method)
         self.noise = noise
         self.mp_cores = mp_cores
-        self.xyz_writer = xyz_writer
+        # self.xyz_writer = xyz_writer
         self.logger = dev.Logger.lookup(logger)
-        self.output_manager = OutputManager.lookup(scratch_dir)
+        if scratch_writer is None:
+            scratch_writer = XYZWriter(
+                OutputManager.lookup(scratch_dir),
+                xyz_format
+            )
+        self.scratch_writer = scratch_writer
+        if output_writer is None:
+            output_writer = XYZWriter(
+                OutputManager.lookup(output_dir),
+                xyz_format
+            )
+        self.output_writer = output_writer
 
         if rtype is None:
             rtype = self.default_rtype
@@ -423,7 +445,7 @@ class GSM(metaclass=abc.ABCMeta):
         geoms = []
         for ico in self.nodes:
             if ico is not None:
-                geoms.append(ico.geometry)
+                geoms.append(ico.xyz)
         return geoms
 
     @property
@@ -439,7 +461,7 @@ class GSM(metaclass=abc.ABCMeta):
         self._dEs = []
         for ico in self.nodes:
             if ico is not None:
-                self._dEs.append(ico.difference_energy)
+                self._dEs.append(np.nan)
         return self._dEs
 
     @property
@@ -891,8 +913,8 @@ class GSM(metaclass=abc.ABCMeta):
 
             if do3:
                 if first_node_max or last_node_max:
-                    t1, _ = cls.get_tangent(nodes[intic_n], nodes[newic_n])
-                    t2, _ = cls.get_tangent(nodes[newic_n], nodes[int2ic_n])
+                    t1, _ = cls.get_tangent(nodes[intic_n], nodes[newic_n], node_id_1=intic_n, node_id_2=newic_n)
+                    t2, _ = cls.get_tangent(nodes[newic_n], nodes[int2ic_n], node_id_1=newic_n, node_id_2=int2ic_n)
                     logger.log_print(" done 3 way tangent")
                     ictan0 = t1 + t2
                 else:
@@ -908,12 +930,12 @@ class GSM(metaclass=abc.ABCMeta):
 
                     logger.log_print(' 3 way tangent ({n}): f1:{f1:3.2}', n=n, f1=f1)
 
-                    t1, _ = cls.get_tangent(nodes[intic_n], nodes[newic_n])
-                    t2, _ = cls.get_tangent(nodes[newic_n], nodes[int2ic_n])
+                    t1, _ = cls.get_tangent(nodes[intic_n], nodes[newic_n], node_id_1=intic_n, node_id_2=newic_n)
+                    t2, _ = cls.get_tangent(nodes[newic_n], nodes[int2ic_n], node_id_1=newic_n, node_id_2=int2ic_n)
                     logger.log_print(" done 3 way tangent")
                     ictan0 = f1*t1 + (1.-f1)*t2
             else:
-                ictan0, _ = cls.get_tangent(nodes[newic_n], nodes[intic_n])
+                ictan0, _ = cls.get_tangent(nodes[newic_n], nodes[intic_n], node_id_1=newic_n, node_id_2=intic_n)
 
             ictan[n] = ictan0/np.linalg.norm(ictan0)
             dqmaga[n] = np.linalg.norm(ictan0)

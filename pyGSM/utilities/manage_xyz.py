@@ -418,10 +418,7 @@ def xyz_to_np(
 
     """
 
-    xyz2 = np.zeros((len(geom), 3))
-    for A, atom in enumerate(geom):
-        xyz2[A, 0] = atom[1:]
-    return xyz2
+    return np.array([atom[1:] for atom in geom])
 #
 #
 def np_to_xyz(

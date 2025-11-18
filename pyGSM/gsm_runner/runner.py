@@ -7,7 +7,8 @@ from .gsm_config import GSMConfig
 from . import core as core
 from .. import growing_string_methods as GSM
 from ..molecule import Molecule
-from ..utilities import nifty, manage_xyz, Devutils as dev
+from ..utilities import XYZWriter, OutputManager, Devutils as dev
+import typing
 
 __all__ = [
     "GSMRunner"
@@ -16,6 +17,8 @@ __all__ = [
 @dc.dataclass
 class GSMResults:
     nodes: list[np.ndarray] = None
+    output: typing.Any = None
+    gsm: GSM.GSM = None
 
 class GSMRunner:
     def __init__(self,
@@ -26,12 +29,10 @@ class GSMRunner:
                  mp_cores=None,
                  max_opt_steps:int=None,
                  rtype:int|GSM.TSOptimizationStrategy=None,
-                 scratch_dir=None,
                  setup_DE_from_SE=False):
         self.gsm = gsm
         self.ID = ID
         self.mp_cores = mp_cores
-        self.scratch_dir = scratch_dir
         self.max_gsm_iters = max_gsm_iters
         if max_opt_steps is None:
             max_opt_steps = self.gsm.default_max_opt_steps
@@ -56,10 +57,16 @@ class GSMRunner:
         optimizer = core.construct_optimizer(cfg, logger=logger)
         evaluator = core.construct_lot(cfg, mols[0], logger=logger)
 
+        xyz_format = run_dict.pop('xyz_format')
+        scratch_writer = XYZWriter(OutputManager.lookup(run_dict.pop('scratch_dir')), xyz_format)
+        output_writer = XYZWriter(OutputManager.lookup(run_dict.pop('output_dir')), xyz_format)
+
         gsm = core.construct_gsm(cfg,
                                  mols=mols,
                                  evaluator=evaluator,
                                  optimizer=optimizer,
+                                 scratch_writer=scratch_writer,
+                                 output_writer=output_writer,
                                  logger=logger)
 
         return cls(
@@ -88,14 +95,14 @@ class GSMRunner:
             self.check_gsm_object(self.gsm)
 
         gsm = self.prep_gsm(self.gsm)
-        res = gsm.go_gsm(
+        res = gsm.run(
             self.max_gsm_iters,
             self.max_opt_steps,
             rtype=self.rtype
         )
 
         geoms = [node.xyz for node in gsm.nodes]
-        return GSMResults(nodes=geoms)
+        return GSMResults(nodes=geoms, output=res, gsm=gsm)
 
     @classmethod
     def run_simple(cls, **opts):

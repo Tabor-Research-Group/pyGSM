@@ -4,10 +4,12 @@ import abc
 
 import numpy as np
 import os
+import traceback as tb
 
 import multiprocessing as mp
 from itertools import chain
 
+from . import TSOptimizationStrategy
 from .gsm import GSM, NodeAdditionStrategy
 from ..utilities import Devutils as dev, math_utils
 from ..molecule import Molecule
@@ -25,6 +27,10 @@ class MainGSM(GSM):
     @abc.abstractmethod
     def make_difference_node_list(self):
         ...
+
+    def grow_and_handle_termination(self) -> bool:
+        self.grow_nodes()
+        return False
 
     def grow_string(self,
                     max_iters=30,
@@ -54,41 +60,25 @@ class MainGSM(GSM):
             iteration = 0
             while not isGrown:
                 if iteration > max_iters:
-                    print(" Ran out of iterations")
+                    self.logger.log_print(" Ran out of iterations")
                     return
                     # raise Exception(" Ran out of iterations")
                 self.logger.log_print("Starting growth iteration {iteration}", iteration=iteration)
                 self.optimize_iteration(max_opt_steps)
                 totalgrad, gradrms, sum_gradrms = self.calc_optimization_metrics(self.nodes)
-                # self.xyz_writer('scratch/growth_iters_{:03}_{:03}.xyz'.format(self.ID, iteration), self.geometries, self.energies, self.gradrmss, self.dEs)
-                print(" gopt_iter: {:2} totalgrad: {:4.3} gradrms: {:5.4} max E: {:5.4}\n".format(iteration, float(totalgrad), float(gradrms), float(self.emax)))
+                self.scratch_writer('growth_iters_{:03}.xyz'.format(iteration),
+                                    self.nodes[0].atoms,
+                                    self.geometries, self.energies, self.gradrmss, self.dEs)
+                self.logger.log_print(
+                    "gopt_iter: {iteration:2} totalgrad: {totalgrad:4.3} gradrms: {gradrms:5.4} max E: {emax:5.4}",
+                    iteration=iteration,
+                    totalgrad=totalgrad,
+                    gradrms=gradrms,
+                    emax=self.emax
+                )
 
-                try:
-                    self.grow_nodes()
-                except Exception as error:
-                    print("can't add anymore nodes, bdist too small")
-
-                    if self.__class__.__name__ == "SE_GSM":  # or self.__class__.__name__=="SE_Cross":
-                        # Don't do SE_cross because that already does optimization later
-                        if self.nodes[self.nR-1].PES.lot.do_coupling:
-                            opt_type = 'MECI'
-                        else:
-                           opt_type = 'UNCONSTRAINED'
-                        print(" optimizing last node")
-                        self.optimizer[self.nR-1].conv_grms = self.CONV_TOL
-                        print(self.optimizer[self.nR-1].conv_grms)
-                        path = os.path.join(os.getcwd(), 'scratch/{:03d}/{}'.format(self.ID, self.nR-1))
-                        self.optimizer[self.nR-1].optimize(
-                            molecule=self.nodes[self.nR-1],
-                            refE=self.nodes[0].V0,
-                            opt_steps=50,
-                            opt_type=opt_type,
-                            path=path,
-                        )
-                    elif self.__class__.__name__ == "SE_Cross":
-                        print(" Will do extra optimization of this node in SE-Cross")
-                    else:
-                        raise RuntimeError
+                needs_term = self.grow_and_handle_termination()
+                if needs_term:
                     break
 
                 self.set_active(self.nR-1, self.num_nodes-self.nP)
@@ -100,8 +90,8 @@ class MainGSM(GSM):
                 isGrown = self.check_if_grown()
 
             # create newic object
-            print(" creating newic molecule--used for ic_reparam")
-            self.newic = self.nodes[0].copy()
+            self.logger.log_print(" creating newic molecule--used for ic_reparam")
+            # self.newic = self.nodes[0].copy()
 
             # TODO should something be done for growthdirection 2?
             if self.growth_direction == NodeAdditionStrategy.Reactant:
@@ -222,7 +212,7 @@ class MainGSM(GSM):
                     printcool(" There is no TS, turning off TS search")
                     rtype = 0
                     self.climber = self.finder = self.find = self.climb = False
-                    self.CONV_TOL = self.options['CONV_TOL']*5
+                    self.tolerances['CONV_TOL'] = self.tolerances['CONV_TOL']*5
 
                 # if self.has_intermediate(5) and rtype>0 and (self.climb or self.find):
                 #    printcool(" THERE IS AN INTERMEDIATE, OPTIMIZE THE INTERMEDIATE AND TRY AGAIN")
@@ -272,20 +262,22 @@ class MainGSM(GSM):
                     elif self.find and self.optimizer[self.TSnode].nneg <= 3:
                         self.hessrcount -= 1
                         self.hess_counter += 1
-                print(f'{stage_changed=}: {self.climb=} {self.find=}')
+                self.logger.log_print(f'{stage_changed=}: {self.climb=} {self.find=}')
 
                 # => write Convergence to file <= #
-                filename = 'scratch/opt_iters_{:03}_{:03}.xyz'.format(self.ID, oi)
-                self.xyz_writer(filename, self.geometries, self.energies, self.gradrmss, self.dEs)
+                self.scratch_writer(
+                    'opt_iters_{:03}.xyz'.format( oi),
+                    self.geometries, self.energies, self.gradrmss, self.dEs
+                )
 
-                print(" End early counter {}".format(self.endearly_counter))
+                self.logger.log_print(" End early counter {}".format(self.endearly_counter))
 
                 # TODO prints tgrads and jobGradCount
-                print("opt_iter: {:2} totalgrad: {:4.3} gradrms: {:5.4} max E({}) {:5.4}\n".format(oi, float(totalgrad), float(gradrms), self.TSnode, float(self.emax)))
+                self.logger.log_print("opt_iter: {:2} totalgrad: {:4.3} gradrms: {:5.4} max E({}) {:5.4}".format(oi, float(totalgrad), float(gradrms), self.TSnode, float(self.emax)))
                 oi += 1
 
                 if self.isConverged and not added and not ts_node_changed and not stage_changed:
-                    print("Converged")
+                    self.logger.log_print("Converged")
                     return
 
                 # => Reparam the String <= #
@@ -327,7 +319,7 @@ class MainGSM(GSM):
 
             else:
                 pool = mp.Pool(self.mp_cores)
-                Vecs = pool.map(worker, ((self.newic.coord_obj, "build_dlc", self.nodes[n].xyz, self.ictan[n]) for n in range(1, self.num_nodes-1) if self.nodes[n] is not None))
+                Vecs = pool.map(worker, ((self.newic.coord_obj, "update_dlc", self.nodes[n].xyz, self.ictan[n]) for n in range(1, self.num_nodes-1) if self.nodes[n] is not None))
                 pool.close()
                 pool.join()
 
@@ -339,36 +331,36 @@ class MainGSM(GSM):
         else:
             if self.find or self.climb:
                 TSnode = self.TSnode
-                if self.mp_cores == 1:
-                    for n in range(1, self.num_nodes-1):
-                        # don't update tsnode coord basis
-                        if n != TSnode or (n == TSnode and update_TS):
-                            Vecs = self.newic.coord_obj.build_dlc(self.nodes[n].xyz, self.ictan[n])
-                            self.nodes[n].coord_basis = Vecs
-                else:
-                    pool = mp.Pool(self.mp_cores)
-                    Vecs = pool.map(worker, ((self.newic.coord_obj, "build_dlc", self.nodes[n].xyz, self.ictan[n]) for n in range(1, self.num_nodes-1) if n != TSnode))
-                    pool.close()
-                    pool.join()
-                    for i, n in enumerate(chain(range(1, TSnode), range(TSnode+1, self.num_nodes-1))):
-                        self.nodes[n].coord_basis = Vecs[i]
-
-                    if update_TS:
-                        Vec = self.newic.coord_obj.build_dlc(self.nodes[TSnode].xyz, self.ictan[TSnode])
-                        self.nodes[TSnode].coord_basis = Vec
+                # if self.mp_cores == 1:
+                for n in range(1, self.num_nodes-1):
+                    # don't update tsnode coord basis
+                    if n != TSnode or (n == TSnode and update_TS):
+                        self.nodes[n].update_coordinate_basis(self.nodes[n].xyz, constraints=self.ictan[n])
+                # else:
+                #     ...
+                    # pool = mp.Pool(self.mp_cores)
+                    # Vecs = pool.map(worker, ((self.newic.coord_obj, "update_dlc", self.nodes[n].xyz, self.ictan[n]) for n in range(1, self.num_nodes-1) if n != TSnode))
+                    # pool.close()
+                    # pool.join()
+                    # for i, n in enumerate(chain(range(1, TSnode), range(TSnode+1, self.num_nodes-1))):
+                    #     self.nodes[n].coord_basis = Vecs[i]
+                    # if update_TS:
+                    #     self.nodes[TSnode].update_coordinate_basis(self.nodes[TSnode].xyz, self.ictan[TSnode])
 
             else:
-                if self.mp_cores == 1:
-                    Vecs = []
-                    for n in range(1, self.num_nodes-1):
-                        Vecs.append(self.newic.coord_obj.build_dlc(self.nodes[n].xyz, self.ictan[n]))
-                elif self.mp_cores > 1:
-                    pool = mp.Pool(self.mp_cores)
-                    Vecs = pool.map(worker, ((self.newic.coord_obj, "build_dlc", self.nodes[n].xyz, self.ictan[n]) for n in range(1, self.num_nodes-1)))
-                    pool.close()
-                    pool.join()
-                for n, node in enumerate(self.nodes[1:self.num_nodes-1]):
-                    node.coord_basis = Vecs[n]
+                # if self.mp_cores == 1:
+                #     Vecs = []
+                #     for n in range(1, self.num_nodes-1):
+                #         Vecs.append(
+                #             self.newic.coord_obj.update_dlc(self.nodes[n].xyz, self.ictan[n])
+                #         )
+                # elif self.mp_cores > 1:
+                #     pool = mp.Pool(self.mp_cores)
+                #     Vecs = pool.map(worker, ((self.newic.coord_obj, "update_dlc", self.nodes[n].xyz, self.ictan[n]) for n in range(1, self.num_nodes-1)))
+                #     pool.close()
+                #     pool.join()
+                for node, ictan in zip(self.nodes[1:self.num_nodes-1], self.ictan[1:self.num_nodes-1]):
+                    node.update_coordinate_basis(node.xyz, constraints=ictan)
 
     def optimize_iteration(self, opt_steps):
         '''
@@ -526,11 +518,11 @@ class MainGSM(GSM):
                 stage_changed = True
 
             # TODO deserves to be rethought 3/2021
-                     #(totalgrad < 0.2 and ts_gradrms < self.CONV_TOL*20. and ts_cgradq < 0.02) or  #
+                     #(totalgrad < 0.2 and ts_gradrms < self.tolerances['CONV_TOL']*20. and ts_cgradq < 0.02) or  #
             elif (self.climb and not self.find and self.finder and self.nclimb < 1 and
-                    ((totalgrad < 0.3 and ts_gradrms < self.CONV_TOL*20.) or  # I hate totalgrad  and ts_cgradq < 0.02
+                    ((totalgrad < 0.3 and ts_gradrms < self.tolerances['CONV_TOL']*20.) or  # I hate totalgrad  and ts_cgradq < 0.02
                      (all_converged) or
-                     (ts_gradrms < self.CONV_TOL*2.5 and ts_cgradq < 0.01)  # used to be 5
+                     (ts_gradrms < self.tolerances['CONV_TOL']*2.5 and ts_cgradq < 0.01)  # used to be 5
                      )) and self.dE_iter < 5.:
                 print(" ** starting exact climb **")
                 print(" totalgrad %5.4f gradrms: %5.4f gts: %5.4f" % (totalgrad, ts_gradrms, ts_cgradq))
@@ -587,7 +579,7 @@ class MainGSM(GSM):
 
                 self.current_nnodes += 1
                 self.nR += 1
-                print(" nn=%i,nR=%i" % (self.current_nnodes, self.nR))
+                self.logger.log_print(" nn={nn},nR={nR}", nn=self.current_nnodes, nR=self.nR)
                 self.active[self.nR-1] = True
 
                 # align center of mass  and rotation
@@ -612,7 +604,7 @@ class MainGSM(GSM):
                 n1 = self.num_nodes-self.nP
                 n2 = self.num_nodes-self.nP-1
                 n3 = self.nR-1
-                print(" adding node: %i between %i %i from %i" % (n2, n1, n3, n1))
+                self.logger.log_print(" adding node: {n2} between {n1} {n3} from {n1}", n2=n2, n1=n1, n3=n3)
                 if self.num_nodes - self.current_nnodes > 1:
                     stepsize = 1./float(self.num_nodes-self.current_nnodes+1)
                 else:
@@ -632,7 +624,7 @@ class MainGSM(GSM):
                 self.optimizer[n2].max_step = self.optimizer[n1].max_step
                 self.current_nnodes += 1
                 self.nP += 1
-                print(" nn=%i,nP=%i" % (self.current_nnodes, self.nP))
+                self.logger.log_print(" nn={nn},nP={nP}", nn=self.current_nnodes, nP=self.nP)
                 self.active[-self.nP] = True
 
                 # align center of mass  and rotation
@@ -755,7 +747,7 @@ class MainGSM(GSM):
 
                 if self.mp_cores > 1:
                     pool = mp.Pool(self.mp_cores)
-                    Vecs = pool.map(worker, ((self.nodes[0].coord_obj, "build_dlc", self.nodes[n].xyz, self.ictan[ntan]) for n, ntan in zip(move_list, tan_list) if rpmove[n] < 0))
+                    Vecs = pool.map(worker, ((self.nodes[0].coord_obj, "update_dlc", self.nodes[n].xyz, self.ictan[ntan]) for n, ntan in zip(move_list, tan_list) if rpmove[n] < 0))
                     pool.close()
                     pool.join()
 
@@ -778,16 +770,22 @@ class MainGSM(GSM):
                 else:
                     for nmove, ntan in zip(move_list, tan_list):
                         if rpmove[nmove] < 0:
-                            print('Moving {} along ictan[{}]'.format(nmove, ntan))
+                            self.logger.log_print('Moving {nmove} along ictan[{ntan}]', nmove=nmove, ntan=ntan)
                             self.nodes[nmove].update_coordinate_basis(constraints=self.ictan[ntan])
                             constraint = self.nodes[nmove].constraints[:, 0]
                             dq0 = rpmove[nmove]*constraint
                             self.nodes[nmove].update_xyz(dq0, verbose=True)
 
-            print(" spacings (end ic_reparam, steps: {}/{}):".format(i+1, ic_reparam_steps), end=' ')
-            for n in range(self.num_nodes):
-                print(" {:1.2}".format(self.dqmaga[n]), end=' ')
-            print("  disprms: {:1.3}".format(disprms))
+            self.logger.log_print(
+                " spacings (end ic_reparam, steps: {i}/{ic_reparam_steps}): {spacings_str} disprms: {disprms:1.3}",
+                i=i+1,
+                spacings=self.dqmaga,
+                ic_reparam_steps=ic_reparam_steps,
+                disprms=disprms,
+                preformatter=lambda *, spacings, **kw:dict(kw, spacings_str=(
+                    " ".join("{:1.2}".format(q) for q in spacings)
+                ))
+            )
 
         # TODO old GSM does this here
         # Failed = check_array(self.num_nodes,self.dqmaga)
@@ -915,19 +913,23 @@ class MainGSM(GSM):
 
     #TODO Remove me does not deserve to be a function
     def set_finder(self, rtype):
-        assert rtype in [0, 1, 2], "rtype not defined"
-        print('')
-        print("*********************************************************************")
-        if rtype == 2:
-            print("****************** set climber and finder to True *******************")
+        rtype = TSOptimizationStrategy(rtype)
+        # assert rtype in [0, 1, 2], "rtype not defined"
+        msg = [
+            "*********************************************************************"
+        ]
+        # print('')
+        if rtype == TSOptimizationStrategy.Exact:
+            msg.append("****************** set climber and finder to True *******************")
             self.climber = True
             self.finder = True
         elif rtype == 1:
-            print("***************** setting climber to True*************************")
+            msg.append("***************** setting climber to True*************************")
             self.climber = True
         else:
-            print("******** Turning off climbing image and exact TS search **********")
-        print("*********************************************************************")
+            msg.append("******** Turning off climbing image and exact TS search **********")
+        msg.append("*********************************************************************")
+        self.logger.log_print(msg)
 
     def com_rotate_move(self, iR, iP, iN):
         print(" aligning com and to Eckart Condition")
@@ -1015,9 +1017,9 @@ class MainGSM(GSM):
                     print(" possible dissociative profile")
                     diss = True
 
-        print(" nnodes ", nnodes)
-        print(" all uphill? ", allup)
-        print(" dissociative? ", diss)
+        self.logger.log_print(" nnodes {nnodes}", nnodes=nnodes)
+        self.logger.log_print(" all uphill? {allup}", allup=allup)
+        self.logger.log_print(" dissociative? {diss}", diss=diss)
         npeaks1 = 0
         npeaks2 = 0
         minnodes = []
@@ -1034,8 +1036,8 @@ class MainGSM(GSM):
                 if energies[n] > energies[n-1]:
                     maxnodes.append(n)
 
-        print(" min nodes ", minnodes)
-        print(" max nodes ", maxnodes)
+        self.logger.log_print(" min nodes {minnodes}", minnodes=minnodes)
+        self.logger.log_print(" max nodes {maxnodes}", maxnodes=maxnodes)
         npeaks1 = len(maxnodes)
         # print "number of peaks is ",npeaks1
         ediff = 0.5
@@ -1052,7 +1054,7 @@ class MainGSM(GSM):
             emax = float(max(energies))
             nmax = np.argmax(energies)
 
-        print(" emax and nmax in find peaks %3.4f,%i " % (emax, nmax))
+        self.logger.log_print(" emax and nmax in find peaks {emax:3.4f},{nmax}", emax=emax, nmax=nmax)
 
         #check if any node after peak is less than 2 kcal below
         for n in maxnodes:
@@ -1061,7 +1063,7 @@ class MainGSM(GSM):
                 found = n
                 npeaks2 += 1
         npeaks = npeaks2
-        print(" found %i significant peak(s) TOL %3.2f" % (npeaks, ediff))
+        self.logger.log_print(" found {npeaks} significant peak(s) TOL {ediff:3.2f}", npeaks=npeaks, ediff=ediff)
 
         # handle dissociative case
         if rtype == "intermediate" and npeaks == 1:
@@ -1088,12 +1090,12 @@ class MainGSM(GSM):
         '''
 
         # Important the factor 5 here corresponds to the same convergence criteria in the TS optimizer
-        TS_conv = self.CONV_TOL*5
+        TS_conv = self.tolerances['CONV_TOL']*5
         # => Check if intermediate exists
         # ALEX REMOVED CLIMB REQUIREMENT
         if self.has_intermediate(self.noise):
-            print("New pot min: {}".format(self.get_intermediate(self.noise)))
-            print("Old pot min: {}".format(self.pot_min))
+            self.logger.log_print("New pot min: {}".format(self.get_intermediate(self.noise)))
+            self.logger.log_print("Old pot min: {}".format(self.pot_min))
             if self.get_intermediate(self.noise) == self.pot_min:
                 self.endearly_counter += 1
             else:
@@ -1116,11 +1118,11 @@ class MainGSM(GSM):
         # 4/8/2022 Bug with this because it isn't recalculated and abs(ts_cgradq) < TS_conv
         # 5/10/2022 self.optimizer[self.TSnode].nneg < 3
         if (self.finder and self.find):
-            return (self.nodes[self.TSnode].gradrms < self.CONV_TOL  and self.dE_iter < self.optimizer[self.TSnode].conv_Ediff*3)
+            return (self.nodes[self.TSnode].gradrms < self.tolerances['CONV_TOL']  and self.dE_iter < self.optimizer[self.TSnode].conv_Ediff*3)
         elif self.climber and self.climb:
-            return (self.nodes[self.TSnode].gradrms < self.CONV_TOL and abs(ts_cgradq) < TS_conv and self.dE_iter < self.optimizer[self.TSnode].conv_Ediff*3)
+            return (self.nodes[self.TSnode].gradrms < self.tolerances['CONV_TOL'] and abs(ts_cgradq) < TS_conv and self.dE_iter < self.optimizer[self.TSnode].conv_Ediff*3)
         elif not self.climber and not self.finder:
-            print(" CONV_TOL=%.4f" % self.CONV_TOL)
+            self.logger.log_print(" CONV_TOL=%.4f" % self.tolerances['CONV_TOL'])
             return all([self.optimizer[n].converged for n in range(1, self.num_nodes-1)])
 
         return False
@@ -1156,7 +1158,7 @@ class MainGSM(GSM):
                     break
                 b += 1
             if ((rnoise > noise) and (pnoise > noise)):
-                print('Potential minimum at image %s' % i)
+                self.logger.log_print('Potential minimum at image %s' % i)
                 potential_min.append(i)
 
         return potential_min
@@ -1179,7 +1181,7 @@ class MainGSM(GSM):
         nstructs = len(input_geoms)
 
         if nstructs != self.num_nodes:
-            print('need to interpolate')
+            self.logger.log_print('need to interpolate')
             # if self.interp_method=="DLC": TODO
             raise NotImplementedError
         else:
@@ -1212,11 +1214,12 @@ class MainGSM(GSM):
         #ALEX CHANGE - rearranged reparameterize and restart_energies 'if' blocks
         if restart_energies:
             # self.interpolate_orbitals()
-            print(" V_profile: ", end=' ')
-            energies = self.energies
-            for n in range(self.num_nodes):
-                print(" {:7.3f}".format(float(energies[n])), end=' ')
-            print()
+            self.logger.log_print([
+                " V_profile: {vprof_str}"
+                ],
+                vprof=self.energies,
+                preformatter=lambda *,vprof,**kw: dict(kw, vprof_str=" ".join(f'{e:7.3f}' for e in vprof))
+            )
         if reparametrize:
             printcool("Reparametrizing")
             self.reparameterize(ic_reparam_steps=8)
@@ -1225,11 +1228,11 @@ class MainGSM(GSM):
 
         self.ictan, self.dqmaga = self.get_tangents(self.nodes)
         self.refresh_coordinates()
-        print(" setting all interior nodes to active")
+        self.logger.log_print(" setting all interior nodes to active")
         for n in range(1, self.num_nodes-1):
             self.active[n] = True
-            self.optimizer[n].conv_grms = self.CONV_TOL*2.5
-            self.optimizer[n].options['DMAX'] = 0.05
+            self.optimizer[n].conv_grms = self.tolerances['CONV_TOL']*2.5
+            self.optimizer[n].max_step = 0.05
 
         return
 
@@ -1238,11 +1241,13 @@ class MainGSM(GSM):
         '''
 
         # New node is TS node
-        new_node = GSM.add_node(
+        new_node = self.add_node(
             self.nodes[self.TSnode-1],
             self.nodes[self.TSnode],
             stepsize=0.5,
             node_id=self.TSnode,
+            node_idR=self.TSnode - 1,
+            node_idP=self.TSnode
         )
         new_node_list = [None]*(self.num_nodes+1)
         new_optimizers = [None]*(self.num_nodes+1)
@@ -1279,6 +1284,8 @@ class MainGSM(GSM):
             self.nodes[self.TSnode+1],
             stepsize=0.5,
             node_id=self.TSnode+1,
+            node_idR=self.TSnode,
+            node_idP=self.TSnode+1,
         )
         new_node_list = [None]*(self.num_nodes+1)
         new_optimizers = [None]*(self.num_nodes+1)
@@ -1306,30 +1313,30 @@ class MainGSM(GSM):
         TSnode = self.TSnode
         for n in range(1, self.num_nodes-1):
             if self.nodes[n] is not None:
-                self.optimizer[n].conv_grms = self.CONV_TOL*factor
-                self.optimizer[n].conv_gmax = self.options['CONV_gmax']*factor
-                self.optimizer[n].conv_Ediff = self.options['CONV_Ediff']*factor
+                self.optimizer[n].conv_grms = self.tolerances['CONV_TOL']*factor
+                self.optimizer[n].conv_gmax = self.tolerances['CONV_gmax']*factor
+                self.optimizer[n].conv_Ediff = self.tolerances['CONV_Ediff']*factor
                 if self.optimizer[n].converged and n != TSnode:
                     self.optimizer[n].check_only_grad_converged=True
                 if (self.climb or self.find) and self.energies[n]>self.energies[TSnode]*0.75 and n!=TSnode:
-                    self.optimizer[n].conv_grms = self.CONV_TOL     
-                    self.optimizer[n].conv_gmax = self.options['CONV_gmax']
-                    self.optimizer[n].conv_Ediff = self.options['CONV_Ediff']
+                    self.optimizer[n].conv_grms = self.tolerances['CONV_TOL']     
+                    self.optimizer[n].conv_gmax = self.tolerances['CONV_gmax']
+                    self.optimizer[n].conv_Ediff = self.tolerances['CONV_Ediff']
                     self.optimizer[n].check_only_grad_converged = False
                 if n == self.TSnode and (self.climb or self.find):
-                    self.optimizer[n].conv_grms = self.CONV_TOL
-                    self.optimizer[n].conv_gmax = self.options['CONV_gmax']
-                    self.optimizer[n].conv_Ediff = self.options['CONV_Ediff']
+                    self.optimizer[n].conv_grms = self.tolerances['CONV_TOL']
+                    self.optimizer[n].conv_gmax = self.tolerances['CONV_gmax']
+                    self.optimizer[n].conv_Ediff = self.tolerances['CONV_Ediff']
                     self.optimizer[n].check_only_grad_converged = False
 
     def slow_down_climb(self):
         if self.climb and not self.find:
             print(" slowing down climb optimization")
-            self.optimizer[self.TSnode].options['DMAX'] /= self.newclimbscale
-            self.optimizer[self.TSnode].options['SCALEQN'] = 2.
+            self.optimizer[self.TSnode].max_step /= self.newclimbscale
+            self.optimizer[self.TSnode].SCALEQN = 2.
             if self.optimizer[self.TSnode].SCALE_CLIMB < 5.:
                 self.optimizer[self.TSnode].SCALE_CLIMB += 1.
-            self.optimizer[self.pTSnode].options['SCALEQN'] = 1.
+            self.optimizer[self.pTSnode].SCALEQN = 1.
             self.ts_exsteps = 1
             if self.newclimbscale < 5.0:
                 self.newclimbscale += 1.

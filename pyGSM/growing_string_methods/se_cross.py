@@ -9,6 +9,13 @@ from ..utilities import nifty
 
 class SE_Cross(SE_GSM):
 
+    def grow_and_handle_termination(self):
+        try:
+            self.grow_nodes()
+        except ValueError:
+            self.logger.log_print(" Will do extra optimization of this node in SE-Cross")
+            return True
+
     def go_gsm(self, max_iters=50, opt_steps=3, *, rtype=None):
         """rtype=3 MECI search
            rtype=4 MESX search

@@ -133,6 +133,7 @@ class LoggingBlock:
             if Logger._in_log_print: #TODO: make thread safe
                 print(msg, file=base_stream)
             else:
+                # raise RuntimeError("debug")
                 return logger.log_print("{tag}{msg}", tag=tag, msg=msg, file=base_stream)
         return _print
 

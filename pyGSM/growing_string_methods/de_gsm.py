@@ -66,7 +66,7 @@ class DE_GSM(MainGSM):
 
                 # nifty.printcool("initial ic_reparam")
                 self.reparameterize()
-                # self.xyz_writer('grown_string_{:03}.xyz'.format(self.ID), self.geometries, self.energies, self.gradrmss, self.dEs)
+                self.output_writer('grown_string.xyz', self.geometries, self.energies, self.gradrmss, self.dEs)
 
             # Can check for intermediate at beginning but not doing that now.
             # else:
@@ -82,19 +82,19 @@ class DE_GSM(MainGSM):
             if self.tscontinue:
                 try:
                     self.optimize_string(max_iter=max_iters, opt_steps=opt_steps, rtype=rtype)
-                except Exception as error:
-                    self.logger.log_print(tb.format_exc())
+                except ValueError as error:
+                    # self.logger.log_print(tb.format_exc())
                     if str(error) == "Ran out of iterations":
                         self.end_early = True
                     else:
-                        self.end_early = True
+                        raise
             else:
                 self.logger.log_print("Exiting early")
                 self.end_early = True
 
-            filename = "opt_converged_{:03d}.xyz".format(self.ID)
+            filename = "opt_converged.xyz"
             self.logger.log_print(" Printing string to " + filename)
-            self.xyz_writer(filename, self.geometries, self.energies, self.gradrmss, self.dEs)
+            self.output_writer(filename, self.geometries, self.energies, self.gradrmss, self.dEs)
             self.logger.log_print("Finished GSM!")
 
             return
@@ -113,13 +113,13 @@ class DE_GSM(MainGSM):
     def set_active(self, nR, nP):
         # print(" Here is active:",self.active)
         if nR != nP and self.growth_direction  == NodeAdditionStrategy.Normal:
-            print((" setting active nodes to %i and %i" % (nR, nP)))
+            self.logger.log_print(" setting active nodes to {nR} and {nP}", nR=nR, nP=nP)
         elif self.growth_direction  == NodeAdditionStrategy.Reactant:
-            print((" setting active node to %i " % nR))
+            self.logger.log_print(" setting active node to {nR} ", nR=nR)
         elif self.growth_direction  == NodeAdditionStrategy.Product:
-            print((" setting active node to %i " % nP))
+            self.logger.log_print(" setting active node to {nP} ", nP=nP)
         else:
-            print((" setting active node to %i " % nR))
+            self.logger.log_print(" setting active node to {nR} ", nR=nR)
 
         for i in range(self.num_nodes):
             if self.nodes[i] is not None:
@@ -152,7 +152,11 @@ class DE_GSM(MainGSM):
         if self.nodes[self.nR-1].gradrms < self.tolerances['ADD_NODE_TOL'] and self.growth_direction  != NodeAdditionStrategy.Product:
             if self.nodes[self.nR] is None:
                 self.add_GSM_nodeR()
-                print(" getting energy for node %d: %5.4f" % (self.nR-1, self.nodes[self.nR-1].energy - self.nodes[0].V0))
+                self.logger.log_print(
+                    " getting energy for node {nR}: {dE:5.4f}",
+                    nR=self.nR-1,
+                    dE=self.nodes[self.nR-1].energy - self.nodes[0].V0
+                )
         if self.nodes[self.num_nodes-self.nP].gradrms < self.tolerances['ADD_NODE_TOL'] and self.growth_direction  != NodeAdditionStrategy.Reactant:
             if self.nodes[-self.nP-1] is None:
                 self.add_GSM_nodeP()
