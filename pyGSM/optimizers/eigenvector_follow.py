@@ -346,8 +346,6 @@ class eigenvector_follow(hessian_update_optimizer):
             else:
                 raise NotImplementedError(" ef not implemented for CART")
 
-
-            print(f"CCC: {dEpre}, {ratio}, {molecule.gradrms}")
             log_fmt = (
                 " Opt step: {step} E: {E:5.4f} predE: {predE:5.4f} ratio: {ratio:4.3f}"
                 " gradrms: {gradrms:1.5f} ss: {step_size:4.3f} DMAX: {DMAX:4.3f}"

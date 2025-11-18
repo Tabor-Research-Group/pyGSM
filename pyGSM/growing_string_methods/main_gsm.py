@@ -60,7 +60,7 @@ class MainGSM(GSM):
                 self.logger.log_print("Starting growth iteration {iteration}", iteration=iteration)
                 self.optimize_iteration(max_opt_steps)
                 totalgrad, gradrms, sum_gradrms = self.calc_optimization_metrics(self.nodes)
-                self.xyz_writer('scratch/growth_iters_{:03}_{:03}.xyz'.format(self.ID, iteration), self.geometries, self.energies, self.gradrmss, self.dEs)
+                # self.xyz_writer('scratch/growth_iters_{:03}_{:03}.xyz'.format(self.ID, iteration), self.geometries, self.energies, self.gradrmss, self.dEs)
                 print(" gopt_iter: {:2} totalgrad: {:4.3} gradrms: {:5.4} max E: {:5.4}\n".format(iteration, float(totalgrad), float(gradrms), float(self.emax)))
 
                 try:
@@ -392,7 +392,8 @@ class MainGSM(GSM):
                     xyzframerate=1
                 )
 
-        return self.isConverged, refE
+        return self.nodes[0].energy, refE
+        # return self.isConverged, refE
 
     def get_tangents_opting(self, print_level=1):
         if self.climb or self.find:
@@ -655,119 +656,138 @@ class MainGSM(GSM):
         Reparameterize during growth phase
         """
 
-        printcool("Reparamerizing string nodes")
-        # close_dist_fix(0) #done here in GString line 3427.
-        rpmove = np.zeros(self.num_nodes)
-        rpart = np.zeros(self.num_nodes)
-        disprms = 0.0
+        with self.logger.block(tag="Reparamerizing string nodes"):
+            # close_dist_fix(0) #done here in GString line 3427.
+            rpmove = np.zeros(self.num_nodes)
+            rpart = np.zeros(self.num_nodes)
+            disprms = 0.0
 
-        if self.current_nnodes == self.num_nodes:
-            return
+            if self.current_nnodes == self.num_nodes:
+                return
 
-        for i in range(ic_reparam_steps):
-            self.ictan, self.dqmaga = self.get_tangents_growing()
-            totaldqmag = np.sum(self.dqmaga[n0:self.nR-1])+np.sum(self.dqmaga[self.num_nodes-self.nP+1:self.num_nodes])
-            if self.print_level > 0:
+            for i in range(ic_reparam_steps):
+                self.ictan, self.dqmaga = self.get_tangents_growing()
+                totaldqmag = np.sum(self.dqmaga[n0:self.nR-1])+np.sum(self.dqmaga[self.num_nodes-self.nP+1:self.num_nodes])
                 if i == 0:
-                    print(" totaldqmag (without inner): {:1.2}\n".format(totaldqmag))
-                print(" printing spacings dqmaga: ")
-                for n in range(self.num_nodes):
-                    print(" {:2.3}".format(self.dqmaga[n]), end=' ')
-                    if (n+1) % 5 == 0:
-                        print()
-                print()
+                    self.logger.log_print(" totaldqmag (without inner): {totaldqmag:1.2}", totaldqmag=totaldqmag,
+                                          log_level=self.logger.LogLevel.Debug)
+                self.logger.log_print(
+                    [
+                        " printing spacings dqmaga: ",
+                        "{dqmaga_str}"
+                    ],
+                    dqmaga_str=self.dqmaga,
+                    preformatter=lambda *, dqmaga, **kwargs: dict(
+                        kwargs,
+                        dqmaga_str=self._format_block_str(dqmaga, 5, "{:5.3}", " ")),
+                    log_level=self.logger.LogLevel.Debug
+                )
 
-            if i == 0:
-                if self.current_nnodes != self.num_nodes:
-                    rpart = np.zeros(self.num_nodes)
-                    for n in range(n0+1, self.nR):
-                        rpart[n] = 1.0/(self.current_nnodes-2)
-                    for n in range(self.num_nodes-self.nP, self.num_nodes-1):
-                        rpart[n] = 1.0/(self.current_nnodes-2)
-                else:
-                    for n in range(n0+1, self.num_nodes):
-                        rpart[n] = 1./(self.num_nodes-1)
-                if self.print_level > 0:
+                if i == 0:
+                    if self.current_nnodes != self.num_nodes:
+                        rpart = np.zeros(self.num_nodes)
+                        for n in range(n0+1, self.nR):
+                            rpart[n] = 1.0/(self.current_nnodes-2)
+                        for n in range(self.num_nodes-self.nP, self.num_nodes-1):
+                            rpart[n] = 1.0/(self.current_nnodes-2)
+                    else:
+                        for n in range(n0+1, self.num_nodes):
+                            rpart[n] = 1./(self.num_nodes-1)
                     if i == 0:
-                        print(" rpart: ")
-                        for n in range(1, self.num_nodes-1):
-                            print(" {:1.2}".format(rpart[n]), end=' ')
-                            if (n) % 5 == 0:
-                                print()
-                        print()
-            nR0 = self.nR
-            nP0 = self.nP
+                        self.logger.log_print(
+                            [
+                                " rpart: ",
+                                "{rpart}",
+                            ],
+                            rpart=rpart,
+                            preformatter=lambda *, rpart, **kwargs: dict(
+                                kwargs,
+                                rpart_str=self._format_block_str(rpart, 5, "{:1.2}", " ")),
+                            log_level=self.logger.LogLevel.Debug
+                        )
+                nR0 = self.nR
+                nP0 = self.nP
 
-            # TODO CRA 3/2019 why is this here?
-            if not reparam_interior:
-                if self.num_nodes-self.current_nnodes > 2:
-                    nR0 -= 1
-                    nP0 -= 1
+                # TODO CRA 3/2019 why is this here?
+                if not reparam_interior:
+                    if self.num_nodes-self.current_nnodes > 2:
+                        nR0 -= 1
+                        nP0 -= 1
 
-            deltadq = 0.0
-            for n in range(n0+1, nR0):
-                deltadq = self.dqmaga[n-1] - totaldqmag*rpart[n]
-                rpmove[n] = -deltadq
-            for n in range(self.num_nodes-nP0, self.num_nodes-1):
-                deltadq = self.dqmaga[n+1] - totaldqmag*rpart[n]
-                rpmove[n] = -deltadq
+                deltadq = 0.0
+                for n in range(n0+1, nR0):
+                    deltadq = self.dqmaga[n-1] - totaldqmag*rpart[n]
+                    rpmove[n] = -deltadq
+                for n in range(self.num_nodes-nP0, self.num_nodes-1):
+                    deltadq = self.dqmaga[n+1] - totaldqmag*rpart[n]
+                    rpmove[n] = -deltadq
 
-            MAXRE = 1.1
+                MAXRE = 1.1
 
-            for n in range(n0+1, self.num_nodes-1):
-                if abs(rpmove[n]) > MAXRE:
-                    rpmove[n] = float(np.sign(rpmove[n])*MAXRE)
-
-            disprms = float(np.linalg.norm(rpmove[n0+1:self.num_nodes-1]))
-            if self.print_level > 0:
                 for n in range(n0+1, self.num_nodes-1):
-                    print(" disp[{}]: {:1.2f}".format(n, rpmove[n]), end=' ')
-                    if (n) % 5 == 0:
-                        print()
-                print()
-                print(" disprms: {:1.3}\n".format(disprms))
+                    if abs(rpmove[n]) > MAXRE:
+                        rpmove[n] = float(np.sign(rpmove[n])*MAXRE)
 
-            if disprms < 1e-2:
-                break
+                disprms = float(np.linalg.norm(rpmove[n0+1:self.num_nodes-1]))
+                self.logger.log_print(
+                    [
+                        "{rpmove}",
+                    ],
+                    rpmove=rpmove[n0+1:],
+                    preformatter=lambda *, rpmove, **kwargs: dict(
+                        kwargs,
+                        rpart_str=self._format_block_str(rpart, 5, "{:1.2}", " ")),
+                    log_level=self.logger.LogLevel.Debug
+                )
+                # if self.print_level > 0:
+                #     for n in range(n0+1, self.num_nodes-1):
+                #         print(" disp[{}]: {:1.2f}".format(n, rpmove[n]), end=' ')
+                #         if (n) % 5 == 0:
+                #             print()
+                #     print()
+                #     print(" disprms: {:1.3}\n".format(disprms))
 
-            move_list = self.make_move_list()
-            tan_list = self.make_tan_list()
+                if disprms < 1e-2:
+                    break
 
-            if self.mp_cores > 1:
-                pool = mp.Pool(self.mp_cores)
-                Vecs = pool.map(worker, ((self.nodes[0].coord_obj, "build_dlc", self.nodes[n].xyz, self.ictan[ntan]) for n, ntan in zip(move_list, tan_list) if rpmove[n] < 0))
-                pool.close()
-                pool.join()
+                move_list = self.make_move_list()
+                tan_list = self.make_tan_list()
 
-                i = 0
-                for n in move_list:
-                    if rpmove[n] < 0:
-                        self.nodes[n].coord_basis = Vecs[i]
-                        i += 1
+                if self.mp_cores > 1:
+                    pool = mp.Pool(self.mp_cores)
+                    Vecs = pool.map(worker, ((self.nodes[0].coord_obj, "build_dlc", self.nodes[n].xyz, self.ictan[ntan]) for n, ntan in zip(move_list, tan_list) if rpmove[n] < 0))
+                    pool.close()
+                    pool.join()
 
-                # move the positions
-                pool = mp.Pool(self.mp_cores)
-                newXyzs = pool.map(worker, ((self.nodes[n].coord_obj, "newCartesian", self.nodes[n].xyz, rpmove[n]*self.nodes[n].constraints[:, 0]) for n in move_list if rpmove[n] < 0))
-                pool.close()
-                pool.join()
-                i = 0
-                for n in move_list:
-                    if rpmove[n] < 0:
-                        self.nodes[n].xyz = newXyzs[i]
-                        i += 1
-            else:
-                for nmove, ntan in zip(move_list, tan_list):
-                    if rpmove[nmove] < 0:
-                        print('Moving {} along ictan[{}]'.format(nmove, ntan))
-                        self.nodes[nmove].update_coordinate_basis(constraints=self.ictan[ntan])
-                        constraint = self.nodes[nmove].constraints[:, 0]
-                        dq0 = rpmove[nmove]*constraint
-                        self.nodes[nmove].update_xyz(dq0, verbose=True)
+                    i = 0
+                    for n in move_list:
+                        if rpmove[n] < 0:
+                            self.nodes[n].coord_basis = Vecs[i]
+                            i += 1
 
-        print(" spacings (end ic_reparam, steps: {}/{}):".format(i+1, ic_reparam_steps), end=' ')
-        for n in range(self.num_nodes):
-            print(" {:1.2}".format(self.dqmaga[n]), end=' ')
-        print("  disprms: {:1.3}".format(disprms))
+                    # move the positions
+                    pool = mp.Pool(self.mp_cores)
+                    newXyzs = pool.map(worker, ((self.nodes[n].coord_obj, "newCartesian", self.nodes[n].xyz, rpmove[n]*self.nodes[n].constraints[:, 0]) for n in move_list if rpmove[n] < 0))
+                    pool.close()
+                    pool.join()
+                    i = 0
+                    for n in move_list:
+                        if rpmove[n] < 0:
+                            self.nodes[n].xyz = newXyzs[i]
+                            i += 1
+                else:
+                    for nmove, ntan in zip(move_list, tan_list):
+                        if rpmove[nmove] < 0:
+                            print('Moving {} along ictan[{}]'.format(nmove, ntan))
+                            self.nodes[nmove].update_coordinate_basis(constraints=self.ictan[ntan])
+                            constraint = self.nodes[nmove].constraints[:, 0]
+                            dq0 = rpmove[nmove]*constraint
+                            self.nodes[nmove].update_xyz(dq0, verbose=True)
+
+            print(" spacings (end ic_reparam, steps: {}/{}):".format(i+1, ic_reparam_steps), end=' ')
+            for n in range(self.num_nodes):
+                print(" {:1.2}".format(self.dqmaga[n]), end=' ')
+            print("  disprms: {:1.3}".format(disprms))
 
         # TODO old GSM does this here
         # Failed = check_array(self.num_nodes,self.dqmaga)

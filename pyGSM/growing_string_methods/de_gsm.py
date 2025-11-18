@@ -66,7 +66,7 @@ class DE_GSM(MainGSM):
 
                 # nifty.printcool("initial ic_reparam")
                 self.reparameterize()
-                self.xyz_writer('grown_string_{:03}.xyz'.format(self.ID), self.geometries, self.energies, self.gradrmss, self.dEs)
+                # self.xyz_writer('grown_string_{:03}.xyz'.format(self.ID), self.geometries, self.energies, self.gradrmss, self.dEs)
 
             # Can check for intermediate at beginning but not doing that now.
             # else:
