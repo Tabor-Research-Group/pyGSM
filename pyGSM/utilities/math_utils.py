@@ -2,6 +2,8 @@ import numpy as np
 
 # Some vector calculus functions
 
+def is_zero_array(a, tol=1e-12):
+    return np.sum(np.abs(a)) < tol
 
 def unit_vector(a):
     """

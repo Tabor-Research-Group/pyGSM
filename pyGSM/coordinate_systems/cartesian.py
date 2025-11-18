@@ -48,7 +48,6 @@ class CartesianCoordinates(InternalCoordinates):
     def guess_hessian(self, xyz, bonds=None):
         return 0.5*np.eye(len(xyz.flatten()))
 
-
     def calcGrad(self, xyz, gradx, frozen_atoms=None):
         #TODO: handle freezing
         return gradx
@@ -67,9 +66,3 @@ class CartesianCoordinates(InternalCoordinates):
 
     def second_derivatives(self, xyz):
         raise NotImplementedError("shouldn't hit this code path for Cartesian coordinates")
-
-    def addConstraint(self, cPrim, cVal, xyz):
-        raise NotImplementedError("Constraints not supported with Cartesian coordinates")
-
-    def haveConstraints(self):
-        raise NotImplementedError("Constraints not supported with Cartesian coordinates")

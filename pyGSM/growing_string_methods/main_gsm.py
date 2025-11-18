@@ -9,7 +9,7 @@ import multiprocessing as mp
 from itertools import chain
 
 from .gsm import GSM, NodeAdditionStrategy
-from ..utilities import Devutils as dev
+from ..utilities import Devutils as dev, math_utils
 from ..molecule import Molecule
 
 def worker(arg):
@@ -43,7 +43,7 @@ class MainGSM(GSM):
         optsteps : int
             Maximum number of optimization steps per node of string
         '''
-        with self.logger.block("In growth_iters"):
+        with self.logger.block(tag="In growth_iters"):
 
             ncurrent, nlist = self.make_difference_node_list()
             self.ictan, self.dqmaga = self.get_tangents_growing()
@@ -57,7 +57,7 @@ class MainGSM(GSM):
                     print(" Ran out of iterations")
                     return
                     # raise Exception(" Ran out of iterations")
-                self.logger("Starting growth iteration {iteration}", iteration=iteration)
+                self.logger.log_print("Starting growth iteration {iteration}", iteration=iteration)
                 self.optimize_iteration(max_opt_steps)
                 totalgrad, gradrms, sum_gradrms = self.calc_optimization_metrics(self.nodes)
                 self.xyz_writer('scratch/growth_iters_{:03}_{:03}.xyz'.format(self.ID, iteration), self.geometries, self.energies, self.gradrmss, self.dEs)
@@ -317,8 +317,13 @@ class MainGSM(GSM):
             if self.mp_cores == 1:
                 for n in range(1, self.num_nodes-1):
                     if self.nodes[n] is not None:
-                        Vecs = self.newic.coord_obj.build_dlc(self.nodes[n].xyz, self.ictan[n])
-                        self.nodes[n].coord_basis = Vecs
+                        self.nodes[n] = self.nodes[n].modify_coordinate_system(
+                            constraints=self.ictan[n]
+                        )
+                        # Vecs = self.newic.modify_.build_dlc(self.nodes[n].xyz, self.ictan[n],
+                        #                                       logger=self.logger
+                        #                                       )
+                        # self.nodes[n].coord_basis = Vecs
 
             else:
                 pool = mp.Pool(self.mp_cores)
@@ -398,6 +403,18 @@ class MainGSM(GSM):
     def get_tangent_vector_guess(self, nlist, n):
         ...
 
+    @classmethod
+    def _array_split(cls, vec, max_el):
+        l = len(vec)
+        return np.array_split(np.arange(l), l // max_el + (l % max_el > 0))
+    @classmethod
+    def _format_block_str(cls, vec, n, item_fmt, join_fmt):
+        blocks = cls._array_split(vec, n)
+        return "\n".join(
+            join_fmt.join(item_fmt.format(f) for f in b)
+            for b in blocks
+        )
+
     def get_tangents_growing(self, print_level=1):
         """
         Finds the tangents during the growth phase. 
@@ -408,7 +425,7 @@ class MainGSM(GSM):
 
         ncurrent, nlist = self.make_difference_node_list()
         dqmaga = [0.]*self.num_nodes
-        ictan = [[]]*self.num_nodes
+        ictan = [None]*self.num_nodes
 
         self.logger.log_print(
             [
@@ -427,18 +444,20 @@ class MainGSM(GSM):
             #        driving_coords=self.driving_coords,
             #        )
 
-            ictan0 = self.get_tangent_vector()
+            ictan0 = self.get_tangent_vector_guess(nlist, n)
+            if math_utils.is_zero_array(ictan0[:]):
+                self.logger.log_print([
+                    " ICTAN IS ZERO!",
+                    "{ni}",
+                    "{nin}",
+                ],
+                    ni=nlist[2*n],
+                    nin=nlist[2*n+1]
+                )
+                raise ValueError("constraint tangent vector is zero")
 
-            if self.print_level > 1:
-                print("forming space for", nlist[2*n+1])
-            if self.print_level > 1:
-                print("forming tangent for ", nlist[2*n])
-
-            if (ictan0[:] == 0.).all():
-                print(" ICTAN IS ZERO!")
-                print(nlist[2*n])
-                print(nlist[2*n+1])
-                raise RuntimeError
+            self.logger.log_print("forming space for {ni}", ni=nlist[2*n])
+            self.logger.log_print("forming space for {ni}", ni=nlist[2*n+1])
 
             # normalize ictan
             norm = np.linalg.norm(ictan0)
@@ -456,23 +475,26 @@ class MainGSM(GSM):
 
             dqmaga[nlist[2*n]] = norm
 
-        if print_level > 0:
-            print('------------printing dqmaga---------------')
-            for n in range(self.num_nodes):
-                print(" {:5.3}".format(dqmaga[n]), end=' ')
-                if (n+1) % 5 == 0:
-                    print()
-            print()
+        self.logger.log_print(
+            [
+                "printing dqmaga",
+                "{dqmaga_str}"
+            ],
+            dqmaga=dqmaga,
+            preformatter=lambda *, dqmaga, **kwargs: dict(
+                kwargs,
+                dqmaga_str=self._format_block_str(dqmaga, 5, "{:5.3}", " ")),
+            log_level=self.logger.LogLevel.Debug
+        )
 
-        if print_level > 1:
-            for n in range(ncurrent):
-                print("dqmag[%i] =%1.2f" % (nlist[2*n], self.dqmaga[nlist[2*n]]))
-                print("printing ictan[%i]" % nlist[2*n])
-                print(self.ictan[nlist[2*n]].T)
+        # if print_level > 1:
+        #     for n in range(ncurrent):
+        #         print("dqmag[%i] =%1.2f" % (nlist[2*n], self.dqmaga[nlist[2*n]]))
+        #         print("printing ictan[%i]" % nlist[2*n])
+        #         print(self.ictan[nlist[2*n]].T)
         for i, tan in enumerate(ictan):
-            if np.all(tan == 0.0):
-                print("tan %i of the tangents is 0" % i)
-                raise RuntimeError
+            if tan is not None and math_utils.is_zero_array(tan):
+                raise ValueError(f"tangent vector {i} is zero")
 
         return ictan, dqmaga
 
@@ -516,10 +538,10 @@ class MainGSM(GSM):
                 self.ictan, self.dqmaga = self.get_three_way_tangents(self.nodes, self.energies)
                 self.modify_TS_Hess()
 
-                if self.optimizer[self.TSnode].DMAX > 0.1:
-                    self.optimizer[self.TSnode].DMAX = 0.1
+                if self.optimizer[self.TSnode].max_step > 0.1:
+                    self.optimizer[self.TSnode].max_step = 0.1
                 self.optimizer[self.TSnode] = eigenvector_follow(self.optimizer[self.TSnode].options.copy())
-                self.optimizer[self.TSnode].options['SCALEQN'] = 1.
+                self.optimizer[self.TSnode].SCALEQN = 1.
                 self.nhessreset = 10  # are these used??? TODO
                 self.hessrcount = 0   # are these used?!  TODO
                 stage_changed = True
@@ -573,7 +595,7 @@ class MainGSM(GSM):
                 # self.nodes[self.nR-1].xyz = self.com_rotate_move(iR,iP,iN)
 
     def set_new_node_tolerances(self, index):
-        self.optimizer[index].DMAX = self.optimizer[index - 1].DMAX
+        self.optimizer[index].max_step = self.optimizer[index - 1].max_step
 
     def add_GSM_nodeP(self, newnodes=1):
         '''
@@ -598,12 +620,14 @@ class MainGSM(GSM):
                     self.nodes[n1],
                     self.nodes[n3],
                     stepsize,
-                    n2
+                    n2,
+                    node_idR=n1,
+                    node_idP=n3
                 )
                 if self.nodes[-self.nP-1] is None:
                     raise Exception('Ran out of space')
 
-                self.optimizer[n2].DMAX = self.optimizer[n1].DMAX
+                self.optimizer[n2].max_step = self.optimizer[n1].max_step
                 self.current_nnodes += 1
                 self.nP += 1
                 print(" nn=%i,nP=%i" % (self.current_nnodes, self.nP))

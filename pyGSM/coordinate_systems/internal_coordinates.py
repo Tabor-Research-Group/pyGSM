@@ -37,11 +37,12 @@ def register_coordinate_system(name):
 
 class InternalCoordinates(metaclass=abc.ABCMeta):
 
-    def __init__(self, atoms, xyz, bonds=None, logger=None):
+    def __init__(self, atoms, xyz, bonds=None, constraints=None, logger=None):
         self.atoms = atoms
         self.xyz = xyz
         self._input_topology = bonds
         self._topology = None
+        self.constraints = constraints
         self.stored_wilsonB = OrderedDict()
         self.logger = dev.Logger.lookup(logger)
 
@@ -93,14 +94,6 @@ class InternalCoordinates(metaclass=abc.ABCMeta):
         ...
     @abc.abstractmethod
     def second_derivatives(self, xyz):
-        ...
-
-    @abc.abstractmethod
-    def addConstraint(self, cPrim, cVal, xyz):
-        ...
-
-    @abc.abstractmethod
-    def haveConstraints(self):
         ...
 
     def clearCache(self):

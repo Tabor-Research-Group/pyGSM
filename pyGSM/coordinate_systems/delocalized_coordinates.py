@@ -31,11 +31,11 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
         super().__init__(
             atoms,
             xyz,
-            logger=primitives.logger
+            logger=primitives.logger,
+            constraints=constraints
         )
 
         # self.options = options
-        self.constraints = constraints
         self.atoms = atoms
         self.natoms = len(self.atoms)
 
@@ -43,12 +43,15 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
         # print "in constructor",len(self.Prims.Internals)
 
         xyz = np.asanyarray(xyz).flatten()
-        self.Vecs, self.Internals = self.build_dlc(self.Prims, xyz, logger=self.logger)
+        self.Vecs, self.Internals = self.build_dlc(self.Prims, xyz, constraints=self.constraints, logger=self.logger)
         # print("vecs after build")
         # print(self.Vecs)
 
     def update_dlc(self, new_xyz, constraints=None):
-        self.Vecs, self.Internals = self.build_dlc(self.Prims, new_xyz, logger=self.logger, constraints=constraints)
+        #TODO: make this not an in-place operation
+        if constraints is not None:
+            self.constraints = constraints
+        self.Vecs, self.Internals = self.build_dlc(self.Prims, new_xyz, logger=self.logger, constraints=self.constraints)
 
     def get_state_dict(self):
         return dict(
@@ -102,84 +105,6 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
 
     def join(self, other):
         return self.Prims.join(other.Prims)
-
-    def copy(self, xyz):
-        return type(self)(
-            self.atoms,
-            xyz,
-            self.Prims.copy(),
-            constraints=self.constraints
-        )
-
-    def addConstraint(self, cPrim, cVal, xyz):
-        self.Prims.addConstraint(cPrim, cVal, xyz)
-
-    def getConstraints_from(self, other):
-        self.Prims.getConstraints_from(other.Prims)
-
-    def haveConstraints(self):
-        return len(self.Prims.cPrims) > 0
-
-    def getConstraintViolation(self, xyz):
-        return self.Prims.getConstraintViolation(xyz)
-
-    def printConstraints(self, xyz, thre=1e-5):
-        self.Prims.printConstraints(xyz, thre=thre)
-
-    def getConstraintTargetVals(self):
-        return self.Prims.getConstraintTargetVals()
-
-    def applyConstraints(self, xyz):
-        """
-        Pass in Cartesian coordinates and return new coordinates that satisfy the constraints exactly.
-        This is not used in the current constrained optimization code that uses Lagrange multipliers instead.
-        """
-        xyz1 = xyz.copy()
-        niter = 0
-        while True:
-            dQ = np.zeros(len(self.Internals), dtype=float)
-            for ic, c in enumerate(self.Prims.cPrims):
-                # Look up the index of the primitive that is being constrained
-                iPrim = self.Prims.Internals.index(c)
-                # Look up the index of the DLC that corresponds to the constraint
-                iDLC = self.cDLC[ic]
-                # Calculate the further change needed in this constrained variable
-                dQ[iDLC] = (self.Prims.cVals[ic] - c.value(xyz1))/self.Vecs[iPrim, iDLC]
-                if c.isPeriodic:
-                    Plus2Pi = dQ[iDLC] + 2*np.pi
-                    Minus2Pi = dQ[iDLC] - 2*np.pi
-                    if np.abs(dQ[iDLC]) > np.abs(Plus2Pi):
-                        dQ[iDLC] = Plus2Pi
-                    if np.abs(dQ[iDLC]) > np.abs(Minus2Pi):
-                        dQ[iDLC] = Minus2Pi
-            # print "applyConstraints calling newCartesian (%i), |dQ| = %.3e" % (niter, np.linalg.norm(dQ))
-            xyz2 = self.newCartesian(xyz1, dQ, verbose=False)
-            if np.linalg.norm(dQ) < 1e-6:
-                return xyz2
-            if niter > 1 and np.linalg.norm(dQ) > np.linalg.norm(dQ0):
-                # logger.warning("\x1b[1;93mWarning: Failed to apply Constraint\x1b[0m")
-                return xyz1
-            xyz1 = xyz2.copy()
-            niter += 1
-            dQ0 = dQ.copy()
-
-    def newCartesian_withConstraint(self, xyz, dQ, thre=0.1, verbose=False):
-        xyz2 = self.newCartesian(xyz, dQ, verbose)
-        constraintSmall = len(self.Prims.cPrims) > 0
-        for ic, c in enumerate(self.Prims.cPrims):
-            w = c.w if type(c) in [RotationA, RotationB, RotationC] else 1.0
-            current = c.value(xyz)/w
-            reference = self.Prims.cVals[ic]/w
-            diff = (current - reference)
-            if np.abs(diff-2*np.pi) < np.abs(diff):
-                diff -= 2*np.pi
-            if np.abs(diff+2*np.pi) < np.abs(diff):
-                diff += 2*np.pi
-            if np.abs(diff) > thre:
-                constraintSmall = False
-        if constraintSmall:
-            xyz2 = self.applyConstraints(xyz2)
-        return xyz2
 
     def wilsonB(self, xyz):
         Bp = self.Prims.wilsonB(xyz)

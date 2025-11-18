@@ -169,6 +169,7 @@ class GSM(metaclass=abc.ABCMeta):
         )
 
     nodes: list[Molecule] # giving a type hint to pycharm
+    optimizers: list[base_optimizer] # giving a type hint to pycharm
     def __init__(
             self,
             *,
@@ -542,14 +543,19 @@ class GSM(metaclass=abc.ABCMeta):
         return new_node
 
     @classmethod
-    def interpolate_xyz(cls, nodeR, nodeP, stepsize, logger=None):
+    def interpolate_xyz(cls, nodeR, nodeP,
+                        *,
+                        node_idR,
+                        node_idP,
+                        stepsize, logger=None):
         '''
         Interpolate between two nodes
         '''
 
         logger = dev.Logger.lookup(logger)
-        ictan, _ = cls.get_tangent(nodeR, nodeP)
-        Vecs = nodeR.update_coordinate_basis(constraints=ictan)
+        # see previous comment on basis construction
+        ictan, _ = cls.get_tangent(nodeP, nodeR, node_id_1=node_idR, node_id_2=node_idP)
+        Vecs = nodeR.update_coordinate_basis(constraints=-ictan)
         constraint = nodeR.constraints[:, 0]
         prim_constraint = util.block_matrix.dot(Vecs, constraint)
         dqmag = np.dot(prim_constraint.T, ictan)

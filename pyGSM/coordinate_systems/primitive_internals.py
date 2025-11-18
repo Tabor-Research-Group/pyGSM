@@ -88,6 +88,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                  atoms,
                  xyz,
                  bonds=None,
+                 constraints=None,
                  form_topology=True,
                  connect=False,
                  addcart=False,
@@ -99,7 +100,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                  logger=None
                  ):
 
-        super().__init__(atoms, xyz, bonds=bonds, logger=logger)
+        super().__init__(atoms, xyz, bonds=bonds, logger=logger, constraints=constraints)
 
         self.connect = connect
         self.addcart = addcart
@@ -452,34 +453,6 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             raise NotImplementedError(dtype)
         return self.Internals.index(prim)
 
-    def delete(self, dof):
-        found = False
-        for ii in range(len(self.Internals))[::-1]:
-            if dof == self.Internals[ii]:
-                del self.Internals[ii]
-                found = True
-        return found
-
-    def addConstraint(self, cPrim, cVal=None, xyz=None):
-        if cVal is None and xyz is None:
-            raise RuntimeError('Please provide either cval or xyz')
-        if cVal is None:
-            # If coordinates are provided instead of a constraint value,
-            # then calculate the constraint value from the positions.
-            # If both are provided, then the coordinates are ignored.
-            cVal = cPrim.value(xyz)
-            self.logger.log_print(cVal)
-        if cPrim in self.cPrims:
-            iPrim = self.cPrims.index(cPrim)
-            if np.abs(cVal - self.cVals[iPrim]) > 1e-6:
-                self.logger.log_print("Updating constraint value to %.4e" % cVal)
-            self.cVals[iPrim] = cVal
-        else:
-            if cPrim not in self.Internals:
-                self.Internals.append(cPrim)
-            self.cPrims.append(cPrim)
-            self.cVals.append(cVal)
-
     _primitive_ordering = [
         slots.Distance, slots.Angle, slots.LinearAngle,
         slots.OutOfPlane, slots.Dihedral,
@@ -813,6 +786,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         '''
         The SE-GSM needs to add primitives, we have to do this carefully because of the blocks
         '''
+        raise NotImplementedError("this wasn't implemented")
 
         return
 
@@ -894,89 +868,6 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         self.clearCache()
         return
 
-    def getConstraints_from(self, other):
-        if other.haveConstraints():
-            for cPrim, cVal in zip(other.cPrims, other.cVals):
-                self.addConstraint(cPrim, cVal)
-
-    def haveConstraints(self):
-        return len(self.cPrims) > 0
-
-    @classmethod
-    def calculate_constraint_violation(cls, xyz, primitive_set, target_values):
-        maxdiff = 0.0
-        for ic, c in enumerate(primitive_set):
-            w = c.w if c.type_class == slots.CoordinateTypeClasses.Rotation else 1.0
-            current = c.value(xyz) / w
-            reference = target_values[ic] / w
-            diff = (current - reference)
-            if c.isPeriodic:
-                if np.abs(diff - 2 * np.pi) < np.abs(diff):
-                    diff -= 2 * np.pi
-                if np.abs(diff + 2 * np.pi) < np.abs(diff):
-                    diff += 2 * np.pi
-            if c.type_class in {
-                slots.CoordinateTypeClasses.Translation,
-                slots.CoordinateTypeClasses.Cartesian,
-                slots.CoordinateTypeClasses.Distance
-            }:
-                factor = 1.
-            elif c.isAngular:
-                factor = 180.0 / np.pi
-            if np.abs(diff * factor) > maxdiff:
-                maxdiff = np.abs(diff * factor)
-        return maxdiff
-    def getConstraintViolation(self, xyz):
-        return self.calculate_constraint_violation(xyz, self.cPrims, self.cVals)
-
-    def printConstraints(self, xyz, thre=1e-5):
-        out_lines = []
-        header = "Constraint                         Current      Target       Diff.\n"
-        for ic, c in enumerate(self.cPrims):
-            w = c.w if c.type_class == slots.CoordinateTypeClasses.Rotation else 1.0
-            current = c.value(xyz)/w
-            reference = self.cVals[ic]/w
-            diff = (current - reference)
-            if c.isPeriodic:
-                if np.abs(diff-2*np.pi) < np.abs(diff):
-                    diff -= 2*np.pi
-                if np.abs(diff+2*np.pi) < np.abs(diff):
-                    diff += 2*np.pi
-            if c.type_class in {
-                slots.CoordinateTypeClasses.Translation,
-                slots.CoordinateTypeClasses.Cartesian,
-                slots.CoordinateTypeClasses.Distance,
-            }:
-                factor = 1.
-            elif c.isAngular:
-                factor = 180.0/np.pi
-            # if np.abs(diff*factor) > thre:
-            out_lines.append("%-30s  % 10.5f  % 10.5f  % 10.5f\n" % (str(c), current*factor, reference*factor, diff*factor))
-        if len(out_lines) > 0:
-            self.logger.log_print(header)
-            self.logger.log_print('\n'.join(out_lines))
-            # if type(c) in [RotationA, RotationB, RotationC]:
-            #     print c, c.value(xyz)
-            #     logArray(c.x0)
-
-    def getConstraintTargetVals(self):
-        cNames = []
-        cVals = []
-        for ic, c in enumerate(self.cPrims):
-            w = c.w if c.type_class == slots.CoordinateTypeClasses.Rotation else 1.0
-            reference = self.cVals[ic]/w
-            if c.type_class in {
-                slots.CoordinateTypeClasses.Translation,
-                slots.CoordinateTypeClasses.Cartesian,
-                slots.CoordinateTypeClasses.Distance,
-            }:
-                factor = 1.
-            elif c.isAngular:
-                factor = 180.0/np.pi
-            cNames.append(str(c))
-            cVals.append(reference*factor)
-        return(cNames, cVals)
-
     def guess_hessian(self, coords, bonds=None):
         """
         Build a guess Hessian that roughly follows Schlegel's guidelines.
@@ -1054,36 +945,6 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             else:
                 raise RuntimeError('Failed to build guess Hessian matrix. Make sure all IC types are supported')
         return np.diag(Hdiag)
-
-    # def apply_periodic_boundary(self,xyz,L):
-    #    tot=0
-    #    new_xyz = np.zeros_like(xyz)
-    #    for num_prim in self.nprims_frag:
-    #        index = num_prim + tot - 6  # the ICs are ordered [...Tx,Ty,Tz,Ra,Rb,Rc] per frag
-    #        prims = self.Internals[index:index+3]
-    #        atoms = prims[0].atoms   # all prims should have the same atoms so okay to use 0th
-    #        translate = False
-    #        # need to check all the atoms of the frag before deciding to translate
-    #        for a in atoms:
-    #            if any(abs(xyz[a,:]) > L):
-    #                translate=True
-    #            else:
-    #                translate=False
-    #                break
-    #        # apply translation
-    #        for a in atoms:
-    #            if translate==True:
-    #                for i,x in enumerate(xyz[a,:]):
-    #                    if x<-L/2:
-    #                        new_xyz[a,i]=x+L
-    #                    elif x>=L/2:
-    #                        new_xyz[a,i]=x-L
-    #                    else:
-    #                        new_xyz[a,i]=x
-    #            else:
-    #                new_xyz[a,:] = xyz[a,:]
-    #        tot+=num_prim
-    #    return new_xyz
 
     def second_derivatives_nb(self, xyz):
         self.calculate(xyz)
@@ -1326,140 +1187,3 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             # else:
             #    prim = OutOfPlane(dc[4]-1,dc[3]-1,dc[2]-1,dc[1]-1)
         return prim
-
-
-if __name__ == '__main__' and __package__ is None:
-    from os import sys, path
-    sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
-
-    #filepath='../../data/butadiene_ethene.xyz'
-    #filepath='crystal.xyz'
-    filepath1 = 'multi1.xyz'
-    filepath2 = 'multi2.xyz'
-    geom1 = manage_xyz.read_xyz(filepath1)
-    geom2 = manage_xyz.read_xyz(filepath2)
-    atom_symbols = manage_xyz.get_atoms(geom1)
-    xyz1 = manage_xyz.xyz_to_np(geom1)
-    xyz2 = manage_xyz.xyz_to_np(geom2)
-
-    ELEMENT_TABLE = elements.ElementData()
-    atoms = [ELEMENT_TABLE.from_symbol(atom) for atom in atom_symbols]
-
-    test_prims = False
-    if test_prims:
-        # testing Cartesian
-        prim = CartesianX(0, w=1.0)
-        print(xyz[0, :])
-        print(xyz[0, :].shape)
-        der = prim.derivative(xyz[0, :])
-        print(der)
-        print(der.shape)
-
-        # testing Translation
-        print("testing translation")
-        i = list(range(10, 16))
-        prim = TranslationX(i, w=np.ones(len(i))/len(i))
-        print(xyz[10:16, :])
-        print(xyz[10:16, :].shape)
-        der = prim.derivative(xyz[10:16, :], start_idx=10)
-        print(der)
-        print(der.shape)
-
-        print("testing rotation")
-        Rotators = OrderedDict()
-        i = list(range(10, 16))
-        sel = xyz.reshape(-1, 3)[i, :]
-        sel -= np.mean(sel, axis=0)
-        rg = np.sqrt(np.mean(np.sum(sel**2, axis=1)))
-        rotation = RotationA(i, xyz, Rotators, w=rg)
-
-        der1 = prim.derivative(xyz[10:16, :], start_idx=10)
-        print(der1)
-        print(der1.shape)
-        der2 = prim.derivative(xyz)
-        print(der2)
-        print(der2.shape)
-
-        print('testing distance')
-        prim = Distance(10, 11)
-        print(prim)
-        der1 = prim.derivative(xyz[10:16, :], start_idx=10)
-        print(der1)
-        print(der1.shape)
-        der2 = prim.derivative(xyz)
-        print(der2)
-        print(der2.shape)
-
-        print('testing angle')
-        prim = Angle(10, 11, 14)
-        print(prim)
-        der1 = prim.derivative(xyz[10:16, :], start_idx=10)
-        print(der1)
-        print(der1.shape)
-        der2 = prim.derivative(xyz)
-        print(der2)
-        print(der2.shape)
-
-        print('testing dihedral')
-        prim = Dihedral(12, 10, 11, 14)
-        print(prim)
-        der1 = prim.derivative(xyz[10:16, :], start_idx=10)
-        print(der1)
-        print(der1.shape)
-        der2 = prim.derivative(xyz)
-        print(der2)
-        print(der2.shape)
-
-    hybrid_indices = list(range(0, 5)) + list(range(21, 26))
-    #hybrid_indices = list(range(0,74)) + list(range(3348, 3358))
-    #hybrid_indices = None
-    #print(hybrid_indices)
-    #with open('frozen.txt') as f:
-    #    hybrid_indices = f.read().splitlines()
-    #hybrid_indices = [int(x) for x in hybrid_indices]
-    #print(hybrid_indices)
-
-    print(" Making topology")
-    G1 = Topology.build_topology(xyz1, atoms, hybrid_indices=hybrid_indices)
-    G2 = Topology.build_topology(xyz2, atoms, hybrid_indices=hybrid_indices)
-
-    for bond in G2.edges():
-        if bond in G1.edges:
-            pass
-        elif (bond[1], bond[0]) in G1.edges():
-            pass
-        else:
-            print(" Adding bond {} to top1".format(bond))
-            if bond[0] > bond[1]:
-                G1.add_edge(bond[0], bond[1])
-            else:
-                G1.add_edge(bond[1], bond[0])
-
-    print(" Making prim")
-    p1 = PrimitiveInternalCoordinates.from_options(
-        xyz=xyz1,
-        atoms=atoms,
-        addtr=True,
-        topology=G1,
-        #extra_kwargs = {  'hybrid_indices' : hybrid_indices},
-    )
-
-    p2 = PrimitiveInternalCoordinates.from_options(
-        xyz=xyz2,
-        atoms=atoms,
-        addtr=True,
-        topology=G1,
-        #extra_kwargs = {  'hybrid_indices' : hybrid_indices},
-    )
-
-    #print("Does p1 equal p2? ", p1==p2)
-
-    #print(" Adding Angle 7-6-11 to p1")
-    #angle = Angle(6,5,10)
-    #print(angle)
-    #p1.append_prim_to_block(angle)
-
-    #print(p.calculate(xyz))
-    #print(len(p.Internals))
-
-    p1.add_union_primitives(p2)

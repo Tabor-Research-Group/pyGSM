@@ -466,7 +466,7 @@ class Molecule:
     def coord_basis(self, value):
         self.coord_obj.Vecs = value
 
-    def update_coordinate_basis(self, constraints=None):
+    def update_coordinate_basis(self, xyz=None, constraints=None):
         if coord_ops.is_cartesian(self.coord_obj):
             return None
         # if constraints is not None:

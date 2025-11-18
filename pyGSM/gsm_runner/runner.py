@@ -1,3 +1,4 @@
+import dataclasses
 import os
 import dataclasses as dc
 import numpy as np
@@ -21,21 +22,30 @@ class GSMRunner:
                  gsm:GSM.GSM,
                  *,
                  max_gsm_iters:int,
+                 ID=None,
+                 mp_cores=None,
                  max_opt_steps:int=None,
                  rtype:int|GSM.TSOptimizationStrategy=None,
-                 scratch_dir=None):
+                 scratch_dir=None,
+                 setup_DE_from_SE=False):
         self.gsm = gsm
+        self.ID = ID
+        self.mp_cores = mp_cores
         self.scratch_dir = scratch_dir
         self.max_gsm_iters = max_gsm_iters
         if max_opt_steps is None:
             max_opt_steps = self.gsm.default_max_opt_steps
         self.max_opt_steps = max_opt_steps
         self.rtype = GSM.TSOptimizationStrategy(rtype)
+        self.setup_DE_from_SE = setup_DE_from_SE # unused for now
 
     @classmethod
     def from_config(cls, cfg: GSMConfig, validate=True):
         run_opts = cfg.runner_settings
-        logger = dev.Logger.lookup(run_opts.logger)
+        run_dict = dataclasses.asdict(run_opts)
+        logger = dev.Logger.lookup(run_dict.pop('logger'))
+        for dead_opt in ['only_climb', 'no_climb', 'only_drive']:
+            del run_dict[dead_opt]
 
         mols = core.load_mols(cfg, logger=logger) #TODO: allow direct loading of mols
         if validate:
@@ -54,10 +64,7 @@ class GSMRunner:
 
         return cls(
             gsm,
-            max_gsm_iters=run_opts.max_gsm_iters,
-            max_opt_steps=run_opts.max_opt_steps,
-            rtype=run_opts.rtype,
-            scratch_dir=run_opts.scratch_dir
+            **run_dict
         )
 
     @classmethod
@@ -71,16 +78,23 @@ class GSMRunner:
             if node is not None:
                 self.check_gsm_mol(node)
 
+    def prep_gsm(self, gsm):
+        #TODO: don't modify in place
+        gsm.mp_cores = self.mp_cores
+        return gsm
+
     def run(self, validate=True):#, max_iters=None, max_opt_steps=None, rtype=None):
         if validate:
             self.check_gsm_object(self.gsm)
-        res = self.gsm.go_gsm(
+
+        gsm = self.prep_gsm(self.gsm)
+        res = gsm.go_gsm(
             self.max_gsm_iters,
             self.max_opt_steps,
             rtype=self.rtype
         )
 
-        geoms = [node.xyz for node in self.gsm.nodes]
+        geoms = [node.xyz for node in gsm.nodes]
         return GSMResults(nodes=geoms)
 
     @classmethod

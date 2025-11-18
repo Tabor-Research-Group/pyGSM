@@ -123,7 +123,7 @@ class DE_GSM(MainGSM):
 
         for i in range(self.num_nodes):
             if self.nodes[i] is not None:
-                self.optimizer[i].conv_grms = self.CONV_TOL*2.
+                self.optimizer[i].conv_grms = self.tolerances['CONV_TOL']*2.
         self.optimizer[nR].conv_grms = self.tolerances['ADD_NODE_TOL']
         self.optimizer[nP].conv_grms = self.tolerances['ADD_NODE_TOL']
         self.logger.log_print(" conv_tol of node %d is %.4f" % (nR, self.optimizer[nR].conv_grms))
