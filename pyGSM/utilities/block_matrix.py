@@ -444,7 +444,7 @@ class block_matrix(object):
             dot_product = np.vstack(tmp_ans)
             return dot_product
         else:
-            raise NotImplementedError
+            raise ValueError(f"block matrix dot with shapes {left.shape} and {right.shape} not supported")
 
 
 # if __name__=="__main__":

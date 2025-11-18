@@ -116,9 +116,6 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         else:
             pass
 
-        # Cache some useful attributes
-        self.atoms = atoms
-
         # initialize
         self.cPrims = []
         self.cVals = []
@@ -873,6 +870,8 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         Build a guess Hessian that roughly follows Schlegel's guidelines.
         """
         xyzs = coords.reshape(-1, 3)
+        if bonds is None:
+            bonds = self.topology
 
         def covalent(a, b):
             if bonds is None:

@@ -12,7 +12,7 @@ import numpy as np
 from ._linesearch import NoLineSearch
 from .hessian_update_optimizers import hessian_update_optimizer
 from ..utilities import units, block_matrix, manage_xyz
-from .. import coordinate_systems as coordops
+from .. import coordinate_systems as coord_ops
 
 
 class eigenvector_follow(hessian_update_optimizer):
@@ -166,7 +166,7 @@ class eigenvector_follow(hessian_update_optimizer):
         print(" CONV_TOL %1.5f" % self.conv_grms)
         geoms = []
         energies = []
-        geoms.append(molecule.geometry)
+        geoms.append(molecule.xyz)
         energies.append(molecule.energy-refE)
         self.converged = False
 
@@ -210,13 +210,13 @@ class eigenvector_follow(hessian_update_optimizer):
             self.x_prim = np.zeros((molecule.num_primitives, 1), dtype=float)
             self.g_prim = np.zeros((molecule.num_primitives, 1), dtype=float)
 
-        molecule.gradrms = np.sqrt(np.dot(gc.T, gc)/n)
-        dE = molecule.difference_energy
+        molecule.gradrms = np.sqrt(np.dot(gc.T, gc)/n)[0, 0]
+        # dE = molecule.difference_energy
         update_hess = False
 
         # ====>  Do opt steps <======= #
         for ostep in range(opt_steps):
-            print(" On opt step {} for node {}".format(ostep+1, molecule.node_id))
+            self.logger.log_print(" On opt step {sn}", sn=ostep+1)
 
             # update Hess
             if update_hess:
@@ -242,8 +242,8 @@ class eigenvector_follow(hessian_update_optimizer):
             actual_step = np.linalg.norm(dq)
             # print(" actual_step= %1.2f"% actual_step)
             dq = dq/actual_step  # normalize
-            if actual_step > self.DMAX:
-                step = self.DMAX
+            if actual_step > self.max_step:
+                step = self.max_step
                 # print(" reducing step, new step = %1.2f" %step)
             else:
                 step = actual_step
@@ -281,29 +281,33 @@ class eigenvector_follow(hessian_update_optimizer):
                 molecule.newHess = 5
                 # return ls['status']
 
-            if ls['step'] > self.DMAX:
+            if ls['step'] > self.max_step:
                 if ls['step'] <= self.max_step:  # absolute max
                     print(" Increasing DMAX to {}".format(ls['step']))
-                    self.DMAX = ls['step']
+                    self.max_step = ls['step']
                 else:
-                    self.DMAX = self.max_step
-            elif ls['step'] < self.DMAX:
+                    self.max_step = self.max_step
+            elif ls['step'] < self.max_step:
                 if ls['step'] >= self.DMIN:     # absolute min
                     print(" Decreasing DMAX to {}".format(ls['step']))
-                    self.DMAX = ls['step']
+                    self.max_step = ls['step']
                 elif ls['step'] <= self.DMIN:
-                    self.DMAX = self.DMIN
+                    self.max_step = self.DMIN
                     print(" Decreasing DMAX to {}".format(self.DMIN))
 
             # calculate predicted value from Hessian, gp is previous constrained gradient
             scaled_dq = dq*step
             dEtemp = np.dot(self.Hessian, scaled_dq)
-            dEpre = np.dot(np.transpose(scaled_dq), gc) + 0.5*np.dot(np.transpose(dEtemp), scaled_dq)
-            dEpre *= units.KCAL_MOL_PER_AU
+            constraint_energy = np.dot(gp.T, constraint_steps)
+            dEpre = np.array(
+                            np.dot(np.transpose(scaled_dq), gc)
+                            + 0.5*np.dot(np.transpose(dEtemp), scaled_dq)
+                            + constraint_energy
+            ).flatten()[0] * units.KCAL_MOL_PER_AU
             # print(constraint_steps.T)
-            constraint_energy = np.dot(gp.T, constraint_steps)*units.KCAL_MOL_PER_AU
+            # constraint_energy = *units.KCAL_MOL_PER_AU
             # print("constraint_energy: %1.4f" % constraint_energy)
-            dEpre += constraint_energy
+            # dEpre += constraint_energy # this appeares to be the original intent, not sure why this is like this
             # if abs(dEpre)<0.01:
             #    dEpre = np.sign(dEpre)*0.01
 
@@ -316,16 +320,16 @@ class eigenvector_follow(hessian_update_optimizer):
             dEstep = fx - fxp
             print(" dEstep=%5.4f" % dEstep)
             ratio = dEstep/dEpre
-            molecule.gradrms = np.sqrt(np.dot(gc.T, gc)/n)
+            molecule.gradrms = np.sqrt(np.dot(gc.T, gc)/n)[0, 0]
             if ls['status'] != -2:
                 self.step_controller(actual_step, ratio, molecule.gradrms, pgradrms, dEpre, opt_type, dEstep)
 
             # update molecule xyz
             xyz = molecule.update_xyz(x-xp)
             if ostep % xyzframerate == 0:
-                geoms.append(molecule.geometry)
+                geoms.append(molecule.xyz)
                 energies.append(molecule.energy-refE)
-                manage_xyz.write_xyzs_w_comments('{}/opt_{}.xyz'.format(path, molecule.node_id), geoms, energies, scale=1.)
+                # manage_xyz.write_xyzs_w_comments('{}/opt_{}.xyz'.format(path, molecule.node_id), geoms, energies, scale=1.)
 
             # save variables for update Hessian!
             if not coord_ops.is_cartesian(molecule.coord_obj):
@@ -342,27 +346,29 @@ class eigenvector_follow(hessian_update_optimizer):
             else:
                 raise NotImplementedError(" ef not implemented for CART")
 
-            log_str = (
-                " Node: {node_id} Opt step: {step} E: {E:5.4f} predE: {predE:5.4f} ratio: {ratio:1.3f}"
-                " gradrms: {gradrms:1.5f} ss: {step_size:1.3f} DMAX: {DMAX:1.3f}"
-            ).format(
-                node_id=molecule.node_id,
+
+            print(f"CCC: {dEpre}, {ratio}, {molecule.gradrms}")
+            log_fmt = (
+                " Opt step: {step} E: {E:5.4f} predE: {predE:5.4f} ratio: {ratio:4.3f}"
+                " gradrms: {gradrms:1.5f} ss: {step_size:4.3f} DMAX: {DMAX:4.3f}"
+            )
+            log_str = log_fmt.format(
                 step=ostep+1,
                 E=fx-refE,
                 predE=dEpre,
                 ratio=ratio,
                 gradrms=molecule.gradrms,
                 step_size=step,
-                DMAX=self.DMAX
+                DMAX=self.max_step
             )
             self.logger.log_print(log_str)
             self.buf.write(log_str)
 
             # check for convergence TODO
             fx = molecule.energy
-            dE = molecule.difference_energy
-            if dE < 1000.:
-                print(" difference energy is %5.4f" % dE)
+            # dE = molecule.difference_energy
+            # if dE < 1000.:
+            #     print(" difference energy is %5.4f" % dE)
             gmax = float(np.max(np.absolute(gc)))
             disp = float(np.linalg.norm((xyz-xyzp).flatten()))
             xnorm = np.sqrt(np.dot(x.T, x))
@@ -414,8 +420,8 @@ class eigenvector_follow(hessian_update_optimizer):
             print()
             sys.stdout.flush()
 
-        print(" opt-summary {}".format(molecule.node_id))
-        print(self.buf.getvalue())
+        with self.logger.block(tag="opt-summary"):
+            print(self.buf.getvalue())
         return geoms, energies
 
 

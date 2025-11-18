@@ -30,6 +30,13 @@ class hessian_update_optimizer(base_optimizer):
         self.dx = 0.
         self.dg = 0.
 
+    def get_state_dict(self):
+        return dict(
+            super().get_state_dict(),
+            update_hess_in_bg=self.update_hess_in_bg,
+            HESS_TANG_TOL_TS=self.HESS_TANG_TOL_TS
+        )
+
     def update_Hessian(self, molecule, mode='BFGS'):
         '''
         mode 1 is BFGS, mode 2 is BOFILL

@@ -381,6 +381,7 @@ class MainGSM(GSM):
             if self.nodes[n] and self.active[n]:
                 self.logger.log_print("Optimizing node {n}", n=n)
                 opt_type = self.set_opt_type(n)
+                self.logger.log_print("setting node {n} opt_type to {opt_type}", n=n, opt_type=opt_type)
                 osteps = self.mult_steps(n, opt_steps)
                 self.optimizer[n].optimize(
                     molecule=self.nodes[n],
@@ -876,20 +877,17 @@ class MainGSM(GSM):
         #    print(" multiplying steps for node %i by %i" % (n,exsteps))
         return exsteps*opt_steps
 
-    def set_opt_type(self, n, quiet=False):
-        # TODO error for seam climb
+    def set_opt_type(self, n):
+        # TODO: add an input variable that allows better control of this process
+        #       don't infer intent from some random 'PES' attribute...
         opt_type = 'ICTAN'
-        if self.climb and n == self.TSnode and not self.find and self.nodes[n].PES.__class__.__name__ != "Avg_PES":
-            opt_type = 'CLIMB'
-        elif self.find and n == self.TSnode:
-            opt_type = 'TS'
-        elif self.nodes[n].PES.__class__.__name__ == "Avg_PES":
-            opt_type = 'SEAM'
-            if self.climb and n == self.TSnode:
-                opt_type = 'TS-SEAM'
-        if not quiet:
-            print((" setting node %i opt_type to %s" % (n, opt_type)))
-
+        if n == self.TSnode:
+            if self.find:
+                opt_type = 'TS'
+            elif self.climb:
+                opt_type = 'CLIMB'
+        # if not quiet:
+        #     print((" setting node %i opt_type to %s" % (n, opt_type)))
         # if isinstance(self.optimizer[n],beales_cg) and opt_type!="BEALES_CG":
         #    raise RuntimeError("This shouldn't happen")
 

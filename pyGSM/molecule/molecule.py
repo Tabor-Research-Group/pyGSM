@@ -308,7 +308,7 @@ class Molecule:
     @property
     def gradx(self):
         if self._primitive_gradient is None:
-            self._energy = self._cached_calc["gradient"]
+            self._primitive_gradient = self._cached_calc["gradient"]
             # self._primitive_gradient = self.evaluator.get_gradient(self.xyz, frozen_atoms=self.frozen_atoms)
         return np.reshape(self._primitive_gradient, (-1, 3))
 
@@ -387,7 +387,10 @@ class Molecule:
 
     def form_Hessian_in_basis(self):
         # print " forming Hessian in current basis"
-        return block_matrix.dot(block_matrix.dot(block_matrix.transpose(self.coord_basis), self._primitive_hessian), self.coord_basis)
+        return block_matrix.dot(
+            block_matrix.dot(block_matrix.transpose(self.coord_basis), self.Primitive_Hessian),
+            self.coord_basis
+        )
 
     def invalidate_cache(self):
         self._prev_eval = None

@@ -12,8 +12,12 @@ def NoLineSearch(n, x, fx, g, d, step, xp, constraint_step, parameters, molecule
 
     # use these so molecule xyz doesn't change
     print(" evaluate fx in linesearch")
-    fx = molecule.PES.get_energy(xyz)
-    gx = molecule.PES.get_gradient(xyz, frozen_atoms=molecule.frozen_atoms)
+    ge_res = molecule.evaluator.get_gradient(xyz) # frozen_atoms=molecule.frozen_atoms)
+    gx = ge_res['gradient']
+    if 'energy' not in ge_res:
+        fx = molecule.evaluator.get_energy(xyz)['energy']
+    else:
+        fx = ge_res['energy']
     g = molecule.coord_obj.calcGrad(xyz, gx)
 
     # print(" [INFO]end line evaluate fx = %5.4f step = %1.2f." %(fx, step))

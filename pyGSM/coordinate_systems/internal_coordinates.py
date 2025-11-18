@@ -38,6 +38,8 @@ def register_coordinate_system(name):
 class InternalCoordinates(metaclass=abc.ABCMeta):
 
     def __init__(self, atoms, xyz, bonds=None, constraints=None, logger=None):
+        if atoms is not None and isinstance(atoms[0], str):
+            atoms = [ELEMENT_TABLE.from_symbol(a) for a in atoms]
         self.atoms = atoms
         self.xyz = xyz
         self._input_topology = bonds
@@ -203,8 +205,10 @@ class InternalCoordinates(metaclass=abc.ABCMeta):
         Ginv = self.GInverse(xyz)
         Bmat = self.wilsonB(xyz)
 
+        res = block_matrix.dot(Ginv, block_matrix.dot(Bmat, gradx))
+
         # Internal coordinate gradient
-        return block_matrix.dot(Ginv, block_matrix.dot(Bmat, gradx))
+        return res
 
     def calcHess(self, xyz, gradx, hessx):
         """

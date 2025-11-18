@@ -277,9 +277,10 @@ class GSM(metaclass=abc.ABCMeta):
     @classmethod
     def _initialize_optimizers(cls, nodes, base_optimizers):
         if isinstance(base_optimizers, (dict, str, base_optimizer)):
-            base_optimizers = [base_optimizer for _ in nodes]
+            base_optimizers = [base_optimizers for _ in nodes]
         return [
-            construct_optimizer(b) for b in base_optimizers
+            construct_optimizer(b)
+            for b in base_optimizers
         ]
 
     @classmethod
