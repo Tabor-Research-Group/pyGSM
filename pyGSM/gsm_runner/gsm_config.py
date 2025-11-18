@@ -128,6 +128,7 @@ class RunnerSettings:
     mp_cores: int = 1
 
     scratch_dir: str|None = None
+    output_dir: str|None = None
     setup_DE_from_SE: bool = False  # If True, will setup DE_GSM from SE_GSM run
 
     only_climb: bool = False

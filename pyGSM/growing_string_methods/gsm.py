@@ -7,7 +7,7 @@ import dataclasses
 from .. import coordinate_systems as coord_ops
 from ..coordinate_systems import Distance, Angle, Dihedral, OutOfPlane
 from .. import utilities as util #import nifty, options, block_matrix
-from ..utilities import manage_xyz, Devutils as dev
+from ..utilities import OutputManager, Devutils as dev
 from ..molecule import Molecule
 from ..optimizers.base_optimizer import base_optimizer
 from ..optimizers import construct_optimizer
@@ -194,7 +194,6 @@ class GSM(metaclass=abc.ABCMeta):
             rtype=None,
             logger=True
     ):
-        self.scratch_dir = scratch_dir
         if nodes is None:
             if reactant is None:
                 raise ValueError("`reactant` is required if no nodes are supplied")
@@ -226,6 +225,7 @@ class GSM(metaclass=abc.ABCMeta):
         self.mp_cores = mp_cores
         self.xyz_writer = xyz_writer
         self.logger = dev.Logger.lookup(logger)
+        self.output_manager = OutputManager.lookup(scratch_dir)
 
         if rtype is None:
             rtype = self.default_rtype
