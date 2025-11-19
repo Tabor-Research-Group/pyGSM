@@ -2,13 +2,14 @@ import dataclasses
 import os
 import dataclasses as dc
 import numpy as np
+import typing
+import warnings
 
 from .gsm_config import GSMConfig
 from . import core as core
 from .. import growing_string_methods as GSM
 from ..molecule import Molecule
 from ..utilities import XYZWriter, OutputManager, Devutils as dev
-import typing
 
 __all__ = [
     "GSMRunner"
@@ -95,11 +96,13 @@ class GSMRunner:
             self.check_gsm_object(self.gsm)
 
         gsm = self.prep_gsm(self.gsm)
-        res = gsm.run(
-            self.max_gsm_iters,
-            self.max_opt_steps,
-            rtype=self.rtype
-        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            res = gsm.run(
+                self.max_gsm_iters,
+                self.max_opt_steps,
+                rtype=self.rtype
+            )
 
         geoms = [node.xyz for node in gsm.nodes]
         return GSMResults(nodes=geoms, output=res, gsm=gsm)

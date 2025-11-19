@@ -1,9 +1,5 @@
 import numpy as np
 from scipy.linalg import block_diag
-from .nifty import printcool,pvec1d
-import sys
-from .math_utils import orthogonalize,conjugate_orthogonalize
-
 
 class block_tensor(object):
 

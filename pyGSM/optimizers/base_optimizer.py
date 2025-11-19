@@ -206,7 +206,7 @@ class base_optimizer(metaclass=abc.ABCMeta):
     #    #print "maximum gradient component (au)", gmax
 
     #    if gradrms <self.conv_grms:
-    #        print('[INFO] converged')
+    #        self.logger.log_print('[INFO] converged')
     #        return True
 
     #    #if gradrms <= self.conv_grms  or \
@@ -250,7 +250,7 @@ class base_optimizer(metaclass=abc.ABCMeta):
         }:
             constraints = ictan
         elif opt_type == OptimizationTypes.MECI:
-            print("MECI")
+            self.logger.log_print("MECI")
             dgrad_U = block_matrix.dot(molecule.coord_basis, molecule.difference_gradient)
             dvec_U = block_matrix.dot(molecule.coord_basis, molecule.derivative_coupling)
             constraints = np.hstack((dgrad_U, dvec_U))
@@ -278,12 +278,14 @@ class base_optimizer(metaclass=abc.ABCMeta):
         # => ictan climb
         if opt_type == OptimizationTypes.Climbing:
             gts = np.dot(g.T, molecule.constraints[:, 0])
+            if gts.ndim > 0:
+                gts = gts[0]
             # stepsize=np.linalg.norm(constraint_steps)
             max_step = 0.05/self.SCALE_CLIMB
             if gts > np.abs(max_step):
                 gts = np.sign(gts)*max_step
                 # constraint_steps = constraint_steps*max_step/stepsize
-            print(" gts %1.4f" % gts)
+            self.logger.log_print(" gts {gts:1.4f}", gts=gts,)
             constraint_steps = gts*molecule.constraints[:, 0]
             constraint_steps = constraint_steps[:, np.newaxis]
         # => MECI
@@ -303,7 +305,7 @@ class base_optimizer(metaclass=abc.ABCMeta):
             if gts > np.abs(max_step):
                 gts = np.sign(gts)*max_step
                 # constraint_steps = constraint_steps*max_step/stepsize
-            print(" gts %1.4f" % gts)
+            self.logger.log_print(" gts {gts:1.4f}", gts=gts)
             constraint_steps = gts*molecule.constraints[:, 0]
             constraint_steps = constraint_steps[:, np.newaxis]
 
@@ -338,14 +340,14 @@ class base_optimizer(metaclass=abc.ABCMeta):
         """ walk up the n'th DLC"""
         # assert isinstance(g[n],float), "gradq[n] is not float!"
         # if self.print_level>0:
-        #    print(' gts: {:1.4f}'.format(self.gradq[n,0]))
+        #    self.logger.log_print(' gts: {:1.4f}'.format(self.gradq[n,0]))
         # self.buf.write(' gts: {:1.4f}'.format(self.gradq[n,0]))
         SCALEW = 1.0
         SCALE = self.SCALEQN
         dq = g[n, 0]/SCALE
         # dq = np.dot(g.T,molecule.constraints)*molecule.constraints
 
-        print(" walking up the %i coordinate = %1.4f" % (n, dq))
+        self.logger.log_print(" walking up the {n} coordinate = {dq:1.4f}", n=n, dq=dq)
         if abs(dq) > self.MAXAD/SCALEW:
             dq = np.sign(dq)*self.MAXAD/SCALE
         return dq
@@ -356,7 +358,7 @@ class base_optimizer(metaclass=abc.ABCMeta):
         opt_type = OptimizationTypes(opt_type)
         if opt_type in {OptimizationTypes.TransitionState, OptimizationTypes.Climbing}:
             if ratio < 0. and abs(dEpre) > 0.05:
-                print("sign problem, decreasing DMAX")
+                self.logger.log_print("sign problem, decreasing DMAX")
                 self.max_step /= 1.35
             elif (ratio < 0.75 or ratio > 1.5):  # and abs(dEpre)>0.05:
                 self.logger.log_print(" decreasing DMAX")
@@ -368,17 +370,22 @@ class base_optimizer(metaclass=abc.ABCMeta):
             elif ratio > 0.85 and ratio < 1.3:
 
                 # if step>self.max_step and gradrms<(pgradrms*1.35):
-                #    print(" increasing DMAX")
+                #    self.logger.log_print(" increasing DMAX")
                 #    self.max_step *= 1.1
                 if gradrms > (pgradrms + 0.0005):
-                    print(' decreasing DMAX, gradrms increased')
+                    self.logger.log_print(' decreasing DMAX, gradrms increased')
                     self.max_step -= self.max_step/10.
                 elif gradrms < (pgradrms + 0.0005):
                     if self.max_step < 0.05:
-                        print(' increased DMAX, gradrms decreased')
-                        print(gradrms)
-                        print(pgradrms)
-                        print(" increasing DMAX")
+                        self.logger.log_print([
+                            ' increased DMAX, gradrms decreased',
+                            '{gradrms}',
+                            '{pgradrms}',
+                            " increasing DMAX"
+                        ],
+                            gradrms=gradrms,
+                            pgradrms=pgradrms
+                        )
                         self.max_step = self.max_step*1.1
                     elif gradrms < (pgradrms-0.0005) and ratio > 0.9 and ratio < 1.1:
                         self.max_step = self.max_step*1.1

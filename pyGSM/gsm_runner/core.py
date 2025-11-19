@@ -6,7 +6,7 @@ import dataclasses
 from ..level_of_theories import construct_lot as _construct_lot
 from ..optimizers import construct_optimizer as _construct_optimizer
 from ..growing_string_methods import construct_gsm as _construct_gsm
-from ..utilities import manage_xyz, nifty, Devutils as dev
+from ..utilities import manage_xyz, Devutils as dev
 from ..molecule import Molecule
 
 from .gsm_config import GSMConfig

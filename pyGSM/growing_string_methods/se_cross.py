@@ -3,7 +3,6 @@ import numpy as np
 
 from .se_gsm import SE_GSM
 from ..molecule import Molecule
-from ..utilities import nifty
 # standard library imports
 
 

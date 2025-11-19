@@ -1,5 +1,5 @@
 from __future__ import print_function
-from ..utilities import manage_xyz, block_matrix, block_tensor
+from ..utilities import block_matrix, block_tensor
 
 # standard library imports
 import time
@@ -14,7 +14,7 @@ from scipy.linalg import block_diag
 
 # local application import
 from .internal_coordinates import InternalCoordinates, register_coordinate_system
-from .topology import EdgeGraph, guess_bonds
+from .topology import EdgeGraph
 from . import slots
 
 CacheWarning = False
@@ -409,8 +409,6 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
     @classmethod
     def _dispatch_add(cls, dof, internals, verbose=False):
         if cls._addable_dof(dof, internals):
-            if verbose:
-                print((" adding ", dof))
             internals.append(dof)
             return True
         else:

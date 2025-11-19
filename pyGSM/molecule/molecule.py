@@ -486,7 +486,10 @@ class Molecule:
 
     @property
     def coordinates(self):
-        return np.reshape(self.coord_obj.calculate(self.xyz), (-1, 1))
+        return np.reshape(
+            self.coord_obj.calculate(self.xyz),
+            (-1, 1)
+        )
 
     def mult_bm(self, left, right):
         return block_matrix.dot(left, right)

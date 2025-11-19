@@ -28,7 +28,7 @@ class beales_cg(hessian_update_optimizer):
             verbose=False,
     ):
 
-        print(" initial E %5.4f" % (molecule.energy - refE))
+        self.logger.log_print(" initial E %5.4f" % (molecule.energy - refE))
         sys.stdout.flush()
 
         # stash/initialize some useful attributes
@@ -56,7 +56,7 @@ class beales_cg(hessian_update_optimizer):
 
         # if np.all(s0==0.):
         # #if np.all(s0_prim==0.) or s0_prim==None:
-        #    print(" already at TS")
+        #    self.logger.log_print(" already at TS")
         #    nconstraints=1
         #    s0_prim = 0.*gp_prim
         #    g = g - np.dot(g.T,molecule.constraints)*molecule.constraints
@@ -69,7 +69,7 @@ class beales_cg(hessian_update_optimizer):
         update_hess = False
 
         for ostep in range(opt_steps):
-            print(" On opt step {} ".format(ostep+1))
+            self.logger.log_print(" On opt step {} ".format(ostep+1))
 
             if update_hess and self.update_hess_in_bg:
                 if opt_type != 'TS':
@@ -99,11 +99,11 @@ class beales_cg(hessian_update_optimizer):
 
             # normalize the direction
             stepsize = np.linalg.norm(d)
-            print(" stepsize = %1.2f" % stepsize)
+            self.logger.log_print(" stepsize = %1.2f" % stepsize)
             d = d/stepsize  # normalize
             if stepsize > self.DMAX:
                 stepsize = self.DMAX
-                print(" reducing step, new step = %1.2f" % stepsize)
+                self.logger.log_print(" reducing step, new step = %1.2f" % stepsize)
 
             # store
             xp = x.copy()
@@ -116,10 +116,10 @@ class beales_cg(hessian_update_optimizer):
             constraint_steps = self.get_constraint_steps(molecule, opt_type, g)
 
             # line search
-            print(" Linesearch")
+            self.logger.log_print(" Linesearch")
             sys.stdout.flush()
             ls = self.Linesearch(n, x, fx, g, d, stepsize, xp, constraint_steps, self.linesearch_parameters, molecule, verbose)
-            print(" Done linesearch")
+            self.logger.log_print(" Done linesearch")
 
             # save new values from linesearch
             molecule = ls['molecule']
@@ -132,21 +132,21 @@ class beales_cg(hessian_update_optimizer):
 
             if ls['step'] > self.DMAX:
                 if ls['step'] <= self.max_step:     # absolute max
-                    print(" Increasing DMAX to {}".format(ls['step']))
+                    self.logger.log_print(" Increasing DMAX to {}".format(ls['step']))
                     self.DMAX = ls['step']
                 else:
                     self.DMAX = self.max_step
             elif ls['step'] < self.DMAX:
                 if ls['step'] >= self.DMIN:     # absolute min
-                    print(" Decreasing DMAX to {}".format(ls['step']))
+                    self.logger.log_print(" Decreasing DMAX to {}".format(ls['step']))
                     self.DMAX = ls['step']
                 elif ls['step'] <= self.DMIN:
                     self.DMAX = self.DMIN
-                    print(" Decreasing DMAX to {}".format(self.DMIN))
+                    self.logger.log_print(" Decreasing DMAX to {}".format(self.DMIN))
 
             # dE
             dEstep = fx - fxp
-            print(" dEstep=%5.4f" % dEstep)
+            self.logger.log_print(" dEstep=%5.4f" % dEstep)
 
             # revert to the previous point
             if ls['status'] < 0 or dEstep > 0.:
@@ -154,10 +154,10 @@ class beales_cg(hessian_update_optimizer):
                 molecule.xyz = xyzp
                 g = gp.copy()
                 fx = fxp
-                print('[ERROR] the point return to the previous point')
+                self.logger.log_print('[ERROR] the point return to the previous point')
                 if nconstraints == 1:
-                    print(" opt-summary")
-                    print(self.buf.getvalue())
+                    self.logger.log_print(" opt-summary")
+                    self.logger.log_print(self.buf.getvalue())
                     return geoms, energies
                 else:
                     nconstraints = 1
@@ -205,7 +205,7 @@ class beales_cg(hessian_update_optimizer):
             molecule.gradrms = np.sqrt(np.dot(g.T, g)/n)
             gmax = float(np.max(g))
             disp = float(np.linalg.norm((xyz-xyzp).flatten()))
-            print(" gmax %5.4f disp %5.4f Ediff %5.4f gradrms %5.4f\n" % (gmax, disp, dEstep, molecule.gradrms))
+            self.logger.log_print(" gmax %5.4f disp %5.4f Ediff %5.4f gradrms %5.4f\n" % (gmax, disp, dEstep, molecule.gradrms))
 
             self.converged = False
             if self.opt_cross and abs(dE) < self.conv_dE and molecule.gradrms < self.conv_grms and abs(gmax) < self.conv_gmax and abs(dEstep) < self.conv_Ediff and abs(disp) < self.conv_disp and ls['status'] == 0:
@@ -214,7 +214,7 @@ class beales_cg(hessian_update_optimizer):
                 self.converged = True
 
             if self.converged:
-                print(" converged")
+                self.logger.log_print(" converged")
                 if ostep % xyzframerate != 0:
                     geoms.append(molecule.geometry)
                     energies.append(molecule.energy-refE)
@@ -224,7 +224,7 @@ class beales_cg(hessian_update_optimizer):
             #update DLC  --> this changes q, g, Hint
             if not coord_ops.is_cartesian(molecule.coord_obj):
                 if opt_type == 'SEAM' or opt_type == "MECI":
-                    print(" updating DLC")
+                    self.logger.log_print(" updating DLC")
                     sys.stdout.flush()
                     #if opt_type=="ICTAN":
                     constraints = self.get_constraint_vectors(molecule, opt_type, ictan)
@@ -235,14 +235,14 @@ class beales_cg(hessian_update_optimizer):
                     fx = molecule.energy
                     dE = molecule.difference_energy
                     if dE != 1000.:
-                        print(" difference energy is %5.4f" % dE)
+                        self.logger.log_print(" difference energy is %5.4f" % dE)
                     g = molecule.gradient.copy()
                     if nconstraints > 0:
                         g = g - np.dot(g.T, molecule.constraints)*molecule.constraints
                     g_prim = block_matrix.dot(molecule.coord_basis, g)
-                    print(" Done update")
+                    self.logger.log_print(" Done update")
             sys.stdout.flush()
 
-        print(" opt-summary")
-        print(self.buf.getvalue())
+        self.logger.log_print(" opt-summary")
+        self.logger.log_print(self.buf.getvalue())
         return geoms, energies

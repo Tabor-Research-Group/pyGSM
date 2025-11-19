@@ -380,10 +380,6 @@ class GSM(metaclass=abc.ABCMeta):
     def num_nodes(self):
         return len(self.nodes)
 
-    @classmethod
-    def from_options(cls, options:util.options.Options):
-        return cls(**options)
-
     @property
     def _get_num_coords(self):
         return 3.*self.nodes[0].natoms-6.

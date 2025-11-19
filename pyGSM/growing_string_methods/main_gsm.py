@@ -11,6 +11,7 @@ from itertools import chain
 
 from . import TSOptimizationStrategy
 from .gsm import GSM, NodeAdditionStrategy
+from ..optimizers import eigenvector_follow
 from ..utilities import Devutils as dev, math_utils, units, block_matrix
 from ..molecule import Molecule
 
@@ -527,7 +528,8 @@ class MainGSM(GSM):
 
                 if self.optimizer[self.TSnode].max_step > 0.1:
                     self.optimizer[self.TSnode].max_step = 0.1
-                self.optimizer[self.TSnode] = eigenvector_follow(self.optimizer[self.TSnode].options.copy())
+                # this is likely to break but I don't want to tweak this kid's code too much
+                self.optimizer[self.TSnode] = eigenvector_follow(**self.optimizer[self.TSnode].get_state_dict())
                 self.optimizer[self.TSnode].SCALEQN = 1.
                 self.nhessreset = 10  # are these used??? TODO
                 self.hessrcount = 0   # are these used?!  TODO
@@ -838,8 +840,29 @@ class MainGSM(GSM):
 
         a = abs(q0-qm1)
         b = abs(qp1-q0)
+        if a < 1e-12:
+            self.logger.log_print(" ill-defined TS displacement vector {q0} vs {qm1} for nodes {xyz1} and {xyz2}",
+                                  q0=q0,
+                                  qm1=qm1,
+                                  xyz1=self.nodes[TSnode].xyz,
+                                  xyz2=self.nodes[TSnode-1].xyz,
+                                  )
+            raise ValueError(f"ill-defined TS displacement vector {q0}-{qm1} for coords")
+        if b < 1e-12:
+            self.logger.log_print(" ill-defined TS displacement vector {q0} vs {qp1} for nodes {xyz1} and {xyz2}",
+                                  q0=q0,
+                                  qp1=qp1,
+                                  xyz1=self.nodes[TSnode].xyz,
+                                  xyz2=self.nodes[TSnode+1].xyz,
+                                  )
+            raise ValueError(f"ill-defined TS displacement vector {qp1}-{q0}")
         c = 2*(Em1/a/(a+b) - E0/a/b + Ep1/b/(a+b))
-        self.logger.log_print(" tHt %1.3f a: %1.1f b: %1.1f c: %1.3f" % (tHt, a[0], b[0], c[0]))
+        self.logger.log_print(" tHt {tHt:1.3f} a: {a:1.1f} b: {b:1.1f} c: {c:1.3f}",
+                              tHt=tHt[0, 0],
+                              a=a[0],
+                              b=b[0],
+                              c=c[0]
+                              )
 
         ttt = np.outer(tan, tan)
 
@@ -1262,12 +1285,18 @@ class MainGSM(GSM):
         self.active = [True] * self.num_nodes
         self.active[0] = False
         self.active[self.num_nodes-1] = False
-        self.logger.log_print("0")
-        self.logger.log_print(self.nodes[0].xyz)
-        self.logger.log_print("1")
-        self.logger.log_print(self.nodes[1].xyz)
-        self.logger.log_print("-1")
-        self.logger.log_print(self.nodes[-1].xyz)
+        self.logger.log_print([
+            "0",
+            "{n0}",
+            "1",
+            "{n1}",
+            "-1",
+            "{nf}"
+        ],
+            n0=self.nodes[0].xyz,
+            n1=self.nodes[1].xyz,
+            nf=self.nodes[-1].xyz,
+        )
 
     def add_node_after_TS(self):
         '''

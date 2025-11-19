@@ -1,0 +1,2074 @@
+ Energy of the end points are 57.010, 15.445
+ relative E 0.000, -41.565
+>>------------------------- Running GSM -------------------------
+::> Adding reactant node
+  >  adding node: 1 between 0 8 from 0
+  >  updating coord basis
+  >  nn=3,nR=2
+<::
+::> Adding product node
+  >  adding node: 7 between 8 1 from 8
+  >  updating coord basis
+  >  nn=4,nP=2
+<::
+::> In growth_iters
+  > forming space for 0
+  > forming space for 1
+  > forming space for 8
+  > forming space for 7
+  > forming space for 1
+  > forming space for 7
+  > forming space for 7
+  > forming space for 1
+  >  setting active nodes to 1 and 7
+  >  conv_tol of node 1 is 0.0100
+  >  conv_tol of node 7 is 0.0100
+  > Starting growth iteration 0
+  > Optimizing node 1
+  > setting node 1 opt_type to ICTAN
+  >  initial E -5.8805
+  >  CONV_TOL 0.01000
+  >  updating coord basis
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  On opt step 1
+  >  forming Hessian in basis
+  >  dEstep=-14.4720
+  >  increasing DMAX
+  >  Opt step: 1 E: -20.3525 predE: -18.0558 ratio: 0.802 gradrms: 0.02717 ss: 0.100 DMAX: 0.120
+  >  gmax 0.0879 disp 0.1280 Ediff -14.4720 gradrms 0.0272
+  >  updating coord basis
+  >  On opt step 2
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-6.7323
+  >  Opt step: 2 E: -27.0848 predE: -10.2201 ratio: 0.659 gradrms: 0.00927 ss: 0.120 DMAX: 0.120
+  >  gmax 0.0270 disp 0.1266 Ediff -6.7323 gradrms 0.0093
+  >  converged
+  ::> opt-summary
+    > 
+ Opt step: 1 E: -20.3525 predE: -18.0558 ratio: 0.802 gradrms: 0.02717 ss: 0.100 DMAX: 0.120
+ Opt step: 2 E: -27.0848 predE: -10.2201 ratio: 0.659 gradrms: 0.00927 ss: 0.120 DMAX: 0.120
+  <::
+  > Optimizing node 7
+  > setting node 7 opt_type to ICTAN
+  >  initial E -46.2032
+  >  CONV_TOL 0.01000
+  >  updating coord basis
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  On opt step 1
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.03600759878829399
+  >  dEstep=-1.8656
+  >  Opt step: 1 E: -48.0688 predE: -2.1902 ratio: 0.852 gradrms: 0.01050 ss: 0.036 DMAX: 0.036
+  >  gmax 0.0321 disp 0.0390 Ediff -1.8656 gradrms 0.0105
+  >  updating coord basis
+  >  On opt step 2
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-1.0664
+  >  increasing DMAX
+  >  Opt step: 2 E: -49.1352 predE: -1.3252 ratio: 0.805 gradrms: 0.00559 ss: 0.036 DMAX: 0.050
+  >  gmax 0.0132 disp 0.0349 Ediff -1.0664 gradrms 0.0056
+  >  converged
+  ::> opt-summary
+    > 
+ Opt step: 1 E: -48.0688 predE: -2.1902 ratio: 0.852 gradrms: 0.01050 ss: 0.036 DMAX: 0.036
+ Opt step: 2 E: -49.1352 predE: -1.3252 ratio: 0.805 gradrms: 0.00559 ss: 0.036 DMAX: 0.050
+  <::
+  > gopt_iter:  0 totalgrad: 0.0963 gradrms: 0.004092 max E: -27.08
+  ::> Adding reactant node
+    >  adding node: 2 between 1 7 from 1
+    >  updating coord basis
+    >  nn=5,nR=3
+  <::
+  >  getting energy for node 2: -24.8834
+  ::> Adding product node
+    >  adding node: 6 between 7 2 from 7
+    >  updating coord basis
+    >  nn=6,nP=3
+  <::
+  >  getting energy for node 6: -43.9590
+  >  setting active nodes to 2 and 6
+  >  conv_tol of node 2 is 0.0100
+  >  conv_tol of node 6 is 0.0100
+  ::> Reparamerizing string nodes
+    > forming space for 0
+    > forming space for 1
+    > forming space for 1
+    > forming space for 2
+    > forming space for 7
+    > forming space for 6
+    > forming space for 8
+    > forming space for 7
+    > forming space for 2
+    > forming space for 6
+    > forming space for 6
+    > forming space for 2
+    > Moving 1 along ictan[0]
+    >  updating coord basis
+    > Moving 7 along ictan[8]
+    >  updating coord basis
+    > forming space for 0
+    > forming space for 1
+    > forming space for 1
+    > forming space for 2
+    > forming space for 7
+    > forming space for 6
+    > forming space for 8
+    > forming space for 7
+    > forming space for 2
+    > forming space for 6
+    > forming space for 6
+    > forming space for 2
+    > Moving 2 along ictan[1]
+    >  updating coord basis
+    > forming space for 0
+    > forming space for 1
+    > forming space for 1
+    > forming space for 2
+    > forming space for 7
+    > forming space for 6
+    > forming space for 8
+    > forming space for 7
+    > forming space for 2
+    > forming space for 6
+    > forming space for 6
+    > forming space for 2
+    > Moving 6 along ictan[7]
+    >  updating coord basis
+    > Moving 7 along ictan[8]
+    >  updating coord basis
+    > forming space for 0
+    > forming space for 1
+    > forming space for 1
+    > forming space for 2
+    > forming space for 7
+    > forming space for 6
+    > forming space for 8
+    > forming space for 7
+    > forming space for 2
+    > forming space for 6
+    > forming space for 6
+    > forming space for 2
+    > Moving 6 along ictan[7]
+    >  updating coord basis
+    >  spacings (end ic_reparam, steps: 4/4): 1.4 1.3 6.3 0.0 0.0 0.0 6.3 2.3 1.3 disprms: 0.819
+  <::
+  > forming space for 0
+  > forming space for 1
+  > forming space for 1
+  > forming space for 2
+  > forming space for 7
+  > forming space for 6
+  > forming space for 8
+  > forming space for 7
+  > forming space for 2
+  > forming space for 6
+  > forming space for 6
+  > forming space for 2
+  > Starting growth iteration 1
+  > Optimizing node 1
+  > setting node 1 opt_type to ICTAN
+  >  initial E -19.1473
+  >  CONV_TOL 0.00000
+  >  updating coord basis
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  On opt step 1
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.060337881443431
+  >  dEstep=-5.5922
+  >  Opt step: 1 E: -24.7395 predE: -6.9459 ratio: 0.805 gradrms: 0.01683 ss: 0.060 DMAX: 0.060
+  >  gmax 0.0557 disp 0.0669 Ediff -5.5922 gradrms 0.0168
+  >  updating coord basis
+  >  On opt step 2
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-2.3668
+  >  Opt step: 2 E: -27.1063 predE: -3.6213 ratio: 0.654 gradrms: 0.00603 ss: 0.060 DMAX: 0.060
+  >  gmax 0.0175 disp 0.0634 Ediff -2.3668 gradrms 0.0060
+  >  updating coord basis
+  >  On opt step 3
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.02054105509903711
+  >  dEstep=-0.2609
+  >  Opt step: 3 E: -27.3672 predE: -0.2566 ratio: 1.017 gradrms: 0.00543 ss: 0.021 DMAX: 0.021
+  >  gmax 0.0164 disp 0.0148 Ediff -0.2609 gradrms 0.0054
+  >  updating coord basis
+  >  On opt step 4
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.2968
+  >  increasing DMAX
+  >  Opt step: 4 E: -27.6640 predE: -0.3102 ratio: 0.957 gradrms: 0.00407 ss: 0.021 DMAX: 0.033
+  >  gmax 0.0115 disp 0.0140 Ediff -0.2968 gradrms 0.0041
+  >  updating coord basis
+  >  On opt step 5
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.020280614799213118
+  >  dEstep=-0.2171
+  >  Opt step: 5 E: -27.8811 predE: -0.2163 ratio: 1.004 gradrms: 0.00338 ss: 0.020 DMAX: 0.020
+  >  gmax 0.0090 disp 0.0132 Ediff -0.2171 gradrms 0.0034
+  >  updating coord basis
+  >  On opt step 6
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.019675979576762422
+  >  dEstep=-0.1853
+  >  Opt step: 6 E: -28.0664 predE: -0.1835 ratio: 1.010 gradrms: 0.00287 ss: 0.020 DMAX: 0.020
+  >  gmax 0.0069 disp 0.0127 Ediff -0.1853 gradrms 0.0029
+  >  updating coord basis
+  >  On opt step 7
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.01904590752267888
+  >  dEstep=-0.1594
+  >  Opt step: 7 E: -28.2258 predE: -0.1559 ratio: 1.023 gradrms: 0.00256 ss: 0.019 DMAX: 0.019
+  >  gmax 0.0055 disp 0.0123 Ediff -0.1594 gradrms 0.0026
+  >  updating coord basis
+  >  On opt step 8
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.01853016951139409
+  >  dEstep=-0.1427
+  >  Opt step: 8 E: -28.3685 predE: -0.1385 ratio: 1.030 gradrms: 0.00235 ss: 0.019 DMAX: 0.019
+  >  gmax 0.0045 disp 0.0119 Ediff -0.1427 gradrms 0.0024
+  >  updating coord basis
+  >  On opt step 9
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.01808483201924832
+  >  dEstep=-0.1306
+  >  Opt step: 9 E: -28.4991 predE: -0.1263 ratio: 1.034 gradrms: 0.00221 ss: 0.018 DMAX: 0.018
+  >  gmax 0.0043 disp 0.0116 Ediff -0.1306 gradrms 0.0022
+  >  updating coord basis
+  >  On opt step 10
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.01768679870360477
+  >  dEstep=-0.1211
+  >  Opt step: 10 E: -28.6202 predE: -0.1168 ratio: 1.037 gradrms: 0.00210 ss: 0.018 DMAX: 0.018
+  >  gmax 0.0042 disp 0.0113 Ediff -0.1211 gradrms 0.0021
+  >  updating coord basis
+  >  On opt step 11
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.017324234025580285
+  >  dEstep=-0.1132
+  >  Opt step: 11 E: -28.7334 predE: -0.1090 ratio: 1.038 gradrms: 0.00200 ss: 0.017 DMAX: 0.017
+  >  gmax 0.0040 disp 0.0110 Ediff -0.1132 gradrms 0.0020
+  >  updating coord basis
+  >  On opt step 12
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.016991868536029003
+  >  dEstep=-0.1063
+  >  Opt step: 12 E: -28.8397 predE: -0.1023 ratio: 1.039 gradrms: 0.00192 ss: 0.017 DMAX: 0.017
+  >  gmax 0.0039 disp 0.0107 Ediff -0.1063 gradrms 0.0019
+  >  updating coord basis
+  >  On opt step 13
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.016687225530978567
+  >  dEstep=-0.1002
+  >  Opt step: 13 E: -28.9399 predE: -0.0964 ratio: 1.040 gradrms: 0.00184 ss: 0.017 DMAX: 0.017
+  >  gmax 0.0039 disp 0.0105 Ediff -0.1002 gradrms 0.0018
+  >  updating coord basis
+  >  On opt step 14
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.016408787867441346
+  >  dEstep=-0.0948
+  >  Opt step: 14 E: -29.0347 predE: -0.0911 ratio: 1.040 gradrms: 0.00177 ss: 0.016 DMAX: 0.016
+  >  gmax 0.0038 disp 0.0102 Ediff -0.0948 gradrms 0.0018
+  >  updating coord basis
+  >  On opt step 15
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.016155295275943053
+  >  dEstep=-0.0900
+  >  Opt step: 15 E: -29.1247 predE: -0.0864 ratio: 1.041 gradrms: 0.00171 ss: 0.016 DMAX: 0.016
+  >  gmax 0.0038 disp 0.0099 Ediff -0.0900 gradrms 0.0017
+  >  updating coord basis
+  >  On opt step 16
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.01592552624076064
+  >  dEstep=-0.0857
+  >  Opt step: 16 E: -29.2103 predE: -0.0822 ratio: 1.042 gradrms: 0.00165 ss: 0.016 DMAX: 0.016
+  >  gmax 0.0037 disp 0.0097 Ediff -0.0857 gradrms 0.0016
+  >  updating coord basis
+  >  On opt step 17
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.01571825616733795
+  >  dEstep=-0.0818
+  >  Opt step: 17 E: -29.2921 predE: -0.0785 ratio: 1.042 gradrms: 0.00159 ss: 0.016 DMAX: 0.016
+  >  gmax 0.0037 disp 0.0094 Ediff -0.0818 gradrms 0.0016
+  >  updating coord basis
+  >  On opt step 18
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.015532268689074688
+  >  dEstep=-0.0783
+  >  Opt step: 18 E: -29.3704 predE: -0.0751 ratio: 1.043 gradrms: 0.00154 ss: 0.016 DMAX: 0.016
+  >  gmax 0.0036 disp 0.0092 Ediff -0.0783 gradrms 0.0015
+  >  updating coord basis
+  >  On opt step 19
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.015366376407613909
+  >  dEstep=-0.0752
+  >  Opt step: 19 E: -29.4457 predE: -0.0721 ratio: 1.044 gradrms: 0.00149 ss: 0.015 DMAX: 0.015
+  >  gmax 0.0036 disp 0.0090 Ediff -0.0752 gradrms 0.0015
+  >  updating coord basis
+  >  On opt step 20
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.015219437924085144
+  >  dEstep=-0.0725
+  >  Opt step: 20 E: -29.5182 predE: -0.0694 ratio: 1.044 gradrms: 0.00145 ss: 0.015 DMAX: 0.015
+  >  gmax 0.0035 disp 0.0088 Ediff -0.0725 gradrms 0.0014
+  >  updating coord basis
+  ::> opt-summary
+    > 
+ Opt step: 1 E: -24.7395 predE: -6.9459 ratio: 0.805 gradrms: 0.01683 ss: 0.060 DMAX: 0.060
+ Opt step: 2 E: -27.1063 predE: -3.6213 ratio: 0.654 gradrms: 0.00603 ss: 0.060 DMAX: 0.060
+ Opt step: 3 E: -27.3672 predE: -0.2566 ratio: 1.017 gradrms: 0.00543 ss: 0.021 DMAX: 0.021
+ Opt step: 4 E: -27.6640 predE: -0.3102 ratio: 0.957 gradrms: 0.00407 ss: 0.021 DMAX: 0.033
+ Opt step: 5 E: -27.8811 predE: -0.2163 ratio: 1.004 gradrms: 0.00338 ss: 0.020 DMAX: 0.020
+ Opt step: 6 E: -28.0664 predE: -0.1835 ratio: 1.010 gradrms: 0.00287 ss: 0.020 DMAX: 0.020
+ Opt step: 7 E: -28.2258 predE: -0.1559 ratio: 1.023 gradrms: 0.00256 ss: 0.019 DMAX: 0.019
+ Opt step: 8 E: -28.3685 predE: -0.1385 ratio: 1.030 gradrms: 0.00235 ss: 0.019 DMAX: 0.019
+ Opt step: 9 E: -28.4991 predE: -0.1263 ratio: 1.034 gradrms: 0.00221 ss: 0.018 DMAX: 0.018
+ Opt step: 10 E: -28.6202 predE: -0.1168 ratio: 1.037 gradrms: 0.00210 ss: 0.018 DMAX: 0.018
+ Opt step: 11 E: -28.7334 predE: -0.1090 ratio: 1.038 gradrms: 0.00200 ss: 0.017 DMAX: 0.017
+ Opt step: 12 E: -28.8397 predE: -0.1023 ratio: 1.039 gradrms: 0.00192 ss: 0.017 DMAX: 0.017
+ Opt step: 13 E: -28.9399 predE: -0.0964 ratio: 1.040 gradrms: 0.00184 ss: 0.017 DMAX: 0.017
+ Opt step: 14 E: -29.0347 predE: -0.0911 ratio: 1.040 gradrms: 0.00177 ss: 0.016 DMAX: 0.016
+ Opt step: 15 E: -29.1247 predE: -0.0864 ratio: 1.041 gradrms: 0.00171 ss: 0.016 DMAX: 0.016
+ Opt step: 16 E: -29.2103 predE: -0.0822 ratio: 1.042 gradrms: 0.00165 ss: 0.016 DMAX: 0.016
+ Opt step: 17 E: -29.2921 predE: -0.0785 ratio: 1.042 gradrms: 0.00159 ss: 0.016 DMAX: 0.016
+ Opt step: 18 E: -29.3704 predE: -0.0751 ratio: 1.043 gradrms: 0.00154 ss: 0.016 DMAX: 0.016
+ Opt step: 19 E: -29.4457 predE: -0.0721 ratio: 1.044 gradrms: 0.00149 ss: 0.015 DMAX: 0.015
+ Opt step: 20 E: -29.5182 predE: -0.0694 ratio: 1.044 gradrms: 0.00145 ss: 0.015 DMAX: 0.015
+  <::
+  > Optimizing node 2
+  > setting node 2 opt_type to ICTAN
+  >  initial E -23.2160
+  >  CONV_TOL 0.01000
+  >  updating coord basis
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  On opt step 1
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.04529282659263369
+  >  dEstep=-2.6491
+  >  Opt step: 1 E: -25.8650 predE: -3.0801 ratio: 0.860 gradrms: 0.01260 ss: 0.045 DMAX: 0.045
+  >  gmax 0.0383 disp 0.0447 Ediff -2.6491 gradrms 0.0126
+  >  updating coord basis
+  >  On opt step 2
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-1.5373
+  >  increasing DMAX
+  >  Opt step: 2 E: -27.4023 predE: -1.9059 ratio: 0.807 gradrms: 0.00680 ss: 0.045 DMAX: 0.060
+  >  gmax 0.0205 disp 0.0422 Ediff -1.5373 gradrms 0.0068
+  >  converged
+  ::> opt-summary
+    > 
+ Opt step: 1 E: -25.8650 predE: -3.0801 ratio: 0.860 gradrms: 0.01260 ss: 0.045 DMAX: 0.045
+ Opt step: 2 E: -27.4023 predE: -1.9059 ratio: 0.807 gradrms: 0.00680 ss: 0.045 DMAX: 0.060
+  <::
+  > Optimizing node 6
+  > setting node 6 opt_type to ICTAN
+  >  initial E -36.5835
+  >  CONV_TOL 0.01000
+  >  updating coord basis
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  On opt step 1
+  >  forming Hessian in basis
+  >  dEstep=-5.8322
+  >  increasing DMAX
+  >  Opt step: 1 E: -42.4157 predE: -6.7670 ratio: 0.862 gradrms: 0.02567 ss: 0.050 DMAX: 0.065
+  >  gmax 0.0775 disp 0.0569 Ediff -5.8322 gradrms 0.0257
+  >  updating coord basis
+  >  On opt step 2
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-4.6283
+  >  increasing DMAX
+  >  Opt step: 2 E: -47.0440 predE: -6.0379 ratio: 0.767 gradrms: 0.01327 ss: 0.065 DMAX: 0.081
+  >  gmax 0.0370 disp 0.0731 Ediff -4.6283 gradrms 0.0133
+  >  updating coord basis
+  >  On opt step 3
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.030769499294967414
+  >  dEstep=-0.7519
+  >  Opt step: 3 E: -47.7959 predE: -0.7631 ratio: 0.985 gradrms: 0.01187 ss: 0.031 DMAX: 0.031
+  >  gmax 0.0321 disp 0.0227 Ediff -0.7519 gradrms 0.0119
+  >  updating coord basis
+  >  On opt step 4
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.9931
+  >  increasing DMAX
+  >  Opt step: 4 E: -48.7890 predE: -1.0939 ratio: 0.908 gradrms: 0.00842 ss: 0.031 DMAX: 0.044
+  >  gmax 0.0216 disp 0.0264 Ediff -0.9931 gradrms 0.0084
+  >  converged
+  ::> opt-summary
+    > 
+ Opt step: 1 E: -42.4157 predE: -6.7670 ratio: 0.862 gradrms: 0.02567 ss: 0.050 DMAX: 0.065
+ Opt step: 2 E: -47.0440 predE: -6.0379 ratio: 0.767 gradrms: 0.01327 ss: 0.065 DMAX: 0.081
+ Opt step: 3 E: -47.7959 predE: -0.7631 ratio: 0.985 gradrms: 0.01187 ss: 0.031 DMAX: 0.031
+ Opt step: 4 E: -48.7890 predE: -1.0939 ratio: 0.908 gradrms: 0.00842 ss: 0.031 DMAX: 0.044
+  <::
+  > Optimizing node 7
+  > setting node 7 opt_type to ICTAN
+  >  initial E -44.4365
+  >  CONV_TOL 0.00000
+  >  updating coord basis
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  On opt step 1
+  >  forming Hessian in basis
+  >  dEstep=-4.2751
+  >  increasing DMAX
+  >  Opt step: 1 E: -48.7116 predE: -5.1958 ratio: 0.823 gradrms: 0.01691 ss: 0.050 DMAX: 0.065
+  >  gmax 0.0434 disp 0.0569 Ediff -4.2751 gradrms 0.0169
+  >  updating coord basis
+  >  On opt step 2
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-2.6449
+  >  Opt step: 2 E: -51.3565 predE: -4.0362 ratio: 0.655 gradrms: 0.00552 ss: 0.065 DMAX: 0.065
+  >  gmax 0.0185 disp 0.0730 Ediff -2.6449 gradrms 0.0055
+  >  updating coord basis
+  >  On opt step 3
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.01616864496808891
+  >  dEstep=-0.1988
+  >  Opt step: 3 E: -51.5553 predE: -0.2017 ratio: 0.986 gradrms: 0.00488 ss: 0.016 DMAX: 0.016
+  >  gmax 0.0157 disp 0.0136 Ediff -0.1988 gradrms 0.0049
+  >  updating coord basis
+  >  On opt step 4
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.2227
+  >  increasing DMAX
+  >  Opt step: 4 E: -51.7780 predE: -0.2381 ratio: 0.935 gradrms: 0.00359 ss: 0.016 DMAX: 0.028
+  >  gmax 0.0118 disp 0.0134 Ediff -0.2227 gradrms 0.0036
+  >  updating coord basis
+  >  On opt step 5
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.013944051736332999
+  >  dEstep=-0.1374
+  >  Opt step: 5 E: -51.9154 predE: -0.1400 ratio: 0.981 gradrms: 0.00291 ss: 0.014 DMAX: 0.014
+  >  gmax 0.0093 disp 0.0104 Ediff -0.1374 gradrms 0.0029
+  >  updating coord basis
+  >  On opt step 6
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.013131417046087062
+  >  dEstep=-0.1082
+  >  Opt step: 6 E: -52.0236 predE: -0.1097 ratio: 0.986 gradrms: 0.00240 ss: 0.013 DMAX: 0.013
+  >  gmax 0.0071 disp 0.0094 Ediff -0.1082 gradrms 0.0024
+  >  updating coord basis
+  >  On opt step 7
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.012252303675549425
+  >  dEstep=-0.0850
+  >  Opt step: 7 E: -52.1086 predE: -0.0847 ratio: 1.003 gradrms: 0.00207 ss: 0.012 DMAX: 0.012
+  >  gmax 0.0055 disp 0.0084 Ediff -0.0850 gradrms 0.0021
+  >  updating coord basis
+  >  On opt step 8
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.001s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.011615681462220959
+  >  dEstep=-0.0711
+  >  Opt step: 8 E: -52.1797 predE: -0.0700 ratio: 1.016 gradrms: 0.00186 ss: 0.012 DMAX: 0.012
+  >  gmax 0.0043 disp 0.0078 Ediff -0.0711 gradrms 0.0019
+  >  updating coord basis
+  >  On opt step 9
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.011130867216384835
+  >  dEstep=-0.0620
+  >  Opt step: 9 E: -52.2416 predE: -0.0605 ratio: 1.025 gradrms: 0.00172 ss: 0.011 DMAX: 0.011
+  >  gmax 0.0035 disp 0.0073 Ediff -0.0620 gradrms 0.0017
+  >  updating coord basis
+  >  On opt step 10
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.010756393645799512
+  >  dEstep=-0.0557
+  >  Opt step: 10 E: -52.2974 predE: -0.0541 ratio: 1.031 gradrms: 0.00162 ss: 0.011 DMAX: 0.011
+  >  gmax 0.0036 disp 0.0070 Ediff -0.0557 gradrms 0.0016
+  >  updating coord basis
+  >  On opt step 11
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.010459604992800714
+  >  dEstep=-0.0511
+  >  Opt step: 11 E: -52.3485 predE: -0.0494 ratio: 1.035 gradrms: 0.00155 ss: 0.010 DMAX: 0.010
+  >  gmax 0.0036 disp 0.0067 Ediff -0.0511 gradrms 0.0015
+  >  updating coord basis
+  >  On opt step 12
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.006s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.010219450284442379
+  >  dEstep=-0.0475
+  >  Opt step: 12 E: -52.3959 predE: -0.0458 ratio: 1.037 gradrms: 0.00149 ss: 0.010 DMAX: 0.010
+  >  gmax 0.0036 disp 0.0065 Ediff -0.0475 gradrms 0.0015
+  >  updating coord basis
+  >  On opt step 13
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.010022759676328527
+  >  dEstep=-0.0445
+  >  Opt step: 13 E: -52.4404 predE: -0.0428 ratio: 1.039 gradrms: 0.00144 ss: 0.010 DMAX: 0.010
+  >  gmax 0.0036 disp 0.0063 Ediff -0.0445 gradrms 0.0014
+  >  updating coord basis
+  >  On opt step 14
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.009861135433811504
+  >  dEstep=-0.0419
+  >  Opt step: 14 E: -52.4823 predE: -0.0403 ratio: 1.040 gradrms: 0.00140 ss: 0.010 DMAX: 0.010
+  >  gmax 0.0036 disp 0.0061 Ediff -0.0419 gradrms 0.0014
+  >  updating coord basis
+  >  On opt step 15
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.009728949004327945
+  >  dEstep=-0.0397
+  >  Opt step: 15 E: -52.5221 predE: -0.0382 ratio: 1.041 gradrms: 0.00136 ss: 0.010 DMAX: 0.010
+  >  gmax 0.0036 disp 0.0060 Ediff -0.0397 gradrms 0.0014
+  >  updating coord basis
+  >  On opt step 16
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.009622184854644786
+  >  dEstep=-0.0378
+  >  Opt step: 16 E: -52.5599 predE: -0.0363 ratio: 1.042 gradrms: 0.00132 ss: 0.010 DMAX: 0.010
+  >  gmax 0.0036 disp 0.0059 Ediff -0.0378 gradrms 0.0013
+  >  updating coord basis
+  >  On opt step 17
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.00953779919746778
+  >  dEstep=-0.0361
+  >  Opt step: 17 E: -52.5960 predE: -0.0346 ratio: 1.043 gradrms: 0.00128 ss: 0.010 DMAX: 0.010
+  >  gmax 0.0035 disp 0.0057 Ediff -0.0361 gradrms 0.0013
+  >  updating coord basis
+  >  On opt step 18
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.009473366623782665
+  >  dEstep=-0.0346
+  >  Opt step: 18 E: -52.6307 predE: -0.0332 ratio: 1.044 gradrms: 0.00125 ss: 0.009 DMAX: 0.009
+  >  gmax 0.0035 disp 0.0056 Ediff -0.0346 gradrms 0.0012
+  >  updating coord basis
+  >  On opt step 19
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.009426882664550197
+  >  dEstep=-0.0333
+  >  Opt step: 19 E: -52.6640 predE: -0.0319 ratio: 1.045 gradrms: 0.00122 ss: 0.009 DMAX: 0.009
+  >  gmax 0.0034 disp 0.0055 Ediff -0.0333 gradrms 0.0012
+  >  updating coord basis
+  >  On opt step 20
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.009396650043519377
+  >  dEstep=-0.0322
+  >  Opt step: 20 E: -52.6961 predE: -0.0308 ratio: 1.045 gradrms: 0.00119 ss: 0.009 DMAX: 0.009
+  >  gmax 0.0033 disp 0.0054 Ediff -0.0322 gradrms 0.0012
+  >  updating coord basis
+  ::> opt-summary
+    > 
+ Opt step: 1 E: -48.7116 predE: -5.1958 ratio: 0.823 gradrms: 0.01691 ss: 0.050 DMAX: 0.065
+ Opt step: 2 E: -51.3565 predE: -4.0362 ratio: 0.655 gradrms: 0.00552 ss: 0.065 DMAX: 0.065
+ Opt step: 3 E: -51.5553 predE: -0.2017 ratio: 0.986 gradrms: 0.00488 ss: 0.016 DMAX: 0.016
+ Opt step: 4 E: -51.7780 predE: -0.2381 ratio: 0.935 gradrms: 0.00359 ss: 0.016 DMAX: 0.028
+ Opt step: 5 E: -51.9154 predE: -0.1400 ratio: 0.981 gradrms: 0.00291 ss: 0.014 DMAX: 0.014
+ Opt step: 6 E: -52.0236 predE: -0.1097 ratio: 0.986 gradrms: 0.00240 ss: 0.013 DMAX: 0.013
+ Opt step: 7 E: -52.1086 predE: -0.0847 ratio: 1.003 gradrms: 0.00207 ss: 0.012 DMAX: 0.012
+ Opt step: 8 E: -52.1797 predE: -0.0700 ratio: 1.016 gradrms: 0.00186 ss: 0.012 DMAX: 0.012
+ Opt step: 9 E: -52.2416 predE: -0.0605 ratio: 1.025 gradrms: 0.00172 ss: 0.011 DMAX: 0.011
+ Opt step: 10 E: -52.2974 predE: -0.0541 ratio: 1.031 gradrms: 0.00162 ss: 0.011 DMAX: 0.011
+ Opt step: 11 E: -52.3485 predE: -0.0494 ratio: 1.035 gradrms: 0.00155 ss: 0.010 DMAX: 0.010
+ Opt step: 12 E: -52.3959 predE: -0.0458 ratio: 1.037 gradrms: 0.00149 ss: 0.010 DMAX: 0.010
+ Opt step: 13 E: -52.4404 predE: -0.0428 ratio: 1.039 gradrms: 0.00144 ss: 0.010 DMAX: 0.010
+ Opt step: 14 E: -52.4823 predE: -0.0403 ratio: 1.040 gradrms: 0.00140 ss: 0.010 DMAX: 0.010
+ Opt step: 15 E: -52.5221 predE: -0.0382 ratio: 1.041 gradrms: 0.00136 ss: 0.010 DMAX: 0.010
+ Opt step: 16 E: -52.5599 predE: -0.0363 ratio: 1.042 gradrms: 0.00132 ss: 0.010 DMAX: 0.010
+ Opt step: 17 E: -52.5960 predE: -0.0346 ratio: 1.043 gradrms: 0.00128 ss: 0.010 DMAX: 0.010
+ Opt step: 18 E: -52.6307 predE: -0.0332 ratio: 1.044 gradrms: 0.00125 ss: 0.009 DMAX: 0.009
+ Opt step: 19 E: -52.6640 predE: -0.0319 ratio: 1.045 gradrms: 0.00122 ss: 0.009 DMAX: 0.009
+ Opt step: 20 E: -52.6961 predE: -0.0308 ratio: 1.045 gradrms: 0.00119 ss: 0.009 DMAX: 0.009
+  <::
+  > gopt_iter:  1 totalgrad: 0.116 gradrms: 0.004152 max E: -27.4
+  ::> Adding reactant node
+    >  adding node: 3 between 2 6 from 2
+    >  updating coord basis
+    >  nn=7,nR=4
+  <::
+  >  getting energy for node 3: -24.1897
+  ::> Adding product node
+    >  adding node: 5 between 6 3 from 6
+    >  updating coord basis
+    >  nn=8,nP=4
+  <::
+  >  getting energy for node 5: -41.2043
+  >  setting active nodes to 3 and 5
+  >  conv_tol of node 3 is 0.0100
+  >  conv_tol of node 5 is 0.0100
+  ::> Reparamerizing string nodes
+    > forming space for 0
+    > forming space for 1
+    > forming space for 1
+    > forming space for 2
+    > forming space for 2
+    > forming space for 3
+    > forming space for 6
+    > forming space for 5
+    > forming space for 7
+    > forming space for 6
+    > forming space for 8
+    > forming space for 7
+    > forming space for 3
+    > forming space for 5
+    > forming space for 5
+    > forming space for 3
+    > Moving 3 along ictan[2]
+    >  updating coord basis
+    > Moving 5 along ictan[6]
+    >  updating coord basis
+    > forming space for 0
+    > forming space for 1
+    > forming space for 1
+    > forming space for 2
+    > forming space for 2
+    > forming space for 3
+    > forming space for 6
+    > forming space for 5
+    > forming space for 7
+    > forming space for 6
+    > forming space for 8
+    > forming space for 7
+    > forming space for 3
+    > forming space for 5
+    > forming space for 5
+    > forming space for 3
+    > Moving 1 along ictan[0]
+    >  updating coord basis
+    > Moving 5 along ictan[6]
+    >  updating coord basis
+    > forming space for 0
+    > forming space for 1
+    > forming space for 1
+    > forming space for 2
+    > forming space for 2
+    > forming space for 3
+    > forming space for 6
+    > forming space for 5
+    > forming space for 7
+    > forming space for 6
+    > forming space for 8
+    > forming space for 7
+    > forming space for 3
+    > forming space for 5
+    > forming space for 5
+    > forming space for 3
+    > Moving 2 along ictan[1]
+    >  updating coord basis
+    > Moving 3 along ictan[2]
+    >  updating coord basis
+    > Moving 7 along ictan[8]
+    >  updating coord basis
+    > forming space for 0
+    > forming space for 1
+    > forming space for 1
+    > forming space for 2
+    > forming space for 2
+    > forming space for 3
+    > forming space for 6
+    > forming space for 5
+    > forming space for 7
+    > forming space for 6
+    > forming space for 8
+    > forming space for 7
+    > forming space for 3
+    > forming space for 5
+    > forming space for 5
+    > forming space for 3
+    > Moving 3 along ictan[2]
+    >  updating coord basis
+    > Moving 5 along ictan[6]
+    >  updating coord basis
+    >  spacings (end ic_reparam, steps: 4/4): 1.3 1.2 1.6 5.1 0.0 5.1 1.3 1.2 1.3 disprms: 0.374
+  <::
+  > forming space for 0
+  > forming space for 1
+  > forming space for 1
+  > forming space for 2
+  > forming space for 2
+  > forming space for 3
+  > forming space for 6
+  > forming space for 5
+  > forming space for 7
+  > forming space for 6
+  > forming space for 8
+  > forming space for 7
+  > forming space for 3
+  > forming space for 5
+  > forming space for 5
+  > forming space for 3
+  > Starting growth iteration 2
+  > Optimizing node 1
+  > setting node 1 opt_type to ICTAN
+  >  initial E -28.7538
+  >  CONV_TOL 0.00000
+  >  updating coord basis
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.001s
+  >  On opt step 1
+  >  forming Hessian in basis
+  >  dEstep=-0.3275
+  >  increasing DMAX
+  >  Opt step: 1 E: -29.0813 predE: -0.3612 ratio: 0.907 gradrms: 0.00538 ss: 0.015 DMAX: 0.027
+  >  gmax 0.0189 disp 0.0137 Ediff -0.3275 gradrms 0.0054
+  >  updating coord basis
+  >  On opt step 2
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.018454237936638855
+  >  dEstep=-0.2532
+  >  Opt step: 2 E: -29.3345 predE: -0.2843 ratio: 0.891 gradrms: 0.00342 ss: 0.018 DMAX: 0.018
+  >  gmax 0.0118 disp 0.0144 Ediff -0.2532 gradrms 0.0034
+  >  updating coord basis
+  >  On opt step 3
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.015510866410223877
+  >  dEstep=-0.1157
+  >  Opt step: 3 E: -29.4502 predE: -0.1163 ratio: 0.995 gradrms: 0.00272 ss: 0.016 DMAX: 0.016
+  >  gmax 0.0092 disp 0.0089 Ediff -0.1157 gradrms 0.0027
+  >  updating coord basis
+  >  On opt step 4
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.015374064293527227
+  >  dEstep=-0.1010
+  >  Opt step: 4 E: -29.5512 predE: -0.1025 ratio: 0.985 gradrms: 0.00208 ss: 0.015 DMAX: 0.015
+  >  gmax 0.0065 disp 0.0088 Ediff -0.1010 gradrms 0.0021
+  >  updating coord basis
+  >  On opt step 5
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.015048577770301722
+  >  dEstep=-0.0812
+  >  Opt step: 5 E: -29.6324 predE: -0.0800 ratio: 1.015 gradrms: 0.00173 ss: 0.015 DMAX: 0.015
+  >  gmax 0.0048 disp 0.0081 Ediff -0.0812 gradrms 0.0017
+  >  updating coord basis
+  >  On opt step 6
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.014913630361787106
+  >  dEstep=-0.0724
+  >  Opt step: 6 E: -29.7048 predE: -0.0702 ratio: 1.032 gradrms: 0.00153 ss: 0.015 DMAX: 0.015
+  >  gmax 0.0037 disp 0.0079 Ediff -0.0724 gradrms 0.0015
+  >  updating coord basis
+  >  On opt step 7
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.001s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.01486503240708551
+  >  dEstep=-0.0679
+  >  Opt step: 7 E: -29.7726 predE: -0.0652 ratio: 1.041 gradrms: 0.00142 ss: 0.015 DMAX: 0.015
+  >  gmax 0.0030 disp 0.0077 Ediff -0.0679 gradrms 0.0014
+  >  updating coord basis
+  >  On opt step 8
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.014860789402802884
+  >  dEstep=-0.0655
+  >  Opt step: 8 E: -29.8381 predE: -0.0626 ratio: 1.046 gradrms: 0.00135 ss: 0.015 DMAX: 0.015
+  >  gmax 0.0030 disp 0.0077 Ediff -0.0655 gradrms 0.0014
+  >  updating coord basis
+  >  On opt step 9
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.0640
+  >  increasing DMAX
+  >  Opt step: 9 E: -29.9021 predE: -0.0610 ratio: 1.049 gradrms: 0.00131 ss: 0.015 DMAX: 0.026
+  >  gmax 0.0031 disp 0.0076 Ediff -0.0640 gradrms 0.0013
+  >  updating coord basis
+  >  On opt step 10
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.014909398064750772
+  >  dEstep=-0.0632
+  >  Opt step: 10 E: -29.9653 predE: -0.0602 ratio: 1.050 gradrms: 0.00128 ss: 0.015 DMAX: 0.015
+  >  gmax 0.0031 disp 0.0076 Ediff -0.0632 gradrms 0.0013
+  >  updating coord basis
+  >  On opt step 11
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.0624
+  >  increasing DMAX
+  >  Opt step: 11 E: -30.0277 predE: -0.0594 ratio: 1.051 gradrms: 0.00126 ss: 0.015 DMAX: 0.026
+  >  gmax 0.0031 disp 0.0075 Ediff -0.0624 gradrms 0.0013
+  >  updating coord basis
+  >  On opt step 12
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.014998214749979599
+  >  dEstep=-0.0622
+  >  Opt step: 12 E: -30.0899 predE: -0.0591 ratio: 1.051 gradrms: 0.00124 ss: 0.015 DMAX: 0.015
+  >  gmax 0.0031 disp 0.0075 Ediff -0.0622 gradrms 0.0012
+  >  updating coord basis
+  >  On opt step 13
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.0617
+  >  increasing DMAX
+  >  Opt step: 13 E: -30.1516 predE: -0.0587 ratio: 1.052 gradrms: 0.00122 ss: 0.015 DMAX: 0.026
+  >  gmax 0.0031 disp 0.0074 Ediff -0.0617 gradrms 0.0012
+  >  updating coord basis
+  >  On opt step 14
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.0151189149188212
+  >  dEstep=-0.0618
+  >  Opt step: 14 E: -30.2134 predE: -0.0587 ratio: 1.052 gradrms: 0.00120 ss: 0.015 DMAX: 0.015
+  >  gmax 0.0031 disp 0.0074 Ediff -0.0618 gradrms 0.0012
+  >  updating coord basis
+  >  On opt step 15
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.0615
+  >  increasing DMAX
+  >  Opt step: 15 E: -30.2749 predE: -0.0584 ratio: 1.052 gradrms: 0.00119 ss: 0.015 DMAX: 0.027
+  >  gmax 0.0030 disp 0.0074 Ediff -0.0615 gradrms 0.0012
+  >  updating coord basis
+  >  On opt step 16
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.015269328856382816
+  >  dEstep=-0.0619
+  >  Opt step: 16 E: -30.3368 predE: -0.0588 ratio: 1.053 gradrms: 0.00118 ss: 0.015 DMAX: 0.015
+  >  gmax 0.0030 disp 0.0074 Ediff -0.0619 gradrms 0.0012
+  >  updating coord basis
+  >  On opt step 17
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.0617
+  >  increasing DMAX
+  >  Opt step: 17 E: -30.3985 predE: -0.0586 ratio: 1.053 gradrms: 0.00117 ss: 0.015 DMAX: 0.027
+  >  gmax 0.0030 disp 0.0073 Ediff -0.0617 gradrms 0.0012
+  >  updating coord basis
+  >  On opt step 18
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.015447246437867128
+  >  dEstep=-0.0624
+  >  Opt step: 18 E: -30.4609 predE: -0.0592 ratio: 1.054 gradrms: 0.00117 ss: 0.015 DMAX: 0.015
+  >  gmax 0.0030 disp 0.0073 Ediff -0.0624 gradrms 0.0012
+  >  updating coord basis
+  >  On opt step 19
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.0624
+  >  increasing DMAX
+  >  Opt step: 19 E: -30.5233 predE: -0.0592 ratio: 1.054 gradrms: 0.00116 ss: 0.015 DMAX: 0.027
+  >  gmax 0.0029 disp 0.0073 Ediff -0.0624 gradrms 0.0012
+  >  updating coord basis
+  >  On opt step 20
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.015650335277170573
+  >  dEstep=-0.0632
+  >  Opt step: 20 E: -30.5865 predE: -0.0600 ratio: 1.054 gradrms: 0.00116 ss: 0.016 DMAX: 0.016
+  >  gmax 0.0029 disp 0.0073 Ediff -0.0632 gradrms 0.0012
+  >  updating coord basis
+  ::> opt-summary
+    > 
+ Opt step: 1 E: -29.0813 predE: -0.3612 ratio: 0.907 gradrms: 0.00538 ss: 0.015 DMAX: 0.027
+ Opt step: 2 E: -29.3345 predE: -0.2843 ratio: 0.891 gradrms: 0.00342 ss: 0.018 DMAX: 0.018
+ Opt step: 3 E: -29.4502 predE: -0.1163 ratio: 0.995 gradrms: 0.00272 ss: 0.016 DMAX: 0.016
+ Opt step: 4 E: -29.5512 predE: -0.1025 ratio: 0.985 gradrms: 0.00208 ss: 0.015 DMAX: 0.015
+ Opt step: 5 E: -29.6324 predE: -0.0800 ratio: 1.015 gradrms: 0.00173 ss: 0.015 DMAX: 0.015
+ Opt step: 6 E: -29.7048 predE: -0.0702 ratio: 1.032 gradrms: 0.00153 ss: 0.015 DMAX: 0.015
+ Opt step: 7 E: -29.7726 predE: -0.0652 ratio: 1.041 gradrms: 0.00142 ss: 0.015 DMAX: 0.015
+ Opt step: 8 E: -29.8381 predE: -0.0626 ratio: 1.046 gradrms: 0.00135 ss: 0.015 DMAX: 0.015
+ Opt step: 9 E: -29.9021 predE: -0.0610 ratio: 1.049 gradrms: 0.00131 ss: 0.015 DMAX: 0.026
+ Opt step: 10 E: -29.9653 predE: -0.0602 ratio: 1.050 gradrms: 0.00128 ss: 0.015 DMAX: 0.015
+ Opt step: 11 E: -30.0277 predE: -0.0594 ratio: 1.051 gradrms: 0.00126 ss: 0.015 DMAX: 0.026
+ Opt step: 12 E: -30.0899 predE: -0.0591 ratio: 1.051 gradrms: 0.00124 ss: 0.015 DMAX: 0.015
+ Opt step: 13 E: -30.1516 predE: -0.0587 ratio: 1.052 gradrms: 0.00122 ss: 0.015 DMAX: 0.026
+ Opt step: 14 E: -30.2134 predE: -0.0587 ratio: 1.052 gradrms: 0.00120 ss: 0.015 DMAX: 0.015
+ Opt step: 15 E: -30.2749 predE: -0.0584 ratio: 1.052 gradrms: 0.00119 ss: 0.015 DMAX: 0.027
+ Opt step: 16 E: -30.3368 predE: -0.0588 ratio: 1.053 gradrms: 0.00118 ss: 0.015 DMAX: 0.015
+ Opt step: 17 E: -30.3985 predE: -0.0586 ratio: 1.053 gradrms: 0.00117 ss: 0.015 DMAX: 0.027
+ Opt step: 18 E: -30.4609 predE: -0.0592 ratio: 1.054 gradrms: 0.00117 ss: 0.015 DMAX: 0.015
+ Opt step: 19 E: -30.5233 predE: -0.0592 ratio: 1.054 gradrms: 0.00116 ss: 0.015 DMAX: 0.027
+ Opt step: 20 E: -30.5865 predE: -0.0600 ratio: 1.054 gradrms: 0.00116 ss: 0.016 DMAX: 0.016
+  <::
+  > Optimizing node 2
+  > setting node 2 opt_type to ICTAN
+  >  initial E -27.4292
+  >  CONV_TOL 0.00000
+  >  updating coord basis
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  On opt step 1
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.027909392268179314
+  >  dEstep=-0.5028
+  >  Opt step: 1 E: -27.9320 predE: -0.5230 ratio: 0.961 gradrms: 0.00525 ss: 0.028 DMAX: 0.028
+  >  gmax 0.0157 disp 0.0213 Ediff -0.5028 gradrms 0.0052
+  >  updating coord basis
+  >  On opt step 2
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.3919
+  >  increasing DMAX
+  >  Opt step: 2 E: -28.3238 predE: -0.4001 ratio: 0.979 gradrms: 0.00413 ss: 0.028 DMAX: 0.041
+  >  gmax 0.0125 disp 0.0199 Ediff -0.3919 gradrms 0.0041
+  >  updating coord basis
+  >  On opt step 3
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.029051581290737937
+  >  dEstep=-0.3287
+  >  Opt step: 3 E: -28.6525 predE: -0.3224 ratio: 1.019 gradrms: 0.00358 ss: 0.029 DMAX: 0.029
+  >  gmax 0.0105 disp 0.0187 Ediff -0.3287 gradrms 0.0036
+  >  updating coord basis
+  >  On opt step 4
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.028482281939735236
+  >  dEstep=-0.2954
+  >  Opt step: 4 E: -28.9479 predE: -0.2882 ratio: 1.025 gradrms: 0.00318 ss: 0.028 DMAX: 0.028
+  >  gmax 0.0088 disp 0.0178 Ediff -0.2954 gradrms 0.0032
+  >  updating coord basis
+  >  On opt step 5
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.027796199240424927
+  >  dEstep=-0.2675
+  >  Opt step: 5 E: -29.2155 predE: -0.2591 ratio: 1.033 gradrms: 0.00294 ss: 0.028 DMAX: 0.028
+  >  gmax 0.0076 disp 0.0169 Ediff -0.2675 gradrms 0.0029
+  >  updating coord basis
+  >  On opt step 6
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.02721867490064519
+  >  dEstep=-0.2482
+  >  Opt step: 6 E: -29.4637 predE: -0.2393 ratio: 1.037 gradrms: 0.00278 ss: 0.027 DMAX: 0.027
+  >  gmax 0.0070 disp 0.0161 Ediff -0.2482 gradrms 0.0028
+  >  updating coord basis
+  >  On opt step 7
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.026732259416907937
+  >  dEstep=-0.2336
+  >  Opt step: 7 E: -29.6973 predE: -0.2246 ratio: 1.040 gradrms: 0.00266 ss: 0.027 DMAX: 0.027
+  >  gmax 0.0070 disp 0.0155 Ediff -0.2336 gradrms 0.0027
+  >  updating coord basis
+  >  On opt step 8
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.026312592737295647
+  >  dEstep=-0.2219
+  >  Opt step: 8 E: -29.9192 predE: -0.2130 ratio: 1.042 gradrms: 0.00256 ss: 0.026 DMAX: 0.026
+  >  gmax 0.0069 disp 0.0150 Ediff -0.2219 gradrms 0.0026
+  >  updating coord basis
+  >  On opt step 9
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.025943503306828715
+  >  dEstep=-0.2120
+  >  Opt step: 9 E: -30.1312 predE: -0.2033 ratio: 1.043 gradrms: 0.00248 ss: 0.026 DMAX: 0.026
+  >  gmax 0.0068 disp 0.0145 Ediff -0.2120 gradrms 0.0025
+  >  updating coord basis
+  >  On opt step 10
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.025615375381360078
+  >  dEstep=-0.2033
+  >  Opt step: 10 E: -30.3345 predE: -0.1948 ratio: 1.044 gradrms: 0.00240 ss: 0.026 DMAX: 0.026
+  >  gmax 0.0067 disp 0.0141 Ediff -0.2033 gradrms 0.0024
+  >  updating coord basis
+  >  On opt step 11
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.025322352972596125
+  >  dEstep=-0.1957
+  >  Opt step: 11 E: -30.5302 predE: -0.1874 ratio: 1.044 gradrms: 0.00234 ss: 0.025 DMAX: 0.025
+  >  gmax 0.0065 disp 0.0138 Ediff -0.1957 gradrms 0.0023
+  >  updating coord basis
+  >  On opt step 12
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.02506052644029749
+  >  dEstep=-0.1889
+  >  Opt step: 12 E: -30.7190 predE: -0.1808 ratio: 1.045 gradrms: 0.00227 ss: 0.025 DMAX: 0.025
+  >  gmax 0.0063 disp 0.0135 Ediff -0.1889 gradrms 0.0023
+  >  updating coord basis
+  >  On opt step 13
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.024826991023746827
+  >  dEstep=-0.1828
+  >  Opt step: 13 E: -30.9018 predE: -0.1749 ratio: 1.045 gradrms: 0.00221 ss: 0.025 DMAX: 0.025
+  >  gmax 0.0062 disp 0.0132 Ediff -0.1828 gradrms 0.0022
+  >  updating coord basis
+  >  On opt step 14
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.024619395019306402
+  >  dEstep=-0.1774
+  >  Opt step: 14 E: -31.0792 predE: -0.1696 ratio: 1.046 gradrms: 0.00216 ss: 0.025 DMAX: 0.025
+  >  gmax 0.0060 disp 0.0129 Ediff -0.1774 gradrms 0.0022
+  >  updating coord basis
+  >  On opt step 15
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.024435724330107565
+  >  dEstep=-0.1726
+  >  Opt step: 15 E: -31.2518 predE: -0.1649 ratio: 1.047 gradrms: 0.00211 ss: 0.024 DMAX: 0.024
+  >  gmax 0.0058 disp 0.0126 Ediff -0.1726 gradrms 0.0021
+  >  updating coord basis
+  >  On opt step 16
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.02427419487656942
+  >  dEstep=-0.1683
+  >  Opt step: 16 E: -31.4201 predE: -0.1607 ratio: 1.047 gradrms: 0.00206 ss: 0.024 DMAX: 0.024
+  >  gmax 0.0057 disp 0.0124 Ediff -0.1683 gradrms 0.0021
+  >  updating coord basis
+  >  On opt step 17
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.02413319398950689
+  >  dEstep=-0.1645
+  >  Opt step: 17 E: -31.5846 predE: -0.1570 ratio: 1.048 gradrms: 0.00202 ss: 0.024 DMAX: 0.024
+  >  gmax 0.0055 disp 0.0122 Ediff -0.1645 gradrms 0.0020
+  >  updating coord basis
+  >  On opt step 18
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.02401124482133792
+  >  dEstep=-0.1611
+  >  Opt step: 18 E: -31.7457 predE: -0.1537 ratio: 1.048 gradrms: 0.00198 ss: 0.024 DMAX: 0.024
+  >  gmax 0.0053 disp 0.0120 Ediff -0.1611 gradrms 0.0020
+  >  updating coord basis
+  >  On opt step 19
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.023906982354310703
+  >  dEstep=-0.1582
+  >  Opt step: 19 E: -31.9039 predE: -0.1509 ratio: 1.049 gradrms: 0.00195 ss: 0.024 DMAX: 0.024
+  >  gmax 0.0052 disp 0.0118 Ediff -0.1582 gradrms 0.0019
+  >  updating coord basis
+  >  On opt step 20
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.023819135848734976
+  >  dEstep=-0.1556
+  >  Opt step: 20 E: -32.0595 predE: -0.1483 ratio: 1.049 gradrms: 0.00191 ss: 0.024 DMAX: 0.024
+  >  gmax 0.0050 disp 0.0117 Ediff -0.1556 gradrms 0.0019
+  >  updating coord basis
+  ::> opt-summary
+    > 
+ Opt step: 1 E: -27.9320 predE: -0.5230 ratio: 0.961 gradrms: 0.00525 ss: 0.028 DMAX: 0.028
+ Opt step: 2 E: -28.3238 predE: -0.4001 ratio: 0.979 gradrms: 0.00413 ss: 0.028 DMAX: 0.041
+ Opt step: 3 E: -28.6525 predE: -0.3224 ratio: 1.019 gradrms: 0.00358 ss: 0.029 DMAX: 0.029
+ Opt step: 4 E: -28.9479 predE: -0.2882 ratio: 1.025 gradrms: 0.00318 ss: 0.028 DMAX: 0.028
+ Opt step: 5 E: -29.2155 predE: -0.2591 ratio: 1.033 gradrms: 0.00294 ss: 0.028 DMAX: 0.028
+ Opt step: 6 E: -29.4637 predE: -0.2393 ratio: 1.037 gradrms: 0.00278 ss: 0.027 DMAX: 0.027
+ Opt step: 7 E: -29.6973 predE: -0.2246 ratio: 1.040 gradrms: 0.00266 ss: 0.027 DMAX: 0.027
+ Opt step: 8 E: -29.9192 predE: -0.2130 ratio: 1.042 gradrms: 0.00256 ss: 0.026 DMAX: 0.026
+ Opt step: 9 E: -30.1312 predE: -0.2033 ratio: 1.043 gradrms: 0.00248 ss: 0.026 DMAX: 0.026
+ Opt step: 10 E: -30.3345 predE: -0.1948 ratio: 1.044 gradrms: 0.00240 ss: 0.026 DMAX: 0.026
+ Opt step: 11 E: -30.5302 predE: -0.1874 ratio: 1.044 gradrms: 0.00234 ss: 0.025 DMAX: 0.025
+ Opt step: 12 E: -30.7190 predE: -0.1808 ratio: 1.045 gradrms: 0.00227 ss: 0.025 DMAX: 0.025
+ Opt step: 13 E: -30.9018 predE: -0.1749 ratio: 1.045 gradrms: 0.00221 ss: 0.025 DMAX: 0.025
+ Opt step: 14 E: -31.0792 predE: -0.1696 ratio: 1.046 gradrms: 0.00216 ss: 0.025 DMAX: 0.025
+ Opt step: 15 E: -31.2518 predE: -0.1649 ratio: 1.047 gradrms: 0.00211 ss: 0.024 DMAX: 0.024
+ Opt step: 16 E: -31.4201 predE: -0.1607 ratio: 1.047 gradrms: 0.00206 ss: 0.024 DMAX: 0.024
+ Opt step: 17 E: -31.5846 predE: -0.1570 ratio: 1.048 gradrms: 0.00202 ss: 0.024 DMAX: 0.024
+ Opt step: 18 E: -31.7457 predE: -0.1537 ratio: 1.048 gradrms: 0.00198 ss: 0.024 DMAX: 0.024
+ Opt step: 19 E: -31.9039 predE: -0.1509 ratio: 1.049 gradrms: 0.00195 ss: 0.024 DMAX: 0.024
+ Opt step: 20 E: -32.0595 predE: -0.1483 ratio: 1.049 gradrms: 0.00191 ss: 0.024 DMAX: 0.024
+  <::
+  > Optimizing node 3
+  > setting node 3 opt_type to ICTAN
+  >  initial E -27.2366
+  >  CONV_TOL 0.01000
+  >  updating coord basis
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  On opt step 1
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.03852102502407134
+  >  dEstep=-1.0255
+  >  Opt step: 1 E: -28.2621 predE: -1.0617 ratio: 0.966 gradrms: 0.00758 ss: 0.039 DMAX: 0.039
+  >  gmax 0.0292 disp 0.0372 Ediff -1.0255 gradrms 0.0076
+  >  converged
+  ::> opt-summary
+    > 
+ Opt step: 1 E: -28.2621 predE: -1.0617 ratio: 0.966 gradrms: 0.00758 ss: 0.039 DMAX: 0.039
+  <::
+  > Optimizing node 5
+  > setting node 5 opt_type to ICTAN
+  >  initial E -41.7885
+  >  CONV_TOL 0.01000
+  >  updating coord basis
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  On opt step 1
+  >  forming Hessian in basis
+  >  dEstep=-1.7675
+  >  increasing DMAX
+  >  Opt step: 1 E: -43.5560 predE: -1.9756 ratio: 0.895 gradrms: 0.00996 ss: 0.044 DMAX: 0.058
+  >  gmax 0.0299 disp 0.0407 Ediff -1.7675 gradrms 0.0100
+  >  converged
+  ::> opt-summary
+    > 
+ Opt step: 1 E: -43.5560 predE: -1.9756 ratio: 0.895 gradrms: 0.00996 ss: 0.044 DMAX: 0.058
+  <::
+  > Optimizing node 6
+  > setting node 6 opt_type to ICTAN
+  >  initial E -48.7890
+  >  CONV_TOL 0.00000
+  >  updating coord basis
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  On opt step 1
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.02766625824516346
+  >  dEstep=-0.6403
+  >  Opt step: 1 E: -49.4292 predE: -0.6972 ratio: 0.918 gradrms: 0.00594 ss: 0.028 DMAX: 0.028
+  >  gmax 0.0156 disp 0.0241 Ediff -0.6403 gradrms 0.0059
+  >  updating coord basis
+  >  On opt step 2
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.4486
+  >  increasing DMAX
+  >  Opt step: 2 E: -49.8778 predE: -0.4818 ratio: 0.931 gradrms: 0.00419 ss: 0.028 DMAX: 0.040
+  >  gmax 0.0092 disp 0.0215 Ediff -0.4486 gradrms 0.0042
+  >  updating coord basis
+  >  On opt step 3
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.022640965329996387
+  >  dEstep=-0.2563
+  >  Opt step: 3 E: -50.1342 predE: -0.2539 ratio: 1.009 gradrms: 0.00358 ss: 0.023 DMAX: 0.023
+  >  gmax 0.0072 disp 0.0141 Ediff -0.2563 gradrms 0.0036
+  >  updating coord basis
+  >  On opt step 4
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.02194466154179861
+  >  dEstep=-0.2284
+  >  Opt step: 4 E: -50.3625 predE: -0.2283 ratio: 1.000 gradrms: 0.00299 ss: 0.022 DMAX: 0.022
+  >  gmax 0.0060 disp 0.0138 Ediff -0.2284 gradrms 0.0030
+  >  updating coord basis
+  >  On opt step 5
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.020635868562337362
+  >  dEstep=-0.1885
+  >  Opt step: 5 E: -50.5510 predE: -0.1857 ratio: 1.015 gradrms: 0.00263 ss: 0.021 DMAX: 0.021
+  >  gmax 0.0053 disp 0.0124 Ediff -0.1885 gradrms 0.0026
+  >  updating coord basis
+  >  On opt step 6
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.019652656992121417
+  >  dEstep=-0.1638
+  >  Opt step: 6 E: -50.7148 predE: -0.1602 ratio: 1.022 gradrms: 0.00239 ss: 0.020 DMAX: 0.020
+  >  gmax 0.0047 disp 0.0116 Ediff -0.1638 gradrms 0.0024
+  >  updating coord basis
+  >  On opt step 7
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.01880894939625562
+  >  dEstep=-0.1458
+  >  Opt step: 7 E: -50.8606 predE: -0.1418 ratio: 1.028 gradrms: 0.00223 ss: 0.019 DMAX: 0.019
+  >  gmax 0.0046 disp 0.0109 Ediff -0.1458 gradrms 0.0022
+  >  updating coord basis
+  >  On opt step 8
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.018086450271200344
+  >  dEstep=-0.1320
+  >  Opt step: 8 E: -50.9926 predE: -0.1280 ratio: 1.031 gradrms: 0.00210 ss: 0.018 DMAX: 0.018
+  >  gmax 0.0045 disp 0.0104 Ediff -0.1320 gradrms 0.0021
+  >  updating coord basis
+  >  On opt step 9
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.0174570296640534
+  >  dEstep=-0.1210
+  >  Opt step: 9 E: -51.1135 predE: -0.1170 ratio: 1.033 gradrms: 0.00201 ss: 0.017 DMAX: 0.017
+  >  gmax 0.0044 disp 0.0100 Ediff -0.1210 gradrms 0.0020
+  >  updating coord basis
+  >  On opt step 10
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.016901281423148444
+  >  dEstep=-0.1117
+  >  Opt step: 10 E: -51.2252 predE: -0.1079 ratio: 1.035 gradrms: 0.00193 ss: 0.017 DMAX: 0.017
+  >  gmax 0.0043 disp 0.0096 Ediff -0.1117 gradrms 0.0019
+  >  updating coord basis
+  >  On opt step 11
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.016406076007638843
+  >  dEstep=-0.1037
+  >  Opt step: 11 E: -51.3289 predE: -0.1001 ratio: 1.036 gradrms: 0.00185 ss: 0.016 DMAX: 0.016
+  >  gmax 0.0042 disp 0.0093 Ediff -0.1037 gradrms 0.0019
+  >  updating coord basis
+  >  On opt step 12
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.015962449129688645
+  >  dEstep=-0.0967
+  >  Opt step: 12 E: -51.4256 predE: -0.0932 ratio: 1.037 gradrms: 0.00179 ss: 0.016 DMAX: 0.016
+  >  gmax 0.0041 disp 0.0090 Ediff -0.0967 gradrms 0.0018
+  >  updating coord basis
+  >  On opt step 13
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.015564005776673277
+  >  dEstep=-0.0905
+  >  Opt step: 13 E: -51.5160 predE: -0.0872 ratio: 1.038 gradrms: 0.00173 ss: 0.016 DMAX: 0.016
+  >  gmax 0.0040 disp 0.0087 Ediff -0.0905 gradrms 0.0017
+  >  updating coord basis
+  >  On opt step 14
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.015205921013605959
+  >  dEstep=-0.0849
+  >  Opt step: 14 E: -51.6009 predE: -0.0818 ratio: 1.038 gradrms: 0.00167 ss: 0.015 DMAX: 0.015
+  >  gmax 0.0039 disp 0.0085 Ediff -0.0849 gradrms 0.0017
+  >  updating coord basis
+  >  On opt step 15
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.014884354021960382
+  >  dEstep=-0.0799
+  >  Opt step: 15 E: -51.6809 predE: -0.0769 ratio: 1.039 gradrms: 0.00162 ss: 0.015 DMAX: 0.015
+  >  gmax 0.0038 disp 0.0082 Ediff -0.0799 gradrms 0.0016
+  >  updating coord basis
+  >  On opt step 16
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.014596110226705225
+  >  dEstep=-0.0755
+  >  Opt step: 16 E: -51.7564 predE: -0.0726 ratio: 1.040 gradrms: 0.00157 ss: 0.015 DMAX: 0.015
+  >  gmax 0.0037 disp 0.0080 Ediff -0.0755 gradrms 0.0016
+  >  updating coord basis
+  >  On opt step 17
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.014338444788527516
+  >  dEstep=-0.0715
+  >  Opt step: 17 E: -51.8279 predE: -0.0687 ratio: 1.040 gradrms: 0.00152 ss: 0.014 DMAX: 0.014
+  >  gmax 0.0036 disp 0.0078 Ediff -0.0715 gradrms 0.0015
+  >  updating coord basis
+  >  On opt step 18
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.01410894551907621
+  >  dEstep=-0.0679
+  >  Opt step: 18 E: -51.8958 predE: -0.0652 ratio: 1.041 gradrms: 0.00147 ss: 0.014 DMAX: 0.014
+  >  gmax 0.0035 disp 0.0076 Ediff -0.0679 gradrms 0.0015
+  >  updating coord basis
+  >  On opt step 19
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.013905460611072559
+  >  dEstep=-0.0647
+  >  Opt step: 19 E: -51.9604 predE: -0.0621 ratio: 1.041 gradrms: 0.00143 ss: 0.014 DMAX: 0.014
+  >  gmax 0.0034 disp 0.0075 Ediff -0.0647 gradrms 0.0014
+  >  updating coord basis
+  >  On opt step 20
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.013726052008837157
+  >  dEstep=-0.0617
+  >  Opt step: 20 E: -52.0222 predE: -0.0593 ratio: 1.042 gradrms: 0.00139 ss: 0.014 DMAX: 0.014
+  >  gmax 0.0033 disp 0.0073 Ediff -0.0617 gradrms 0.0014
+  >  updating coord basis
+  ::> opt-summary
+    > 
+ Opt step: 1 E: -49.4292 predE: -0.6972 ratio: 0.918 gradrms: 0.00594 ss: 0.028 DMAX: 0.028
+ Opt step: 2 E: -49.8778 predE: -0.4818 ratio: 0.931 gradrms: 0.00419 ss: 0.028 DMAX: 0.040
+ Opt step: 3 E: -50.1342 predE: -0.2539 ratio: 1.009 gradrms: 0.00358 ss: 0.023 DMAX: 0.023
+ Opt step: 4 E: -50.3625 predE: -0.2283 ratio: 1.000 gradrms: 0.00299 ss: 0.022 DMAX: 0.022
+ Opt step: 5 E: -50.5510 predE: -0.1857 ratio: 1.015 gradrms: 0.00263 ss: 0.021 DMAX: 0.021
+ Opt step: 6 E: -50.7148 predE: -0.1602 ratio: 1.022 gradrms: 0.00239 ss: 0.020 DMAX: 0.020
+ Opt step: 7 E: -50.8606 predE: -0.1418 ratio: 1.028 gradrms: 0.00223 ss: 0.019 DMAX: 0.019
+ Opt step: 8 E: -50.9926 predE: -0.1280 ratio: 1.031 gradrms: 0.00210 ss: 0.018 DMAX: 0.018
+ Opt step: 9 E: -51.1135 predE: -0.1170 ratio: 1.033 gradrms: 0.00201 ss: 0.017 DMAX: 0.017
+ Opt step: 10 E: -51.2252 predE: -0.1079 ratio: 1.035 gradrms: 0.00193 ss: 0.017 DMAX: 0.017
+ Opt step: 11 E: -51.3289 predE: -0.1001 ratio: 1.036 gradrms: 0.00185 ss: 0.016 DMAX: 0.016
+ Opt step: 12 E: -51.4256 predE: -0.0932 ratio: 1.037 gradrms: 0.00179 ss: 0.016 DMAX: 0.016
+ Opt step: 13 E: -51.5160 predE: -0.0872 ratio: 1.038 gradrms: 0.00173 ss: 0.016 DMAX: 0.016
+ Opt step: 14 E: -51.6009 predE: -0.0818 ratio: 1.038 gradrms: 0.00167 ss: 0.015 DMAX: 0.015
+ Opt step: 15 E: -51.6809 predE: -0.0769 ratio: 1.039 gradrms: 0.00162 ss: 0.015 DMAX: 0.015
+ Opt step: 16 E: -51.7564 predE: -0.0726 ratio: 1.040 gradrms: 0.00157 ss: 0.015 DMAX: 0.015
+ Opt step: 17 E: -51.8279 predE: -0.0687 ratio: 1.040 gradrms: 0.00152 ss: 0.014 DMAX: 0.014
+ Opt step: 18 E: -51.8958 predE: -0.0652 ratio: 1.041 gradrms: 0.00147 ss: 0.014 DMAX: 0.014
+ Opt step: 19 E: -51.9604 predE: -0.0621 ratio: 1.041 gradrms: 0.00143 ss: 0.014 DMAX: 0.014
+ Opt step: 20 E: -52.0222 predE: -0.0593 ratio: 1.042 gradrms: 0.00139 ss: 0.014 DMAX: 0.014
+  <::
+  > Optimizing node 7
+  > setting node 7 opt_type to ICTAN
+  >  initial E -52.6932
+  >  CONV_TOL 0.00000
+  >  updating coord basis
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  On opt step 1
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.00914991156509366
+  >  dEstep=-0.0439
+  >  Opt step: 1 E: -52.7371 predE: -0.0449 ratio: 0.976 gradrms: 0.00157 ss: 0.009 DMAX: 0.009
+  >  gmax 0.0040 disp 0.0053 Ediff -0.0439 gradrms 0.0016
+  >  updating coord basis
+  >  On opt step 2
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.0356
+  >  increasing DMAX
+  >  Opt step: 2 E: -52.7726 predE: -0.0355 ratio: 1.002 gradrms: 0.00133 ss: 0.009 DMAX: 0.020
+  >  gmax 0.0031 disp 0.0050 Ediff -0.0356 gradrms 0.0013
+  >  updating coord basis
+  >  On opt step 3
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.009685287632939497
+  >  dEstep=-0.0328
+  >  Opt step: 3 E: -52.8054 predE: -0.0320 ratio: 1.024 gradrms: 0.00118 ss: 0.010 DMAX: 0.010
+  >  gmax 0.0024 disp 0.0050 Ediff -0.0328 gradrms 0.0012
+  >  updating coord basis
+  >  On opt step 4
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.009617220075613714
+  >  dEstep=-0.0299
+  >  Opt step: 4 E: -52.8354 predE: -0.0289 ratio: 1.036 gradrms: 0.00110 ss: 0.010 DMAX: 0.010
+  >  gmax 0.0025 disp 0.0049 Ediff -0.0299 gradrms 0.0011
+  >  updating coord basis
+  >  On opt step 5
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.009601531342215931
+  >  dEstep=-0.0284
+  >  Opt step: 5 E: -52.8637 predE: -0.0272 ratio: 1.043 gradrms: 0.00105 ss: 0.010 DMAX: 0.010
+  >  gmax 0.0026 disp 0.0048 Ediff -0.0284 gradrms 0.0010
+  >  updating coord basis
+  >  On opt step 6
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.0274
+  >  increasing DMAX
+  >  Opt step: 6 E: -52.8911 predE: -0.0262 ratio: 1.046 gradrms: 0.00102 ss: 0.010 DMAX: 0.021
+  >  gmax 0.0026 disp 0.0048 Ediff -0.0274 gradrms 0.0010
+  >  updating coord basis
+  >  On opt step 7
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.009658179359688997
+  >  dEstep=-0.0269
+  >  Opt step: 7 E: -52.9180 predE: -0.0256 ratio: 1.048 gradrms: 0.00099 ss: 0.010 DMAX: 0.010
+  >  gmax 0.0027 disp 0.0047 Ediff -0.0269 gradrms 0.0010
+  >  updating coord basis
+  >  On opt step 8
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.0263
+  >  increasing DMAX
+  >  Opt step: 8 E: -52.9443 predE: -0.0251 ratio: 1.049 gradrms: 0.00097 ss: 0.010 DMAX: 0.021
+  >  gmax 0.0027 disp 0.0046 Ediff -0.0263 gradrms 0.0010
+  >  updating coord basis
+  >  On opt step 9
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.009776144743308039
+  >  dEstep=-0.0261
+  >  Opt step: 9 E: -52.9705 predE: -0.0249 ratio: 1.050 gradrms: 0.00095 ss: 0.010 DMAX: 0.010
+  >  gmax 0.0026 disp 0.0046 Ediff -0.0261 gradrms 0.0010
+  >  updating coord basis
+  >  On opt step 10
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.0257
+  >  increasing DMAX
+  >  Opt step: 10 E: -52.9962 predE: -0.0245 ratio: 1.050 gradrms: 0.00094 ss: 0.010 DMAX: 0.021
+  >  gmax 0.0026 disp 0.0045 Ediff -0.0257 gradrms 0.0009
+  >  updating coord basis
+  >  On opt step 11
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.009932657921111109
+  >  dEstep=-0.0258
+  >  Opt step: 11 E: -53.0220 predE: -0.0245 ratio: 1.051 gradrms: 0.00092 ss: 0.010 DMAX: 0.010
+  >  gmax 0.0026 disp 0.0045 Ediff -0.0258 gradrms 0.0009
+  >  updating coord basis
+  >  On opt step 12
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.0255
+  >  increasing DMAX
+  >  Opt step: 12 E: -53.0474 predE: -0.0242 ratio: 1.051 gradrms: 0.00091 ss: 0.010 DMAX: 0.021
+  >  gmax 0.0025 disp 0.0045 Ediff -0.0255 gradrms 0.0009
+  >  updating coord basis
+  >  On opt step 13
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.010119672263443671
+  >  dEstep=-0.0257
+  >  Opt step: 13 E: -53.0731 predE: -0.0244 ratio: 1.052 gradrms: 0.00090 ss: 0.010 DMAX: 0.010
+  >  gmax 0.0025 disp 0.0045 Ediff -0.0257 gradrms 0.0009
+  >  updating coord basis
+  >  On opt step 14
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.0254
+  >  increasing DMAX
+  >  Opt step: 14 E: -53.0985 predE: -0.0242 ratio: 1.052 gradrms: 0.00089 ss: 0.010 DMAX: 0.021
+  >  gmax 0.0025 disp 0.0044 Ediff -0.0254 gradrms 0.0009
+  >  updating coord basis
+  >  On opt step 15
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.010333410757540025
+  >  dEstep=-0.0257
+  >  Opt step: 15 E: -53.1243 predE: -0.0245 ratio: 1.052 gradrms: 0.00088 ss: 0.010 DMAX: 0.010
+  >  gmax 0.0024 disp 0.0044 Ediff -0.0257 gradrms 0.0009
+  >  updating coord basis
+  >  On opt step 16
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.0256
+  >  increasing DMAX
+  >  Opt step: 16 E: -53.1498 predE: -0.0243 ratio: 1.052 gradrms: 0.00087 ss: 0.010 DMAX: 0.021
+  >  gmax 0.0024 disp 0.0043 Ediff -0.0256 gradrms 0.0009
+  >  updating coord basis
+  >  On opt step 17
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.01057157281017641
+  >  dEstep=-0.0260
+  >  Opt step: 17 E: -53.1758 predE: -0.0247 ratio: 1.053 gradrms: 0.00086 ss: 0.011 DMAX: 0.011
+  >  gmax 0.0024 disp 0.0043 Ediff -0.0260 gradrms 0.0009
+  >  updating coord basis
+  >  On opt step 18
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.0259
+  >  increasing DMAX
+  >  Opt step: 18 E: -53.2017 predE: -0.0246 ratio: 1.053 gradrms: 0.00085 ss: 0.011 DMAX: 0.022
+  >  gmax 0.0023 disp 0.0042 Ediff -0.0259 gradrms 0.0008
+  >  updating coord basis
+  >  On opt step 19
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.010832582875840819
+  >  dEstep=-0.0264
+  >  Opt step: 19 E: -53.2281 predE: -0.0251 ratio: 1.054 gradrms: 0.00084 ss: 0.011 DMAX: 0.011
+  >  gmax 0.0023 disp 0.0043 Ediff -0.0264 gradrms 0.0008
+  >  updating coord basis
+  >  On opt step 20
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.0264
+  >  increasing DMAX
+  >  Opt step: 20 E: -53.2545 predE: -0.0250 ratio: 1.053 gradrms: 0.00083 ss: 0.011 DMAX: 0.022
+  >  gmax 0.0022 disp 0.0042 Ediff -0.0264 gradrms 0.0008
+  >  updating coord basis
+  ::> opt-summary
+    > 
+ Opt step: 1 E: -52.7371 predE: -0.0449 ratio: 0.976 gradrms: 0.00157 ss: 0.009 DMAX: 0.009
+ Opt step: 2 E: -52.7726 predE: -0.0355 ratio: 1.002 gradrms: 0.00133 ss: 0.009 DMAX: 0.020
+ Opt step: 3 E: -52.8054 predE: -0.0320 ratio: 1.024 gradrms: 0.00118 ss: 0.010 DMAX: 0.010
+ Opt step: 4 E: -52.8354 predE: -0.0289 ratio: 1.036 gradrms: 0.00110 ss: 0.010 DMAX: 0.010
+ Opt step: 5 E: -52.8637 predE: -0.0272 ratio: 1.043 gradrms: 0.00105 ss: 0.010 DMAX: 0.010
+ Opt step: 6 E: -52.8911 predE: -0.0262 ratio: 1.046 gradrms: 0.00102 ss: 0.010 DMAX: 0.021
+ Opt step: 7 E: -52.9180 predE: -0.0256 ratio: 1.048 gradrms: 0.00099 ss: 0.010 DMAX: 0.010
+ Opt step: 8 E: -52.9443 predE: -0.0251 ratio: 1.049 gradrms: 0.00097 ss: 0.010 DMAX: 0.021
+ Opt step: 9 E: -52.9705 predE: -0.0249 ratio: 1.050 gradrms: 0.00095 ss: 0.010 DMAX: 0.010
+ Opt step: 10 E: -52.9962 predE: -0.0245 ratio: 1.050 gradrms: 0.00094 ss: 0.010 DMAX: 0.021
+ Opt step: 11 E: -53.0220 predE: -0.0245 ratio: 1.051 gradrms: 0.00092 ss: 0.010 DMAX: 0.010
+ Opt step: 12 E: -53.0474 predE: -0.0242 ratio: 1.051 gradrms: 0.00091 ss: 0.010 DMAX: 0.021
+ Opt step: 13 E: -53.0731 predE: -0.0244 ratio: 1.052 gradrms: 0.00090 ss: 0.010 DMAX: 0.010
+ Opt step: 14 E: -53.0985 predE: -0.0242 ratio: 1.052 gradrms: 0.00089 ss: 0.010 DMAX: 0.021
+ Opt step: 15 E: -53.1243 predE: -0.0245 ratio: 1.052 gradrms: 0.00088 ss: 0.010 DMAX: 0.010
+ Opt step: 16 E: -53.1498 predE: -0.0243 ratio: 1.052 gradrms: 0.00087 ss: 0.010 DMAX: 0.021
+ Opt step: 17 E: -53.1758 predE: -0.0247 ratio: 1.053 gradrms: 0.00086 ss: 0.011 DMAX: 0.011
+ Opt step: 18 E: -53.2017 predE: -0.0246 ratio: 1.053 gradrms: 0.00085 ss: 0.011 DMAX: 0.022
+ Opt step: 19 E: -53.2281 predE: -0.0251 ratio: 1.054 gradrms: 0.00084 ss: 0.011 DMAX: 0.011
+ Opt step: 20 E: -53.2545 predE: -0.0250 ratio: 1.053 gradrms: 0.00083 ss: 0.011 DMAX: 0.022
+  <::
+  > gopt_iter:  2 totalgrad: 0.148 gradrms: 0.004843 max E: -28.26
+  ::> Adding reactant node
+    >  adding node: 4 between 3 5 from 3
+    >  updating coord basis
+    >  nn=9,nR=5
+  <::
+  >  getting energy for node 4: 8.1746
+  >  setting active nodes to 4 and 5
+  >  conv_tol of node 4 is 0.0100
+  >  conv_tol of node 5 is 0.0100
+  ::> Reparamerizing string nodes
+  <::
+  > forming space for 0
+  > forming space for 1
+  > forming space for 1
+  > forming space for 2
+  > forming space for 2
+  > forming space for 3
+  > forming space for 3
+  > forming space for 4
+  > forming space for 6
+  > forming space for 5
+  > forming space for 7
+  > forming space for 6
+  > forming space for 8
+  > forming space for 7
+  > forming space for 4
+  > forming space for 5
+  > forming space for 5
+  > forming space for 4
+  >  creating newic molecule--used for ic_reparam
+<::
+:: Done Growing the String!!!
+:: *********************************************************************
+:: ****************** set climber and finder to True *******************
+:: *********************************************************************
+:: performing opts up to 10000 iterations
+::> Starting opt iter 0
+  > V_profile (beginning of iteration):   0.000 -30.587 -32.060 -28.262   8.175 -43.556 -52.022 -53.254 -41.565
+  >  updating coord basis
+  >  updating coord basis
+  >  updating coord basis
+  >  updating coord basis
+  >  updating coord basis
+  >  updating coord basis
+  >  updating coord basis
+  > Optimizing node 1
+  > setting node 1 opt_type to ICTAN
+  >  initial E -30.5865
+  >  CONV_TOL 0.00000
+  >  updating coord basis
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  On opt step 1
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.009977803642868223
+  >  dEstep=-0.0310
+  >  Opt step: 1 E: -30.6175 predE: -0.0298 ratio: 1.041 gradrms: 0.00094 ss: 0.010 DMAX: 0.010
+  >  gmax 0.0022 disp 0.0058 Ediff -0.0310 gradrms 0.0009
+  >  updating coord basis
+  >  On opt step 2
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.0305
+  >  increasing DMAX
+  >  Opt step: 2 E: -30.6481 predE: -0.0293 ratio: 1.044 gradrms: 0.00093 ss: 0.010 DMAX: 0.021
+  >  gmax 0.0022 disp 0.0057 Ediff -0.0305 gradrms 0.0009
+  >  updating coord basis
+  >  On opt step 3
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.01108958635308511
+  >  dEstep=-0.0337
+  >  Opt step: 3 E: -30.6817 predE: -0.0320 ratio: 1.051 gradrms: 0.00093 ss: 0.011 DMAX: 0.011
+  >  gmax 0.0021 disp 0.0063 Ediff -0.0337 gradrms 0.0009
+  >  updating coord basis
+  >  On opt step 4
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.0335
+  >  increasing DMAX
+  >  Opt step: 4 E: -30.7153 predE: -0.0319 ratio: 1.052 gradrms: 0.00093 ss: 0.011 DMAX: 0.022
+  >  gmax 0.0020 disp 0.0062 Ediff -0.0335 gradrms 0.0009
+  >  updating coord basis
+  >  On opt step 5
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.01112756193412437
+  >  dEstep=-0.0336
+  >  Opt step: 5 E: -30.7489 predE: -0.0319 ratio: 1.053 gradrms: 0.00093 ss: 0.011 DMAX: 0.011
+  >  gmax 0.0020 disp 0.0061 Ediff -0.0336 gradrms 0.0009
+  >  updating coord basis
+  >  On opt step 6
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.0336
+  >  increasing DMAX
+  >  Opt step: 6 E: -30.7825 predE: -0.0319 ratio: 1.053 gradrms: 0.00093 ss: 0.011 DMAX: 0.022
+  >  gmax 0.0021 disp 0.0060 Ediff -0.0336 gradrms 0.0009
+  >  updating coord basis
+  >  On opt step 7
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.011200349726959782
+  >  dEstep=-0.0339
+  >  Opt step: 7 E: -30.8164 predE: -0.0321 ratio: 1.054 gradrms: 0.00093 ss: 0.011 DMAX: 0.011
+  >  gmax 0.0021 disp 0.0060 Ediff -0.0339 gradrms 0.0009
+  >  updating coord basis
+  >  On opt step 8
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.0339
+  >  increasing DMAX
+  >  Opt step: 8 E: -30.8503 predE: -0.0322 ratio: 1.054 gradrms: 0.00093 ss: 0.011 DMAX: 0.022
+  >  gmax 0.0022 disp 0.0059 Ediff -0.0339 gradrms 0.0009
+  >  updating coord basis
+  >  On opt step 9
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.01130678271683428
+  >  dEstep=-0.0344
+  >  Opt step: 9 E: -30.8847 predE: -0.0326 ratio: 1.055 gradrms: 0.00094 ss: 0.011 DMAX: 0.011
+  >  gmax 0.0022 disp 0.0059 Ediff -0.0344 gradrms 0.0009
+  >  updating coord basis
+  >  On opt step 10
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.0345
+  >  increasing DMAX
+  >  Opt step: 10 E: -30.9192 predE: -0.0327 ratio: 1.055 gradrms: 0.00094 ss: 0.011 DMAX: 0.022
+  >  gmax 0.0023 disp 0.0059 Ediff -0.0345 gradrms 0.0009
+  >  updating coord basis
+  >  On opt step 11
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.011442767396432758
+  >  dEstep=-0.0350
+  >  Opt step: 11 E: -30.9542 predE: -0.0332 ratio: 1.055 gradrms: 0.00094 ss: 0.011 DMAX: 0.011
+  >  gmax 0.0023 disp 0.0059 Ediff -0.0350 gradrms 0.0009
+  >  updating coord basis
+  >  On opt step 12
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.0352
+  >  increasing DMAX
+  >  Opt step: 12 E: -30.9894 predE: -0.0334 ratio: 1.055 gradrms: 0.00095 ss: 0.011 DMAX: 0.023
+  >  gmax 0.0023 disp 0.0058 Ediff -0.0352 gradrms 0.0009
+  >  updating coord basis
+  >  On opt step 13
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.011606236766405296
+  >  dEstep=-0.0359
+  >  Opt step: 13 E: -31.0253 predE: -0.0340 ratio: 1.056 gradrms: 0.00095 ss: 0.012 DMAX: 0.012
+  >  gmax 0.0023 disp 0.0059 Ediff -0.0359 gradrms 0.0010
+  >  updating coord basis
+  >  On opt step 14
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.0361
+  >  increasing DMAX
+  >  Opt step: 14 E: -31.0614 predE: -0.0342 ratio: 1.056 gradrms: 0.00096 ss: 0.012 DMAX: 0.023
+  >  gmax 0.0024 disp 0.0058 Ediff -0.0361 gradrms 0.0010
+  >  updating coord basis
+  >  On opt step 15
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.011795891068106202
+  >  dEstep=-0.0369
+  >  Opt step: 15 E: -31.0983 predE: -0.0350 ratio: 1.056 gradrms: 0.00096 ss: 0.012 DMAX: 0.012
+  >  gmax 0.0024 disp 0.0058 Ediff -0.0369 gradrms 0.0010
+  >  updating coord basis
+  >  On opt step 16
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.0372
+  >  increasing DMAX
+  >  Opt step: 16 E: -31.1355 predE: -0.0352 ratio: 1.056 gradrms: 0.00097 ss: 0.012 DMAX: 0.023
+  >  gmax 0.0024 disp 0.0058 Ediff -0.0372 gradrms 0.0010
+  >  updating coord basis
+  >  On opt step 17
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.012010783295565732
+  >  dEstep=-0.0381
+  >  Opt step: 17 E: -31.1736 predE: -0.0361 ratio: 1.057 gradrms: 0.00097 ss: 0.012 DMAX: 0.012
+  >  gmax 0.0024 disp 0.0058 Ediff -0.0381 gradrms 0.0010
+  >  updating coord basis
+  >  On opt step 18
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.0384
+  >  increasing DMAX
+  >  Opt step: 18 E: -31.2120 predE: -0.0364 ratio: 1.056 gradrms: 0.00098 ss: 0.012 DMAX: 0.023
+  >  gmax 0.0025 disp 0.0058 Ediff -0.0384 gradrms 0.0010
+  >  updating coord basis
+  >  On opt step 19
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.012250169474217223
+  >  dEstep=-0.0395
+  >  Opt step: 19 E: -31.2515 predE: -0.0374 ratio: 1.057 gradrms: 0.00099 ss: 0.012 DMAX: 0.012
+  >  gmax 0.0025 disp 0.0058 Ediff -0.0395 gradrms 0.0010
+  >  updating coord basis
+  >  On opt step 20
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.0398
+  >  increasing DMAX
+  >  Opt step: 20 E: -31.2913 predE: -0.0377 ratio: 1.057 gradrms: 0.00099 ss: 0.012 DMAX: 0.023
+  >  gmax 0.0025 disp 0.0058 Ediff -0.0398 gradrms 0.0010
+  >  updating coord basis
+  ::> opt-summary
+    > 
+ Opt step: 1 E: -30.6175 predE: -0.0298 ratio: 1.041 gradrms: 0.00094 ss: 0.010 DMAX: 0.010
+ Opt step: 2 E: -30.6481 predE: -0.0293 ratio: 1.044 gradrms: 0.00093 ss: 0.010 DMAX: 0.021
+ Opt step: 3 E: -30.6817 predE: -0.0320 ratio: 1.051 gradrms: 0.00093 ss: 0.011 DMAX: 0.011
+ Opt step: 4 E: -30.7153 predE: -0.0319 ratio: 1.052 gradrms: 0.00093 ss: 0.011 DMAX: 0.022
+ Opt step: 5 E: -30.7489 predE: -0.0319 ratio: 1.053 gradrms: 0.00093 ss: 0.011 DMAX: 0.011
+ Opt step: 6 E: -30.7825 predE: -0.0319 ratio: 1.053 gradrms: 0.00093 ss: 0.011 DMAX: 0.022
+ Opt step: 7 E: -30.8164 predE: -0.0321 ratio: 1.054 gradrms: 0.00093 ss: 0.011 DMAX: 0.011
+ Opt step: 8 E: -30.8503 predE: -0.0322 ratio: 1.054 gradrms: 0.00093 ss: 0.011 DMAX: 0.022
+ Opt step: 9 E: -30.8847 predE: -0.0326 ratio: 1.055 gradrms: 0.00094 ss: 0.011 DMAX: 0.011
+ Opt step: 10 E: -30.9192 predE: -0.0327 ratio: 1.055 gradrms: 0.00094 ss: 0.011 DMAX: 0.022
+ Opt step: 11 E: -30.9542 predE: -0.0332 ratio: 1.055 gradrms: 0.00094 ss: 0.011 DMAX: 0.011
+ Opt step: 12 E: -30.9894 predE: -0.0334 ratio: 1.055 gradrms: 0.00095 ss: 0.011 DMAX: 0.023
+ Opt step: 13 E: -31.0253 predE: -0.0340 ratio: 1.056 gradrms: 0.00095 ss: 0.012 DMAX: 0.012
+ Opt step: 14 E: -31.0614 predE: -0.0342 ratio: 1.056 gradrms: 0.00096 ss: 0.012 DMAX: 0.023
+ Opt step: 15 E: -31.0983 predE: -0.0350 ratio: 1.056 gradrms: 0.00096 ss: 0.012 DMAX: 0.012
+ Opt step: 16 E: -31.1355 predE: -0.0352 ratio: 1.056 gradrms: 0.00097 ss: 0.012 DMAX: 0.023
+ Opt step: 17 E: -31.1736 predE: -0.0361 ratio: 1.057 gradrms: 0.00097 ss: 0.012 DMAX: 0.012
+ Opt step: 18 E: -31.2120 predE: -0.0364 ratio: 1.056 gradrms: 0.00098 ss: 0.012 DMAX: 0.023
+ Opt step: 19 E: -31.2515 predE: -0.0374 ratio: 1.057 gradrms: 0.00099 ss: 0.012 DMAX: 0.012
+ Opt step: 20 E: -31.2913 predE: -0.0377 ratio: 1.057 gradrms: 0.00099 ss: 0.012 DMAX: 0.023
+  <::
+  > Optimizing node 2
+  > setting node 2 opt_type to ICTAN
+  >  initial E -32.0595
+  >  CONV_TOL 0.00000
+  >  updating coord basis
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  On opt step 1
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.02060107687069348
+  >  dEstep=-0.1314
+  >  Opt step: 1 E: -32.1909 predE: -0.1259 ratio: 1.044 gradrms: 0.00188 ss: 0.021 DMAX: 0.021
+  >  gmax 0.0051 disp 0.0102 Ediff -0.1314 gradrms 0.0019
+  >  updating coord basis
+  >  On opt step 2
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.1301
+  >  increasing DMAX
+  >  Opt step: 2 E: -32.3211 predE: -0.1247 ratio: 1.043 gradrms: 0.00185 ss: 0.021 DMAX: 0.033
+  >  gmax 0.0050 disp 0.0102 Ediff -0.1301 gradrms 0.0019
+  >  updating coord basis
+  >  On opt step 3
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.0231684006472439
+  >  dEstep=-0.1449
+  >  Opt step: 3 E: -32.4660 predE: -0.1381 ratio: 1.050 gradrms: 0.00182 ss: 0.023 DMAX: 0.023
+  >  gmax 0.0049 disp 0.0113 Ediff -0.1449 gradrms 0.0018
+  >  updating coord basis
+  >  On opt step 4
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.1436
+  >  increasing DMAX
+  >  Opt step: 4 E: -32.6096 predE: -0.1368 ratio: 1.050 gradrms: 0.00180 ss: 0.023 DMAX: 0.035
+  >  gmax 0.0047 disp 0.0112 Ediff -0.1436 gradrms 0.0018
+  >  updating coord basis
+  >  On opt step 5
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.023181190821591837
+  >  dEstep=-0.1425
+  >  Opt step: 5 E: -32.7522 predE: -0.1357 ratio: 1.050 gradrms: 0.00178 ss: 0.023 DMAX: 0.023
+  >  gmax 0.0046 disp 0.0112 Ediff -0.1425 gradrms 0.0018
+  >  updating coord basis
+  >  On opt step 6
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.023150559662381515
+  >  dEstep=-0.1413
+  >  Opt step: 6 E: -32.8935 predE: -0.1345 ratio: 1.051 gradrms: 0.00176 ss: 0.023 DMAX: 0.023
+  >  gmax 0.0044 disp 0.0111 Ediff -0.1413 gradrms 0.0018
+  >  updating coord basis
+  >  On opt step 7
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.023126775496616823
+  >  dEstep=-0.1403
+  >  Opt step: 7 E: -33.0339 predE: -0.1335 ratio: 1.051 gradrms: 0.00174 ss: 0.023 DMAX: 0.023
+  >  gmax 0.0043 disp 0.0110 Ediff -0.1403 gradrms 0.0017
+  >  updating coord basis
+  >  On opt step 8
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.0231113103263876
+  >  dEstep=-0.1395
+  >  Opt step: 8 E: -33.1734 predE: -0.1327 ratio: 1.051 gradrms: 0.00173 ss: 0.023 DMAX: 0.023
+  >  gmax 0.0042 disp 0.0109 Ediff -0.1395 gradrms 0.0017
+  >  updating coord basis
+  >  On opt step 9
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.02310358183608472
+  >  dEstep=-0.1389
+  >  Opt step: 9 E: -33.3123 predE: -0.1321 ratio: 1.052 gradrms: 0.00172 ss: 0.023 DMAX: 0.023
+  >  gmax 0.0040 disp 0.0108 Ediff -0.1389 gradrms 0.0017
+  >  updating coord basis
+  >  On opt step 10
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.023102922320360396
+  >  dEstep=-0.1384
+  >  Opt step: 10 E: -33.4506 predE: -0.1316 ratio: 1.052 gradrms: 0.00171 ss: 0.023 DMAX: 0.023
+  >  gmax 0.0039 disp 0.0107 Ediff -0.1384 gradrms 0.0017
+  >  updating coord basis
+  >  On opt step 11
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.1380
+  >  increasing DMAX
+  >  Opt step: 11 E: -33.5887 predE: -0.1312 ratio: 1.052 gradrms: 0.00170 ss: 0.023 DMAX: 0.035
+  >  gmax 0.0038 disp 0.0106 Ediff -0.1380 gradrms 0.0017
+  >  updating coord basis
+  >  On opt step 12
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.023119944080839498
+  >  dEstep=-0.1378
+  >  Opt step: 12 E: -33.7265 predE: -0.1310 ratio: 1.052 gradrms: 0.00169 ss: 0.023 DMAX: 0.023
+  >  gmax 0.0037 disp 0.0106 Ediff -0.1378 gradrms 0.0017
+  >  updating coord basis
+  >  On opt step 13
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.1376
+  >  increasing DMAX
+  >  Opt step: 13 E: -33.8641 predE: -0.1308 ratio: 1.052 gradrms: 0.00168 ss: 0.023 DMAX: 0.035
+  >  gmax 0.0035 disp 0.0105 Ediff -0.1376 gradrms 0.0017
+  >  updating coord basis
+  >  On opt step 14
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.023157417804479788
+  >  dEstep=-0.1378
+  >  Opt step: 14 E: -34.0019 predE: -0.1309 ratio: 1.053 gradrms: 0.00168 ss: 0.023 DMAX: 0.023
+  >  gmax 0.0034 disp 0.0105 Ediff -0.1378 gradrms 0.0017
+  >  updating coord basis
+  >  On opt step 15
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.1377
+  >  increasing DMAX
+  >  Opt step: 15 E: -34.1396 predE: -0.1308 ratio: 1.053 gradrms: 0.00168 ss: 0.023 DMAX: 0.035
+  >  gmax 0.0033 disp 0.0104 Ediff -0.1377 gradrms 0.0017
+  >  updating coord basis
+  >  On opt step 16
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.023210661853239264
+  >  dEstep=-0.1381
+  >  Opt step: 16 E: -34.2777 predE: -0.1311 ratio: 1.053 gradrms: 0.00168 ss: 0.023 DMAX: 0.023
+  >  gmax 0.0032 disp 0.0104 Ediff -0.1381 gradrms 0.0017
+  >  updating coord basis
+  >  On opt step 17
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  dEstep=-0.1381
+  >  increasing DMAX
+  >  Opt step: 17 E: -34.4158 predE: -0.1312 ratio: 1.053 gradrms: 0.00168 ss: 0.023 DMAX: 0.036
+  >  gmax 0.0031 disp 0.0104 Ediff -0.1381 gradrms 0.0017
+  >  updating coord basis
+  >  On opt step 18
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis
+  >  Decreasing DMAX to 0.023275175261501767
+  >  dEstep=-0.1387
+  >  Opt step: 18 E: -34.5545 predE: -0.1317 ratio: 1.053 gradrms: 0.00168 ss: 0.023 DMAX: 0.023
+  >  gmax 0.0032 disp 0.0104 Ediff -0.1387 gradrms 0.0017
+  >  updating coord basis
+  >  On opt step 19
+  >  making primitive Hessian
+  >  Time to build Prim Hessian 0.000s
+  >  forming Hessian in basis

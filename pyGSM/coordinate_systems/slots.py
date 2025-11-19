@@ -6,7 +6,7 @@ import os
 from os import path
 
 import numpy as np
-from ..utilities import nifty, math_utils
+from ..utilities import math_utils
 from .rotate import get_expmap, get_expmap_der, is_linear, calc_rot_vec_diff
 
 __all__ = [
@@ -136,7 +136,7 @@ class CartesianPosition(PrimitiveCoordinate):
         eq = self.a == other.a
         if eq and self.w != other.w:
             cls = type(self)
-            nifty.logger.warning(f"Warning: {cls.__name__} same atoms, different weights ({self.w:.4f} {other.w:.4f})")
+            raise ValueError(f"Warning: {cls.__name__} same atoms, different weights ({self.w:.4f} {other.w:.4f})")
         return eq
 
     def __ne__(self, other):
@@ -192,7 +192,7 @@ class Translation(PrimitiveCoordinate):
 
     def __repr__(self):
         # return "Translation-X %s : Weights %s" % (' '.join([str(i+1) for i in self.a]), ' '.join(['%.2e' % i for i in self.w]))
-        return f"Cartesian-{self.axis+1} {nifty.commadash(self.a)}"
+        return f"Cartesian-{self.axis+1} {self.a}"
 
     @property
     def atoms(self):
@@ -203,7 +203,7 @@ class Translation(PrimitiveCoordinate):
             return False
         eq = set(self.a) == set(other.a)
         if eq and np.sum((self.w-other.w)**2) > 1e-6:
-            nifty.logger.warning("Warning: TranslationX same atoms, different weights")
+            raise ValueError("Warning: TranslationX same atoms, different weights")
             eq = False
         return eq
 
@@ -299,11 +299,11 @@ class Rotator(object):
             return False
         eq = set(self.a) == set(other.a)
         if eq and np.sum((self.x0-other.x0)**2) > 1e-6:
-            nifty.logger.warning("Warning: Rotator same atoms, different reference positions")
+            raise ValueError("Warning: Rotator same atoms, different reference positions")
         return eq
 
     def __repr__(self):
-        return "Rotator %s" % nifty.commadash(self.a)
+        return f"Rotator {self.a}"
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -659,7 +659,7 @@ class Rotation(PrimitiveCoordinate):
 
     def __repr__(self):
         # return "Rotation-A %s : Weight %.3f" % (' '.join([str(i+1) for i in self.a]), self.w)
-        return f"Rotation-{self.axis} {nifty.commadash(self.a)}"
+        return f"Rotation-{self.axis} {self.a}"
 
     @property
     def atoms(self):
@@ -1517,7 +1517,7 @@ class OutOfPlane(PrimitiveCoordinate):
         if self.a == other.a:
             if {self.b, self.c, self.d} == {other.b, other.c, other.d}:
                 if [self.b, self.c, self.d] != [other.b, other.c, other.d]:
-                    nifty.logger.warning("Warning: OutOfPlane atoms are the same, ordering is different")
+                    raise ValueError("Warning: OutOfPlane atoms are the same, ordering is different")
                 return True
         #     if self.b == other.b:
         #         if self.c == other.c:
@@ -1612,17 +1612,3 @@ class OutOfPlane(PrimitiveCoordinate):
                 deriv2[ii, j, :, :] = fderiv
         return deriv2
 
-
-def logArray(mat, precision=3, fmt="f"):
-    fmt = "%% .%i%s" % (precision, fmt)
-    if len(mat.shape) == 1:
-        for i in range(mat.shape[0]):
-            nifty.logger.info(fmt % mat[i]),
-        print()
-    elif len(mat.shape) == 2:
-        for i in range(mat.shape[0]):
-            for j in range(mat.shape[1]):
-                nifty.logger.info(fmt % mat[i, j]),
-            print()
-    else:
-        raise RuntimeError("One or two dimensional arrays only")

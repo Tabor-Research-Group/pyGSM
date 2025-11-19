@@ -7,9 +7,6 @@ import sys
 import numpy as np
 from numpy.linalg import multi_dot
 
-# local application imports
-from ..utilities import nifty, manage_xyz
-
 
 """
 References
@@ -17,31 +14,29 @@ References
 1. E. A. Coutsias, C. Seok, K. A. Dill. "Using Quaternions to Calculate RMSD.". J. Comput. Chem 2004.
 """
 
-# def invert_svd(X,thresh=1e-12):
+def invert_svd(X, thresh=1e-12):
+    """
 
-#     """
+    Invert a matrix using singular value decomposition.
+    @param[in] X The 2-D NumPy array containing the matrix to be inverted
+    @param[in] thresh The SVD threshold; eigenvalues below this are not inverted but set to zero
+    @return Xt The 2-D NumPy array containing the inverted matrix
 
-#     Invert a matrix using singular value decomposition.
-#     @param[in] X The matrix to be inverted
-#     @param[in] thresh The SVD threshold; eigenvalues below this are not inverted but set to zero
-#     @return Xt The inverted matrix
+    """
 
-#     """
-
-#     u,s,vh = np.linalg.svd(X, full_matrices=0)
-#     uh     = np.matrix(np.transpose(u))
-#     v      = np.matrix(np.transpose(vh))
-#     si     = s.copy()
-#     for i in range(s.shape[0]):
-#         # reg = s[i]**2 / (s[i]**2 + thresh**2)
-#         si[i] = s[i] / (s[i]**2 + thresh**2)
-#         # if abs(s[i]) > thresh:
-#         #     si[i] = 1./s[i]
-#         # else:
-#         #     si[i] = 0.0
-#     si     = np.matrix(np.diag(si))
-#     Xt     = v*si*uh
-#     return Xt
+    # this is so poorly done...but I don't want a full explicit Numputils dependency...
+    u, s, vh = np.linalg.svd(X, full_matrices=0)
+    uh = np.transpose(u)
+    v = np.transpose(vh)
+    si = s.copy()
+    for i in range(s.shape[0]):
+        if abs(s[i]) > thresh:
+            si[i] = 1./s[i]
+        else:
+            si[i] = 0.0
+    si = np.diag(si)
+    Xt = multi_dot([v, si, uh])
+    return Xt
 
 
 def build_correlation(x, y):
@@ -470,7 +465,7 @@ def get_q_der(x, y, second=False, fdcheck=False, use_loops=False):
     dF = get_F_der(x, y)
     mat = np.eye(4)*l - F
     # pinv = np.matrix(np.linalg.pinv(np.eye(4)*l - F))
-    Minv = nifty.invert_svd(np.eye(4)*l - F, thresh=1e-6)
+    Minv = invert_svd(np.eye(4)*l - F, thresh=1e-6)
     dq = np.zeros((x.shape[0], 3, 4), dtype=float)
     for u in range(x.shape[0]):
         for w in range(3):

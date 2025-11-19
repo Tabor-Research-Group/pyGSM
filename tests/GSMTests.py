@@ -49,11 +49,20 @@ class GSMTests(unittest.TestCase):
 
     def test_DEGSM(cls):
         from pyGSM.gsm_runner import GSMRunner
+        test_dir = os.path.join(root, "tests", "test_results")
+        os.makedirs(test_dir, exist_ok=True)
+        os.chdir(test_dir)
+
+        try:
+            os.remove('log.txt')
+        except OSError:
+            pass
 
         GSMRunner.run_simple(
             xyzfile=test_data('diels_alder.xyz'),
             EST_Package='rdkit',
-            logger=True
+            logger='log.txt',
+            output_dir='.'
         )
 
 if __name__ == '__main__':

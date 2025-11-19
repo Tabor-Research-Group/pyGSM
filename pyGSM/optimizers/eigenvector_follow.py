@@ -100,11 +100,11 @@ class eigenvector_follow(hessian_update_optimizer):
         # => Overlap metric <= #
         overlap = np.dot(block_matrix.dot(tmph, block_matrix.transpose(Vecs)), Cn)
 
-        print(" overlap", overlap[:4].T)
-        print(" nneg", self.nneg)
+        self.logger.log_print(" overlap {overlap}", overlap=overlap[:4].T)
+        self.logger.log_print(" nneg {nneg}", nneg=self.nneg)
         # Max overlap metrics
         path_overlap, maxoln = self.maxol_w_Hess(overlap[0:4])
-        print(" t/ol %i: %3.2f" % (maxoln, path_overlap))
+        self.logger.log_print(" t/ol {maxoln}: {path_overlap:3.2f}", maxoln=maxoln, path_overlap=path_overlap)
 
         # => set lamda1 scale factor <=#
         lambda1 = self.set_lambda1('TS', eigen, maxoln)
@@ -117,7 +117,7 @@ class eigenvector_follow(hessian_update_optimizer):
             # => grad in eigenvector basis <= #
             gqe = np.dot(tmph, g)
             path_overlap_e_g = gqe[maxoln]
-            print(' gtse: {:1.4f} '.format(path_overlap_e_g[0]))
+            self.logger.log_print(' gtse: {:1.4f} '.format(path_overlap_e_g[0]))
             # save gtse in memory ...
             self.gtse = abs(path_overlap_e_g[0])
             # => calculate eigenvector step <=#
@@ -138,7 +138,7 @@ class eigenvector_follow(hessian_update_optimizer):
             # => if overlap is small use Cn as Constraint <= #
             molecule.update_coordinate_basis(ictan)
             g = molecule.gradient
-            print(molecule.constraints.T)
+            self.logger.log_print("constraints: {c}", c=molecule.constraints.T)
             molecule.form_Hessian_in_basis()
             dq = self.eigenvector_step(molecule, g)
 
@@ -235,7 +235,7 @@ class eigenvector_follow(hessian_update_optimizer):
                 else:
                     dq = self.TS_eigenvector_step(molecule, g, ictan)
                     if not self.maxol_good:
-                        print(" Switching to climb! Maxol not good!")
+                        self.logger.log_print(" Switching to climb! Maxol not good!")
                         nconstraints = 1
                         opt_type = 'CLIMB'
 
@@ -272,7 +272,7 @@ class eigenvector_follow(hessian_update_optimizer):
             g = ls['g']
 
             if ls['status'] == -2:
-                print('[ERROR] the point return to the privious point')
+                self.logger.log_print('[ERROR] the point return to the privious point')
                 x = xp.copy()
                 molecule.xyz = xyzp
                 g = gp.copy()
@@ -366,7 +366,7 @@ class eigenvector_follow(hessian_update_optimizer):
             fx = molecule.energy
             # dE = molecule.difference_energy
             # if dE < 1000.:
-            #     print(" difference energy is %5.4f" % dE)
+            #     self.logger.log_print(" difference energy is %5.4f" % dE)
             gmax = float(np.max(np.absolute(gc)))
             disp = float(np.linalg.norm((xyz-xyzp).flatten()))
             xnorm = np.sqrt(np.dot(x.T, x))
@@ -387,7 +387,7 @@ class eigenvector_follow(hessian_update_optimizer):
                 if abs(dE) < self.conv_dE and molecule.gradrms < self.conv_grms and abs(gmax) < self.conv_gmax and abs(dEstep) < self.conv_Ediff and abs(disp) < self.conv_disp:
                     if opt_type == "TS-SEAM":
                         gts = np.dot(g.T, molecule.constraints[:, 0])
-                        print(" gts %1.4f" % gts)
+                        self.logger.log_print(" gts %1.4f" % gts)
                         if abs(gts) < self.conv_grms*5:
                             self.converged = True
                     else:
@@ -426,27 +426,3 @@ class eigenvector_follow(hessian_update_optimizer):
         with self.logger.block(tag="opt-summary"):
             self.logger.log_print(self.buf.getvalue())
         return geoms, energies
-
-
-if __name__ == '__main__':
-    from qchem import QChem
-    from pes import PES
-    from molecule import Molecule
-    from slots import Distance
-
-    basis = "6-31G*"
-    nproc = 8
-
-    filepath = "examples/tests/bent_benzene.xyz"
-    lot = QChem.from_options(states=[(1, 0)], charge=0, basis=basis, functional='HF', nproc=nproc, fnm=filepath)
-    pes = PES.from_options(lot=lot, ad_idx=0, multiplicity=1)
-    M = Molecule.from_options(fnm=filepath, PES=pes, coordinate_type="DLC")
-    distance = Distance(5, 8)  # Not 1 based!!
-    print(distance)
-
-    ef = eigenvector_follow.from_options()  # Linesearch=NoLineSearch)
-    geoms = ef.optimize(molecule=M, refE=M.energy, opt_steps=5)
-    #geoms = ef.optimize(molecule=M,refE=M.energy,opt_steps=1)
-    print(M.primitive_internal_coordinates)
-
-    manage_xyz.write_xyzs('opt.xyz', geoms, scale=1.)

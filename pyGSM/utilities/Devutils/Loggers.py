@@ -72,7 +72,7 @@ class LoggingBlock:
                  closer=None,
                  printoptions=None,
                  captured_output_tag="",
-                 capture_output=True,
+                 capture_output=False,
                  captured_error_tag="",
                  capture_errors=None,
                  **tag_vars
@@ -252,7 +252,7 @@ class Logger:
         """
         self._loggers[key] = self
     @classmethod
-    def lookup(cls, key, construct=False):
+    def lookup(cls, key, construct=True):
         """
         Looks up a logger. Has the convenient, but potentially surprising
         behavior that if no logger is found a `NullLogger` is returned.

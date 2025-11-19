@@ -8,7 +8,6 @@ from ..coordinate_systems import slots
 from .gsm import TSOptimizationStrategy
 from .main_gsm import MainGSM
 from ..molecule import Molecule
-from ..utilities import nifty
 # standard library imports
 
 # third party

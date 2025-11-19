@@ -1,5 +1,5 @@
 from __future__ import print_function
-from ..utilities import block_matrix, nifty, math_utils
+from ..utilities import block_matrix, math_utils
 
 # standard library imports
 from sys import exit
@@ -76,21 +76,11 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
     def make_primitives(cls, primitives, **kwargs):
         # The DLC contains an instance of primitive internal coordinates.
         if primitives is None:
-            print(" making primitives ")
-            t1 = time()
             prims = PrimitiveInternalCoordinates(**kwargs)
-            dt = time() - t1
-            print(" Time to make prims %.3f" % dt)
         else:
-            print(" setting primitives from options!")
             # print(" warning: not sure if a deep copy prims")
             # self.Prims=self.options['primitives']
-            t0 = time()
             prims = primitives.copy()
-
-            print(" num of primitives {}".format(len(prims.Internals)))
-            dt = time() - t0
-            print(" Time to copy prims %.3f" % dt)
             prims.clearCache()
         return prims
 
@@ -157,10 +147,8 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
                 Float array containing difference in primitive coordinates
         """
 
-        nifty.click()
         # print(" Beginning to build G Matrix")
         G = prims.GMatrix(xyz)  # in primitive coords
-        time_G = nifty.click()
         # print(" Timings: Build G: %.3f " % (time_G))
 
         tmpvecs = []
@@ -181,10 +169,6 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
         vecs = block_matrix(tmpvecs)
         # print(" shape of DLC")
         # print(self.Vecs.shape)
-
-        time_eig = nifty.click()
-        logger.log_print(" Timings: Build G: {time_G:.3f} Eig: {time_eig:.3f}", time_G==time_G, time_eig=time_eig,
-                         log_level=logger.LogLevel.Debug)
 
         internals = ["DLC %i" % (i+1) for i in range(vecs.shape[1])]
 
@@ -249,10 +233,7 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
         """
 
         self.logger.print(" starting to build G prim")
-        nifty.click()
         G = self.Prims.GMatrix(xyz)  # in primitive coords
-        time_G = nifty.click()
-        self.loggerprint(" Timings: Build G: %.3f " % (time_G))
 
         tmpvecs = []
         for A in G.matlist:
@@ -267,7 +248,6 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
             # print("LargeVals %i" % LargeVals)
             tmpvecs.append(Q[:, LargeIdx])
         self.Vecs = block_matrix(tmpvecs)
-        time_eig = nifty.click()
         # print(" Timings: Build G: %.3f Eig: %.3f" % (time_G, time_eig))
 
         self.Internals = ["DLC %i" % (i+1) for i in range(len(LargeIdx))]
@@ -470,8 +450,8 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
         xv, yv = np.meshgrid(x, y)
         xyz1 = xyz.flatten()
         xyzgrid = np.zeros((xv.shape[0], xv.shape[1], xyz1.shape[0]))
-        print(self.Vecs.shape)
-        print(xvec.shape)
+        self.logger.log_print(self.Vecs.shape)
+        self.logger.log_print(xvec.shape)
 
         # find what linear combination of DLC basis xvec and yvec is
         proj_xvec = block_matrix.dot(block_matrix.transpose(self.Vecs), xvec)
@@ -480,9 +460,9 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
         #proj_xvec = block_matrix.dot(self.Vecs,xvec)
         #proj_yvec = block_matrix.dot(self.Vecs,yvec)
 
-        print(proj_xvec.T)
-        print(proj_yvec.T)
-        print(proj_xvec.shape)
+        self.logger.log_print(proj_xvec.T)
+        self.logger.log_print(proj_yvec.T)
+        self.logger.log_print(proj_xvec.shape)
 
         rc = 0
         for xrow, yrow in zip(xv, yv):
@@ -491,8 +471,8 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
 
                 # first form the vector in the grid as the linear comb of the projected vectors
                 dq = xx * proj_xvec + yy*proj_yvec
-                print(dq.T)
-                print(dq.shape)
+                self.logger.log_print(dq.T)
+                self.logger.log_print(dq.shape)
 
                 # convert to xyz and save to xyzgrid
                 xyzgrid[rc, cc, :] = self.newCartesian(xyz, dq).flatten()
