@@ -11,7 +11,7 @@ from itertools import chain
 
 from . import TSOptimizationStrategy
 from .gsm import GSM, NodeAdditionStrategy
-from ..utilities import Devutils as dev, math_utils
+from ..utilities import Devutils as dev, math_utils, units, block_matrix
 from ..molecule import Molecule
 
 def worker(arg):
@@ -96,13 +96,7 @@ class MainGSM(GSM):
             # TODO should something be done for growthdirection 2?
             if self.growth_direction == NodeAdditionStrategy.Reactant:
                 print("Setting LOT of last node")
-                new_mol = self.nodes[-2].copy()
-                self.nodes[-1] = new_mol
-                Molecule.copy_from_options(
-                    MoleculeA=self.nodes[-2],
-                    xyz=self.nodes[-1].xyz,
-                    new_node_id=self.num_nodes-1
-                )
+                self.nodes[-1] = self.nodes[-2].modify(xyz=self.nodes[-1].xyz)
             return
 
     def optimize_string(self, max_iter=30, nconstraints=1, opt_steps=1, rtype=None):
@@ -1257,10 +1251,10 @@ class MainGSM(GSM):
             new_optimizers[n] = self.optimizer[n]
 
         new_node_list[self.TSnode] = new_node
-        new_optimizers[self.TSnode] = self.optimizer[0].__class__(self.optimizer[0].options.copy())
+        new_optimizers[self.TSnode] = self.optimizer[0].copy()
 
         for n in range(self.TSnode+1, self.num_nodes+1):
-            new_node_list[n] = Molecule.copy_from_options(MoleculeA=self.nodes[n-1], new_node_id=n)
+            new_node_list[n] = self.nodes[n-1].copy()
             new_optimizers[n] = self.optimizer[n-1]
 
         self.nodes:list[Molecule] = new_node_list
@@ -1293,10 +1287,10 @@ class MainGSM(GSM):
             new_node_list[n] = self.nodes[n]
             new_optimizers[n] = self.optimizer[n]
         new_node_list[self.TSnode+1] = new_node
-        new_optimizers[self.TSnode+1] = self.optimizer[0].__class__(self.optimizer[0].options.copy())
+        new_optimizers[self.TSnode+1] = self.optimizer[0].copy()
 
         for n in range(self.TSnode+2, self.num_nodes+1):
-            new_node_list[n] = Molecule.copy_from_options(MoleculeA=self.nodes[n-1], new_node_id=n)
+            new_node_list[n] = self.nodes[n-1].copy()
             new_optimizers[n] = self.optimizer[n-1]
         self.nodes = new_node_list
         self.optimizer = new_optimizers
