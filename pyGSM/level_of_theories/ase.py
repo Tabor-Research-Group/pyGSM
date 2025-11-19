@@ -100,7 +100,7 @@ class ASELoT(LoT):
             if runtype not in {'energy', 'gradient'}:
                 raise NotImplementedError(f"Run type {runtype} is not implemented in the ASE calculator interface")
 
-        atoms.set_calculator(self.ase_calculator)
+        atoms.calc = self.ase_calculator
         if self.constraints_forces is not None and self.constraints_forces[0][0] != None:
             atom_indices = [x for x in range(len(atoms))]
             constraint = Constraint_custom_forces(atom_indices, self.constraints_forces)
@@ -108,7 +108,7 @@ class ASELoT(LoT):
 
         res = {}
         if 'gradient' in runtypes:
-            res['gradient'] = self.grad_obj(- atoms.get_forces())
+            res['gradient'] = self.grad_obj(-atoms.get_forces().flatten())
         if 'energy' in runtypes:
             res['energy'] = self.energy_obj(atoms.get_potential_energy()[0])
 

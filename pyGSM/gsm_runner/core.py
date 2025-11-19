@@ -102,8 +102,7 @@ def construct_optimizer(cfg: GSMConfig, *, logger=None):
     return _construct_optimizer(name, logger=logger, **opt_settings)
 
 def construct_gsm(cfg: GSMConfig, *, mols, evaluator, optimizer,
-                  scratch_writer=None,
-                  output_writer=None,
+                  output_handler=None,
                   logger=None):
     gsm_opts = dataclasses.asdict(cfg.gsm_settings)
     for o in ['reactant_geom_fixed', 'product_geom_fixed']:
@@ -127,8 +126,7 @@ def construct_gsm(cfg: GSMConfig, *, mols, evaluator, optimizer,
         tolerances=dataclasses.asdict(cfg.tolerance_settings),
         driving_coords=driving_coords,
         logger=logger,
-        scratch_writer=scratch_writer,
-        output_writer=output_writer,
+        output_handler=output_handler,
         **gsm_opts
     )
 

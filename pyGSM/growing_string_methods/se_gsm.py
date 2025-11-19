@@ -138,7 +138,7 @@ class SE_GSM(MainGSM):
         if rtype is None:
             rtype = self.rtype
 
-        if self.isRestarted is False:
+        if not self.isRestarted is False:
             self.nodes[0].gradrms = 0.
             self.nodes[0].V0 = self.nodes[0].energy
             self.logger.log_print(" Initial energy is %1.4f" % self.nodes[0].energy)

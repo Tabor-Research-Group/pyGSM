@@ -7,7 +7,7 @@ import dataclasses
 from .. import coordinate_systems as coord_ops
 from ..coordinate_systems import Distance, Angle, Dihedral, OutOfPlane
 from .. import utilities as util #import nifty, options, block_matrix
-from ..utilities import OutputManager, Devutils as dev, XYZWriter
+from ..utilities import CombinedOutputSystem, Devutils as dev, XYZWriter
 from ..molecule import Molecule
 from ..optimizers.base_optimizer import base_optimizer
 from ..optimizers import construct_optimizer
@@ -151,13 +151,72 @@ class GSM(metaclass=abc.ABCMeta):
         ...
 
     @abc.abstractmethod
-    def go_gsm(self, max_iters=50, opt_steps=10, **etc):
+    def set_V0(self):
         ...
 
+    @abc.abstractmethod
+    def _handle_initial_growth(self, *, max_iters, opt_steps):
+        ...
+
+    @abc.abstractmethod
+    def _optimize_string_for_ts(self, *, max_iters, opt_steps, rtype):
+        ...
+
+    # TODO Change rtype to a more meaningful argument name
+    def go_gsm(self, max_iters=50, opt_steps=3, *, rtype=None):
+        """
+        rtype=2 Find and Climb TS,
+        1 Climb with no exact find,
+        0 turning of climbing image and TS search
+        """
+
+        if rtype is None:
+            rtype = self.rtype
+
+        with self.logger.block(tag="Running GSM"):
+            self.set_V0()
+
+            if not self.isRestarted:
+                self._handle_initial_growth(max_iters=max_iters, opt_steps=opt_steps)
+                self.done_growing = True
+                self.output_writer('grown_string.xyz', self.geometries, self.energies, self.gradrmss, self.dEs)
+
+            # Can check for intermediate at beginning but not doing that now.
+            # else:
+            #    if self.has_intermediate(self.noise):
+            #        nifty.printcool(f" WARNING THIS REACTION HAS AN INTERMEDIATE within noise {self.noise}, opting out")
+            #        try:
+            #            self.optimize_string(max_iter=3,opt_steps=opt_steps,rtype=0)
+            #        except Exception as error:
+            #            print(" Done optimizing 3 times, checking if intermediate still exists")
+            #            if self.has_intermediate(self.noise):
+            #                self.tscontinue=False
+
+            if self.tscontinue:
+                self._optimize_string_for_ts(max_iters=max_iters, opt_steps=opt_steps, rtype=rtype)
+                filename = "opt_converged.xyz"
+            else:
+                self.logger.log_print("No TS optimization performed")
+                filename = "opt_partial_converged.xyz"
+                self.end_early = True
+
+            self.logger.log_print(" Printing string to " + filename)
+            self.output_writer(filename, self.geometries, self.energies, self.gradrmss, self.dEs)
+            self.logger.log_print("Finished GSM!")
+
+    @property
+    def output_writer(self):
+        return self.output_handler.output_xyz_writer
+    @property
+    def scratch_writer(self):
+        return self.output_handler.scratch_xyz_writer
+    @property
+    def checkpointer(self):
+        return self.output_handler.checkpointer
+
     def run(self, max_iters=50, opt_steps=10, **etc):
-        with self.output_writer:
-            with self.scratch_writer:
-                return self.go_gsm(max_iters=max_iters, opt_steps=opt_steps, **etc)
+        with self.output_handler:
+            return self.go_gsm(max_iters=max_iters, opt_steps=opt_steps, **etc)
 
     @abc.abstractmethod
     def grow_nodes(self):
@@ -190,10 +249,7 @@ class GSM(metaclass=abc.ABCMeta):
             optimizer=None,
             driving_coords=None,
             only_drive=False,
-            scratch_dir=None,
-            scratch_writer=None,
-            output_dir=None,
-            output_writer=None,
+            output_handler:CombinedOutputSystem=None,
             xyz_format='molden',
             growth_direction=0,
             tolerances=None,
@@ -236,18 +292,7 @@ class GSM(metaclass=abc.ABCMeta):
         self.mp_cores = mp_cores
         # self.xyz_writer = xyz_writer
         self.logger = dev.Logger.lookup(logger)
-        if scratch_writer is None:
-            scratch_writer = XYZWriter(
-                OutputManager.lookup(scratch_dir),
-                xyz_format
-            )
-        self.scratch_writer = scratch_writer
-        if output_writer is None:
-            output_writer = XYZWriter(
-                OutputManager.lookup(output_dir),
-                xyz_format
-            )
-        self.output_writer = output_writer
+        self.output_handler = output_handler
 
         if rtype is None:
             rtype = self.default_rtype

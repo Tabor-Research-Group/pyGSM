@@ -2,12 +2,16 @@ import os
 import tempfile
 import weakref
 import functools
+import h5py
+import numpy as np
 
 from .manage_xyz import write_xyz, format_xyz, format_molden
 
 __all__ = [
     "OutputManager",
-    "XYZWriter"
+    "XYZWriter",
+    "HDF5Checkpointer",
+    "CombinedOutputSystem"
 ]
 
 class OutputManager:
@@ -122,3 +126,64 @@ class XYZWriter:
 
     def __call__(self, path, atoms, geoms, *other, **opts):
         return self.write_xyz(path, atoms, geoms, *other, **opts)
+
+class HDF5FileInterface:
+    def __init__(self, h5py_base:h5py.File):
+        self.stream = h5py_base
+
+    def set_item(self, key, value):
+        if isinstance(value, dict):
+            obj = type(self)(self.stream.create_group(key))
+            for k,v in value.items():
+                obj.set_item(k, v)
+        else:
+            self.stream[key] = value
+    def __setitem__(self, key, value):
+        self.set_item(key, value)
+
+
+class HDF5Checkpointer:
+    def __init__(self, checkpoint_file="checkpoint.hdf5", mode='a+b', **file_opts):
+        self.checkpoint_file = checkpoint_file
+        self.opts = dict(file_opts, mode=mode)
+        self._was_open = False
+        self._stream = None
+
+    def __enter__(self):
+        if self._stream is None:
+            self._was_open = hasattr(self.checkpoint_file, 'write')
+            if not self._was_open:
+                self._stream = open(self.checkpoint_file, **self.opts).__enter__()
+        return h5py.File(self._stream, "a")
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self._was_open:
+            self._stream.__exit__(exc_type, exc_val, exc_tb)
+        self._stream = None
+
+class CombinedOutputSystem:
+    def __init__(self,
+                 output_dir,
+                 scratch_dir=None,
+                 xyz_format='xyz',
+                 checkpoint_file="checkpoint.hdf5"
+                 ):
+        self.output_dir = OutputManager.lookup(output_dir)
+        self.scratch_dir = OutputManager.lookup(scratch_dir)
+        self.output_xyz_writer = XYZWriter(self.output_dir, xyz_format)
+        self.scratch_xyz_writer = XYZWriter(self.scratch_dir, xyz_format)
+        self.checkpointer = HDF5Checkpointer(self.output_dir, checkpoint_file)
+
+    def __enter__(self):
+        self.output_dir.__enter__()
+        self.scratch_dir.__enter__()
+        self.checkpointer.__enter__()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        try:
+            self.output_dir.__exit__(exc_type, exc_val, exc_tb)
+        finally:
+            try:
+                self.scratch_dir.__exit__(exc_type, exc_val, exc_tb)
+            finally:
+                self.checkpointer.__exit__(exc_type, exc_val, exc_tb)

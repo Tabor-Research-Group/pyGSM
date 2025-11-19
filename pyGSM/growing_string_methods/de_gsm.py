@@ -38,66 +38,30 @@ class DE_GSM(MainGSM):
 
         return nodes
 
-    # TODO Change rtype to a more meaningful argument name
-    def go_gsm(self, max_iters=50, opt_steps=3, *, rtype=None):
-        """
-        rtype=2 Find and Climb TS,
-        1 Climb with no exact find,
-        0 turning of climbing image and TS search
-        """
-        self.set_V0()
+    def _handle_initial_growth(self, *, max_iters, opt_steps, reparameterize=True):
+        if self.growth_direction == NodeAdditionStrategy.Normal:
+            self.add_GSM_nodes(2)
+        elif self.growth_direction == NodeAdditionStrategy.Reactant:
+            self.add_GSM_nodeR(1)
+        elif self.growth_direction == NodeAdditionStrategy.Product:
+            self.add_GSM_nodeP(1)
 
-        if rtype is None:
-            rtype = self.rtype
+        # Grow String
+        self.grow_string(max_iters=max_iters, max_opt_steps=opt_steps)
+        self.logger.log_print("Done Growing the String!!!")
 
-        with self.logger.block(tag="Running GSM"):
-            if not self.isRestarted:
-                if self.growth_direction  == NodeAdditionStrategy.Normal:
-                    self.add_GSM_nodes(2)
-                elif self.growth_direction  == NodeAdditionStrategy.Reactant:
-                    self.add_GSM_nodeR(1)
-                elif self.growth_direction  == NodeAdditionStrategy.Product:
-                    self.add_GSM_nodeP(1)
+        if reparameterize:
+            self.reparameterize()
 
-                # Grow String
-                self.grow_string(max_iters=max_iters, max_opt_steps=opt_steps)
-                self.logger.log_print("Done Growing the String!!!")
-                self.done_growing = True
-
-                # nifty.printcool("initial ic_reparam")
-                self.reparameterize()
-                self.output_writer('grown_string.xyz', self.geometries, self.energies, self.gradrmss, self.dEs)
-
-            # Can check for intermediate at beginning but not doing that now.
-            # else:
-            #    if self.has_intermediate(self.noise):
-            #        nifty.printcool(f" WARNING THIS REACTION HAS AN INTERMEDIATE within noise {self.noise}, opting out")
-            #        try:
-            #            self.optimize_string(max_iter=3,opt_steps=opt_steps,rtype=0)
-            #        except Exception as error:
-            #            print(" Done optimizing 3 times, checking if intermediate still exists")
-            #            if self.has_intermediate(self.noise):
-            #                self.tscontinue=False
-
-            if self.tscontinue:
-                try:
-                    self.optimize_string(max_iter=max_iters, opt_steps=opt_steps, rtype=rtype)
-                except ValueError as error:
-                    # self.logger.log_print(tb.format_exc())
-                    if str(error) == "Ran out of iterations":
-                        self.end_early = True
-                    else:
-                        raise
-            else:
-                self.logger.log_print("Exiting early")
+    def _optimize_string_for_ts(self, *, max_iters, opt_steps, rtype):
+        try:
+            self.optimize_string(max_iter=max_iters, opt_steps=opt_steps, rtype=rtype)
+        except ValueError as error:
+            # self.logger.log_print(tb.format_exc())
+            if str(error) == "Ran out of iterations":
                 self.end_early = True
-
-            filename = "opt_converged.xyz"
-            self.logger.log_print(" Printing string to " + filename)
-            self.output_writer(filename, self.geometries, self.energies, self.gradrmss, self.dEs)
-            self.logger.log_print("Finished GSM!")
-
-            return
+            else:
+                raise
 
     def add_GSM_nodes(self, newnodes=1):
         if self.current_nnodes+newnodes > self.num_nodes:

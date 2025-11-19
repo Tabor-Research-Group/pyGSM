@@ -9,7 +9,7 @@ from .gsm_config import GSMConfig
 from . import core as core
 from .. import growing_string_methods as GSM
 from ..molecule import Molecule
-from ..utilities import XYZWriter, OutputManager, Devutils as dev
+from ..utilities import CombinedOutputSystem, Devutils as dev
 
 __all__ = [
     "GSMRunner"
@@ -58,16 +58,18 @@ class GSMRunner:
         optimizer = core.construct_optimizer(cfg, logger=logger)
         evaluator = core.construct_lot(cfg, mols[0], logger=logger)
 
-        xyz_format = run_dict.pop('xyz_format')
-        scratch_writer = XYZWriter(OutputManager.lookup(run_dict.pop('scratch_dir')), xyz_format)
-        output_writer = XYZWriter(OutputManager.lookup(run_dict.pop('output_dir')), xyz_format)
+        outputs = CombinedOutputSystem(
+            run_dict.pop('output_dir'),
+            run_dict.pop('scratch_dir'),
+            xyz_format=run_dict.pop('xyz_format'),
+            checkpoint_file=run_dict.pop('checkpoint_file')
+        )
 
         gsm = core.construct_gsm(cfg,
                                  mols=mols,
                                  evaluator=evaluator,
                                  optimizer=optimizer,
-                                 scratch_writer=scratch_writer,
-                                 output_writer=output_writer,
+                                 output_handler=outputs,
                                  logger=logger)
 
         return cls(
