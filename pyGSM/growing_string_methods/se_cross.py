@@ -31,25 +31,25 @@ class SE_Cross(SE_GSM):
 
         self.nodes[0].gradrms = 0.
         self.nodes[0].V0 = self.nodes[0].energy
-        print(' Initial energy is {:1.4f}'.format(self.nodes[0].energy))
+        self.logger.log_print(' Initial energy is {:1.4f}'.format(self.nodes[0].energy))
         sys.stdout.flush()
 
         # stash bdist for node 0
         _, self.nodes[0].bdist = self.get_tangent(self.nodes[0], None, driving_coords=self.driving_coords)
-        print(" Initial bdist is %1.3f" % self.nodes[0].bdist)
+        self.logger.log_print(" Initial bdist is %1.3f" % self.nodes[0].bdist)
 
         # interpolate first node
         self.add_GSM_nodeR()
 
         # grow string
         self.grow_string(max_iters=max_iters, max_opt_steps=opt_steps)
-        print(' SE_Cross growth phase over')
-        print(' Warning last node still not fully optimized')
+        self.logger.log_print(' SE_Cross growth phase over')
+        self.logger.log_print(' Warning last node still not fully optimized')
 
         if True:
             path = os.path.join(os.getcwd(), 'scratch/{:03d}/{}'.format(self.ID, self.nR-1))
             # doing extra constrained penalty optimization for MECI
-            print(" extra constrained optimization for the nnR-1 = %d" % (self.nR-1))
+            self.logger.log_print(" extra constrained optimization for the nnR-1 = %d" % (self.nR-1))
             self.optimizer[self.nR-1].conv_grms = self.options['CONV_TOL']*5
             ictan = self.get_tangent_xyz(self.nodes[self.nR-1].xyz, self.nodes[self.nR-2].xyz, self.newic.primitive_internal_coordinates)
             self.nodes[self.nR-1].PES.sigma = 1.5
@@ -104,7 +104,7 @@ class SE_Cross(SE_GSM):
                 path=path,
             )
             if not self.optimizer[self.nR].converged:
-                print("doing extra optimization in hopes that the MECI will converge.")
+                self.logger.log_print("doing extra optimization in hopes that the MECI will converge.")
                 if self.nodes[self.nR].PES.PES2.energy - self.nodes[0].V0 < 20:
                     self.optimizer[self.nR].optimize(
                         molecule=self.nodes[self.nR],
@@ -119,7 +119,7 @@ class SE_Cross(SE_GSM):
             # TODO make unctonstrained "CROSSING" which checks for dE convergence
             self.nodes[self.nR] = Molecule.copy_from_options(self.nodes[self.nR-1], new_node_id=self.nR)
             self.nodes[self.nR].PES.sigma = 10.0
-            print(" sigma for node %d is %.3f" % (self.nR, self.nodes[self.nR].PES.sigma))
+            self.logger.log_print(" sigma for node %d is %.3f" % (self.nR, self.nodes[self.nR].PES.sigma))
             path = os.path.join(os.getcwd(), 'scratch/{:03d}/{}'.format(self.ID, self.nR))
             self.optimizer[self.nR].opt_cross = True
             self.optimizer[self.nR].conv_grms = self.options['CONV_TOL']
@@ -139,7 +139,7 @@ class SE_Cross(SE_GSM):
         if self.optimizer[self.nR].converged:
             self.num_nodes = self.nR+1
             self.nodes = self.nodes[:self.num_nodes]
-            print("Setting all interior nodes to active")
+            self.logger.log_print("Setting all interior nodes to active")
             for n in range(1, self.num_nodes-1):
                 self.active[n] = True
             self.active[self.num_nodes-1] = False
@@ -150,25 +150,25 @@ class SE_Cross(SE_GSM):
                 self.nodes[n].PES = PES.create_pes_from(self.nodes[n].PES.PES2,
                                                         options={'gradient_states': [(1, 1)]})
 
-            print(" initial ic_reparam")
+            self.logger.log_print(" initial ic_reparam")
             self.reparameterize(ic_reparam_steps=25)
-            print(" V_profile (after reparam): ", end=' ')
+            self.logger.log_print(" V_profile (after reparam): ", end=' ')
             energies = self.energies
             for n in range(self.num_nodes):
-                print(" {:7.3f}".format(float(energies[n])), end=' ')
-            print()
+                self.logger.log_print(" {:7.3f}".format(float(energies[n])), end=' ')
+            self.logger.log_print()
             self.xyz_writer('grown_string1_{:03}.xyz'.format(self.ID), self.geometries, self.energies, self.gradrmss, self.dEs)
 
             deltaE = energies[-1] - energies[0]
             if deltaE > 20:
-                print(" MECI energy is too high %5.4f. Don't try to optimize pathway" % deltaE)
-                print("Exiting early")
+                self.logger.log_print(" MECI energy is too high %5.4f. Don't try to optimize pathway" % deltaE)
+                self.logger.log_print("Exiting early")
                 self.end_early = True
             else:
-                print(" deltaE s1-minimum and MECI %5.4f" % deltaE)
+                self.logger.log_print(" deltaE s1-minimum and MECI %5.4f" % deltaE)
                 self.optimize_string(max_iter=max_iters, opt_steps=3, rtype=1)
         else:
-            print("Exiting early")
+            self.logger.log_print("Exiting early")
             self.end_early = True
 
     def check_if_grown(self):
@@ -179,10 +179,10 @@ class SE_Cross(SE_GSM):
         condition1 = (abs(self.nodes[self.nR-1].bdist) <= (1-self.BDIST_RATIO)*abs(self.nodes[0].bdist) and (abs(pes1dE) > abs(pes2dE)))
         # condition2 = ((self.nodes[self.nR-1].bdist+0.1 > self.nodes[self.nR-2].bdist) and (1-self.BDIST_RATIO)*abs(self.nodes[0].bdist))
         if condition1:
-            print(" Condition 1 satisfied")
-            print(" bdist current %1.3f" % abs(self.nodes[self.nR-1].bdist))
-            print(" bdist target %1.3f" % (abs(self.nodes[0].bdist)*(1-self.BDIST_RATIO)))
-            print(" Growth-phase over")
+            self.logger.log_print(" Condition 1 satisfied")
+            self.logger.log_print(" bdist current %1.3f" % abs(self.nodes[self.nR-1].bdist))
+            self.logger.log_print(" bdist target %1.3f" % (abs(self.nodes[0].bdist)*(1-self.BDIST_RATIO)))
+            self.logger.log_print(" Growth-phase over")
             isDone = True
         # elif condition2:
         #    print(" Condition 2 satisfied")
@@ -213,4 +213,4 @@ class SE_Cross(SE_GSM):
         self.optimizer[nR].conv_grms = self.tolerances['ADD_NODE_TOL']
         self.optimizer[nR].conv_gmax = 100.  # self.options['ADD_NODE_TOL'] # could use some multiplier times CONV_GMAX...
         self.optimizer[nR].conv_Ediff = 1000.  # 2.5
-        print(" conv_tol of node %d is %.4f" % (nR, self.optimizer[nR].conv_grms))
+        self.logger.log_print(" conv_tol of node %d is %.4f" % (nR, self.optimizer[nR].conv_grms))
