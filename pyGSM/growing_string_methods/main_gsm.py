@@ -377,18 +377,18 @@ class MainGSM(GSM):
 
         for n in range(self.num_nodes):
             if self.nodes[n] and self.active[n]:
-                self.logger.log_print("Optimizing node {n}", n=n)
-                opt_type = self.set_opt_type(n)
-                self.logger.log_print("setting node {n} opt_type to {opt_type}", n=n, opt_type=opt_type)
-                osteps = self.mult_steps(n, opt_steps)
-                self.optimizer[n].optimize(
-                    molecule=self.nodes[n],
-                    refE=refE,
-                    opt_type=opt_type,
-                    opt_steps=osteps,
-                    ictan=self.ictan[n],
-                    xyzframerate=1
-                )
+                with self.logger.block(tag="Optimizing node {n}", n=n):
+                    opt_type = self.set_opt_type(n)
+                    self.logger.log_print("setting node {n} opt_type to {opt_type}", n=n, opt_type=opt_type)
+                    osteps = self.mult_steps(n, opt_steps)
+                    self.optimizer[n].optimize(
+                        molecule=self.nodes[n],
+                        refE=refE,
+                        opt_type=opt_type,
+                        opt_steps=osteps,
+                        ictan=self.ictan[n],
+                        xyzframerate=1
+                    )
 
         return self.nodes[0].energy, refE
         # return self.isConverged, refE

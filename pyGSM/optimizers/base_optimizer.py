@@ -285,7 +285,7 @@ class base_optimizer(metaclass=abc.ABCMeta):
             if gts > np.abs(max_step):
                 gts = np.sign(gts)*max_step
                 # constraint_steps = constraint_steps*max_step/stepsize
-            self.logger.log_print(" gts {gts:1.4f}", gts=gts,)
+            self.logger.log_print(" gts {gts:1.4f}", gts=gts, log_level = self.logger.LogLevel.MoreDebug)
             constraint_steps = gts*molecule.constraints[:, 0]
             constraint_steps = constraint_steps[:, np.newaxis]
         # => MECI
