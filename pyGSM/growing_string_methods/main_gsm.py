@@ -67,9 +67,15 @@ class MainGSM(GSM):
                 self.logger.log_print("Starting growth iteration {iteration}", iteration=iteration)
                 self.optimize_iteration(max_opt_steps)
                 totalgrad, gradrms, sum_gradrms = self.calc_optimization_metrics(self.nodes)
-                self.scratch_writer('growth_iters_{:03}.xyz'.format(iteration),
-                                    self.nodes[0].atoms,
-                                    self.geometries, self.energies, self.gradrmss, self.dEs)
+
+                self.checkpointer[f"growth_iters_{iteration}"] = {
+                    "coords":np.array(self.geometries),
+                    "energies":np.array(self.energies),
+                    "gradrms":np.array(self.gradrmss)
+                }
+                # self.scratch_writer('growth_iters_{:03}.xyz'.format(iteration),
+                #                     self.nodes[0].atoms,
+                #                     self.geometries, self.energies, self.gradrmss, self.dEs)
                 self.logger.log_print(
                     "gopt_iter: {iteration:2} totalgrad: {totalgrad:4.3} gradrms: {gradrms:5.4} max E: {emax:5.4}",
                     iteration=iteration,
@@ -260,10 +266,15 @@ class MainGSM(GSM):
                 self.logger.log_print(f'{stage_changed=}: {self.climb=} {self.find=}')
 
                 # => write Convergence to file <= #
-                self.scratch_writer(
-                    'opt_iters_{:03}.xyz'.format( oi),
-                    self.geometries, self.energies, self.gradrmss, self.dEs
-                )
+                self.checkpointer[f"opt_iter_{oi}"] = {
+                    "coords":np.array(self.geometries),
+                    "energies":np.array(self.energies),
+                    "gradrms":np.array(self.gradrmss)
+                }
+                # self.scratch_writer(
+                #     'opt_iters_{:03}.xyz'.format( oi),
+                #     self.geometries, self.energies, self.gradrmss, self.dEs
+                # )
 
                 self.logger.log_print(" End early counter {}".format(self.endearly_counter))
 
@@ -445,8 +456,8 @@ class MainGSM(GSM):
                 )
                 raise ValueError("constraint tangent vector is zero")
 
-            self.logger.log_print("forming space for {ni}", ni=nlist[2*n])
-            self.logger.log_print("forming space for {ni}", ni=nlist[2*n+1])
+            self.logger.log_print("forming space for {ni}", ni=nlist[2*n], log_level=self.logger.LogLevel.MoreDebug)
+            self.logger.log_print("forming space for {ni}", ni=nlist[2*n+1], log_level=self.logger.LogLevel.MoreDebug)
 
             # normalize ictan
             norm = np.linalg.norm(ictan0)
@@ -765,7 +776,8 @@ class MainGSM(GSM):
                 else:
                     for nmove, ntan in zip(move_list, tan_list):
                         if rpmove[nmove] < 0:
-                            self.logger.log_print('Moving {nmove} along ictan[{ntan}]', nmove=nmove, ntan=ntan)
+                            self.logger.log_print('Moving {nmove} along ictan[{ntan}]', nmove=nmove, ntan=ntan,
+                                                  log_level=self.logger.LogLevel.MoreDebug)
                             self.nodes[nmove].update_coordinate_basis(constraints=self.ictan[ntan])
                             constraint = self.nodes[nmove].constraints[:, 0]
                             dq0 = rpmove[nmove]*constraint

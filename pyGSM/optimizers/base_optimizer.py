@@ -358,10 +358,10 @@ class base_optimizer(metaclass=abc.ABCMeta):
         opt_type = OptimizationTypes(opt_type)
         if opt_type in {OptimizationTypes.TransitionState, OptimizationTypes.Climbing}:
             if ratio < 0. and abs(dEpre) > 0.05:
-                self.logger.log_print("sign problem, decreasing DMAX")
+                self.logger.log_print("sign problem, decreasing DMAX", log_level=self.logger.LogLevel.MoreDebug)
                 self.max_step /= 1.35
             elif (ratio < 0.75 or ratio > 1.5):  # and abs(dEpre)>0.05:
-                self.logger.log_print(" decreasing DMAX")
+                self.logger.log_print(" decreasing DMAX", log_level=self.logger.LogLevel.MoreDebug)
                 if step < self.max_step:
                     self.max_step = step/1.1
                 else:
@@ -373,7 +373,7 @@ class base_optimizer(metaclass=abc.ABCMeta):
                 #    self.logger.log_print(" increasing DMAX")
                 #    self.max_step *= 1.1
                 if gradrms > (pgradrms + 0.0005):
-                    self.logger.log_print(' decreasing DMAX, gradrms increased')
+                    self.logger.log_print(' decreasing DMAX, gradrms increased', log_level=self.logger.LogLevel.MoreDebug)
                     self.max_step -= self.max_step/10.
                 elif gradrms < (pgradrms + 0.0005):
                     if self.max_step < 0.05:
@@ -384,7 +384,8 @@ class base_optimizer(metaclass=abc.ABCMeta):
                             " increasing DMAX"
                         ],
                             gradrms=gradrms,
-                            pgradrms=pgradrms
+                            pgradrms=pgradrms,
+                            log_level=self.logger.LogLevel.MoreDebug
                         )
                         self.max_step = self.max_step*1.1
                     elif gradrms < (pgradrms-0.0005) and ratio > 0.9 and ratio < 1.1:
@@ -394,19 +395,19 @@ class base_optimizer(metaclass=abc.ABCMeta):
                 self.max_step = 0.25
         else:
             if dE_iter > 0.001 and opt_type in {OptimizationTypes.Unconstrained, OptimizationTypes.ICTAN}:
-                self.logger.log_print(" decreasing DMAX")
+                self.logger.log_print(" decreasing DMAX", log_level=self.logger.LogLevel.MoreDebug)
                 if step < self.max_step:
                     self.max_step = step/1.5
                 else:
                     self.max_step = self.max_step/1.5
             elif (ratio < 0.25 or ratio > 1.5) and abs(dEpre) > 0.05:
-                self.logger.log_print(" decreasing DMAX")
+                self.logger.log_print(" decreasing DMAX", log_level=self.logger.LogLevel.MoreDebug)
                 if step < self.max_step:
                     self.max_step = step/1.1
                 else:
                     self.max_step = self.max_step/1.2
             elif ratio > 0.75 and ratio < 1.25 and step > self.max_step and gradrms < (pgradrms*1.35):
-                self.logger.log_print(" increasing DMAX")
+                self.logger.log_print(" increasing DMAX", log_level=self.logger.LogLevel.MoreDebug)
                 self.max_step = self.max_step*1.1 + 0.01
             if self.max_step > 0.25:
                 self.max_step = 0.25

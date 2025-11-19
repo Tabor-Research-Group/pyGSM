@@ -51,6 +51,7 @@ class OutputManager:
                         self._root = self.output_dir.name
                     else:
                         os.makedirs(self.output_dir, exist_ok=True)
+                        self._root = self.output_dir
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._call_depth = max(self._call_depth-1, 0)
         if self._call_depth < 1:
@@ -73,7 +74,7 @@ class OutputManager:
     def write_output_file(self, path, *data, writer, _iherit_opts=None, **writer_opts):
         # this is so we can, e.g., directly write to a `.zip` file
         # if we need archives or to turn of writing at all if output is disabled
-        if not hasattr(path, '__getitem__'):
+        if isinstance(path, str) or not hasattr(path, '__getitem__'):
             path = (path,)
         file = self.resolve_path(*path)
         if file is not None:
@@ -132,18 +133,26 @@ class HDF5FileInterface:
         self.stream = h5py_base
 
     def set_item(self, key, value):
-        if isinstance(value, dict):
-            obj = type(self)(self.stream.create_group(key))
-            for k,v in value.items():
-                obj.set_item(k, v)
-        else:
-            self.stream[key] = value
+        if self.stream is not None:
+            if isinstance(value, dict):
+                try:
+                    group = self.stream[key]
+                except KeyError:
+                    group = self.stream.create_group(key)
+                obj = type(self)(group)
+                for k,v in value.items():
+                    obj.set_item(k, v)
+            else:
+                value = np.asanyarray(value)
+                dtype_name = str(value.dtype)
+                if '<U' in dtype_name: # need to cast out of strings for HDF5
+                    value = value.astype(dtype=dtype_name.replace('<U', '|S'))
+                self.stream[key] = value
     def __setitem__(self, key, value):
         self.set_item(key, value)
 
-
 class HDF5Checkpointer:
-    def __init__(self, checkpoint_file="checkpoint.hdf5", mode='a+b', **file_opts):
+    def __init__(self, checkpoint_file="checkpoint.hdf5", mode='w', **file_opts):
         self.checkpoint_file = checkpoint_file
         self.opts = dict(file_opts, mode=mode)
         self._was_open = False
@@ -151,10 +160,11 @@ class HDF5Checkpointer:
 
     def __enter__(self):
         if self._stream is None:
-            self._was_open = hasattr(self.checkpoint_file, 'write')
-            if not self._was_open:
-                self._stream = open(self.checkpoint_file, **self.opts).__enter__()
-        return h5py.File(self._stream, "a")
+            if self.checkpoint_file is not None:
+                self._was_open = hasattr(self.checkpoint_file, 'write')
+                if not self._was_open:
+                    self._stream = h5py.File(self.checkpoint_file, **self.opts).__enter__()
+        return HDF5FileInterface(self._stream)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self._was_open:
@@ -172,12 +182,16 @@ class CombinedOutputSystem:
         self.scratch_dir = OutputManager.lookup(scratch_dir)
         self.output_xyz_writer = XYZWriter(self.output_dir, xyz_format)
         self.scratch_xyz_writer = XYZWriter(self.scratch_dir, xyz_format)
-        self.checkpointer = HDF5Checkpointer(self.output_dir, checkpoint_file)
+        self._checkpoint_file = checkpoint_file
+        self._checkpoint_handler = None
+        self.checkpointer = None
 
     def __enter__(self):
         self.output_dir.__enter__()
         self.scratch_dir.__enter__()
-        self.checkpointer.__enter__()
+        if self._checkpoint_handler is None:
+            self._checkpoint_handler = HDF5Checkpointer(self.output_dir.resolve_path(self._checkpoint_file))
+        self.checkpointer = self._checkpoint_handler.__enter__()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         try:
@@ -186,4 +200,6 @@ class CombinedOutputSystem:
             try:
                 self.scratch_dir.__exit__(exc_type, exc_val, exc_tb)
             finally:
-                self.checkpointer.__exit__(exc_type, exc_val, exc_tb)
+                self._checkpoint_handler.__exit__(exc_type, exc_val, exc_tb)
+                self._checkpoint_handler = None
+                self.checkpointer = None

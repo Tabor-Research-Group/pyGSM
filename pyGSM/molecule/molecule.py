@@ -168,7 +168,7 @@ class Molecule:
     def Hessian(self):
         if self._hessian is None:
             if self.Primitive_Hessian is not None:
-                self.logger.log_print(" forming Hessian in basis")
+                self.logger.log_print(" forming Hessian in basis", log_level=self.logger.LogLevel.MoreDebug)
                 self._hessian = self.form_Hessian_in_basis()
             else:
                 self._hessian = self.form_Hessian()
@@ -351,12 +351,9 @@ class Molecule:
     def Primitive_Hessian(self):
         if self._primitive_hessian is None:
             if not coord_ops.is_cartesian(self.coord_obj):
-                self.logger.log_print(" making primitive Hessian")
-                start = time()
+                self.logger.log_print(" making primitive Hessian", log_level=self.logger.LogLevel.MoreDebug)
                 self._primitive_hessian = self.form_Primitive_Hessian()
                 self.newHess = 10 #WTF is this...
-                stop = time()
-                self.logger.log_print(" Time to build Prim Hessian {e:.3f}s", e=stop - start)
         return self._primitive_hessian
     @Primitive_Hessian.setter
     def Primitive_Hessian(self, prim):
@@ -370,7 +367,7 @@ class Molecule:
         return prim
 
     def update_Primitive_Hessian(self, change=None):
-        self.logger.log_print("updating prim hess", log_level=self.logger.LogLevel.Debug)
+        self.logger.log_print("updating prim hess", log_level=self.logger.LogLevel.MoreDebug)
         if change is not None:
             self.Primitive_Hessian += change
         return self.Primitive_Hessian
@@ -475,7 +472,7 @@ class Molecule:
         # if constraints is not None:
         #     assert constraints.shape[0] == self.coord_basis.shape[0], '{} does not equal {} dimensions'.format(constraints.shape[0],self.coord_basis.shape[0])
 
-        self.logger.log_print(" updating coord basis")
+        self.logger.log_print(" updating coord basis", log_level=self.logger.LogLevel.MoreDebug)
         self.coord_obj.clearCache()
         self.coord_obj.update_dlc(self.xyz, constraints=constraints)
         return self.coord_basis

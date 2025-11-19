@@ -213,7 +213,7 @@ def format_xyz(atoms, coords,
         else:
             comment = [str(comment) + f" - {i}" for i in range(len(coords))]
         blocks = [
-            _format_xyz(atoms,
+            format_xyz(atoms,
                         c,
                         comment=com,
                         include_header=include_header,

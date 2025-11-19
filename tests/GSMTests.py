@@ -57,6 +57,10 @@ class GSMTests(unittest.TestCase):
             os.remove('log.txt')
         except OSError:
             pass
+        # try:
+        #     os.remove('checkpoint.hdf5')
+        # except OSError:
+        #     pass
 
         GSMRunner.run_simple(
             xyzfile=test_data('diels_alder.xyz'),

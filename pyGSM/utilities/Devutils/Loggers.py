@@ -226,6 +226,8 @@ class Logger:
         self.print_function = print_function
         self.active = True
         self.block_options = {} if block_options is None else block_options
+        self._call_depth = 0
+        self._log_base = None
 
     def to_state(self, serializer=None):
         return {
@@ -363,6 +365,20 @@ class Logger:
     @staticmethod
     def prep_dict(obj):
         return ["{k}: {v}".format(k=k, v=v) for k,v in obj.items()]
+
+    def __enter__(self):
+        self._call_depth = max(self._call_depth, 0) + 1
+        if self._call_depth == 1:
+            self._log_base = self.log_file
+            if not hasattr(self._log_base, 'write'):
+                self.log_file = open(self.log_file, "a")
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._call_depth = max(self._call_depth-1, 0)
+        if self._call_depth < 1:
+            if not hasattr(self._log_base, 'write'):
+                self.log_file.__exit__(exc_type, exc_val, exc_tb)
+            self.log_file = self._log_base
+            self._log_base = None
 
     def log_print(self,
                   message,

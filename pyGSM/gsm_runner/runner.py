@@ -58,6 +58,7 @@ class GSMRunner:
         optimizer = core.construct_optimizer(cfg, logger=logger)
         evaluator = core.construct_lot(cfg, mols[0], logger=logger)
 
+
         outputs = CombinedOutputSystem(
             run_dict.pop('output_dir'),
             run_dict.pop('scratch_dir'),
@@ -100,11 +101,12 @@ class GSMRunner:
         gsm = self.prep_gsm(self.gsm)
         with warnings.catch_warnings():
             warnings.simplefilter("error")
-            res = gsm.run(
-                self.max_gsm_iters,
-                self.max_opt_steps,
-                rtype=self.rtype
-            )
+            with gsm.logger: # open the log file to avoid the continual cost
+                res = gsm.run(
+                    self.max_gsm_iters,
+                    self.max_opt_steps,
+                    rtype=self.rtype
+                )
 
         geoms = [node.xyz for node in gsm.nodes]
         return GSMResults(nodes=geoms, output=res, gsm=gsm)

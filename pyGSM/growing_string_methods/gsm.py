@@ -177,9 +177,18 @@ class GSM(metaclass=abc.ABCMeta):
             self.set_V0()
 
             if not self.isRestarted:
-                self._handle_initial_growth(max_iters=max_iters, opt_steps=opt_steps)
-                self.done_growing = True
-                self.output_writer('grown_string.xyz', self.geometries, self.energies, self.gradrmss, self.dEs)
+                with self.logger.block(tag="Growing initial string"):
+                    self._handle_initial_growth(max_iters=max_iters, opt_steps=opt_steps)
+                    self.done_growing = True
+                    self.checkpointer["grown_string"] = {
+                        "atoms": np.array([a.symbol for a in self.nodes[0].atoms]),
+                        "coords": np.array(self.geometries),
+                        "energies": np.array(self.energies),
+                        "gradrms": np.array(self.gradrmss)
+                    }
+                    self.output_writer('grown_string.xyz',
+                                       self.nodes[0].atoms,
+                                       self.geometries, self.energies, self.gradrmss, self.dEs)
 
             # Can check for intermediate at beginning but not doing that now.
             # else:
@@ -193,15 +202,24 @@ class GSM(metaclass=abc.ABCMeta):
             #                self.tscontinue=False
 
             if self.tscontinue:
-                self._optimize_string_for_ts(max_iters=max_iters, opt_steps=opt_steps, rtype=rtype)
-                filename = "opt_converged.xyz"
+                with self.logger.block(tag="Optimizing string"):
+                    self._optimize_string_for_ts(max_iters=max_iters, opt_steps=opt_steps, rtype=rtype)
+                    filename = "opt_converged.xyz"
             else:
                 self.logger.log_print("No TS optimization performed")
                 filename = "opt_partial_converged.xyz"
                 self.end_early = True
 
             self.logger.log_print(" Printing string to " + filename)
-            self.output_writer(filename, self.geometries, self.energies, self.gradrmss, self.dEs)
+            self.checkpointer["optimized_string"] = {
+                "atoms": np.array([a.symbol for a in self.nodes[0].atoms]),
+                "coords": np.array(self.geometries),
+                "energies": np.array(self.energies),
+                "gradrms": np.array(self.gradrmss)
+            }
+            self.output_writer(filename,
+                               self.nodes[0].atoms,
+                               self.geometries, self.energies, self.gradrmss, self.dEs)
             self.logger.log_print("Finished GSM!")
 
     @property
