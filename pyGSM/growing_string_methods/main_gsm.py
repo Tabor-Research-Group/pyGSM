@@ -483,7 +483,7 @@ class MainGSM(GSM):
             dqmaga=dqmaga,
             preformatter=lambda *, dqmaga, **kwargs: dict(
                 kwargs,
-                dqmaga_str=self._format_block_str(dqmaga, 5, "{:5.3}", " ")),
+                dqmaga_str=self._format_block_str(dqmaga, 5, "{:5.3f}", " ")),
             log_level=self.logger.LogLevel.Debug
         )
 
@@ -674,10 +674,10 @@ class MainGSM(GSM):
                         " printing spacings dqmaga: ",
                         "{dqmaga_str}"
                     ],
-                    dqmaga_str=self.dqmaga,
+                    dqmaga=self.dqmaga,
                     preformatter=lambda *, dqmaga, **kwargs: dict(
                         kwargs,
-                        dqmaga_str=self._format_block_str(dqmaga, 5, "{:5.3}", " ")),
+                        dqmaga_str=self._format_block_str(dqmaga, 5, "{:5.3f}", " ")),
                     log_level=self.logger.LogLevel.Debug
                 )
 
@@ -695,12 +695,12 @@ class MainGSM(GSM):
                         self.logger.log_print(
                             [
                                 " rpart: ",
-                                "{rpart}",
+                                "{rpart_str}",
                             ],
                             rpart=rpart,
                             preformatter=lambda *, rpart, **kwargs: dict(
                                 kwargs,
-                                rpart_str=self._format_block_str(rpart, 5, "{:1.2}", " ")),
+                                rpart_str=self._format_block_str(rpart, 5, "{:1.2f}", " ")),
                             log_level=self.logger.LogLevel.Debug
                         )
                 nR0 = self.nR
@@ -729,12 +729,12 @@ class MainGSM(GSM):
                 disprms = float(np.linalg.norm(rpmove[n0+1:self.num_nodes-1]))
                 self.logger.log_print(
                     [
-                        "{rpmove}",
+                        "{rpmove_str}",
                     ],
                     rpmove=rpmove[n0+1:],
                     preformatter=lambda *, rpmove, **kwargs: dict(
                         kwargs,
-                        rpart_str=self._format_block_str(rpart, 5, "{:1.2}", " ")),
+                        rpmove_str=self._format_block_str(rpmove, 5, "{:1.2f}", " ")),
                     log_level=self.logger.LogLevel.Debug
                 )
                 # if self.print_level > 0:
@@ -959,54 +959,54 @@ class MainGSM(GSM):
         msg.append("*********************************************************************")
         self.logger.log_print(msg)
 
-    def com_rotate_move(self, iR, iP, iN):
-        self.logger.log_print(" aligning com and to Eckart Condition")
-
-        mfrac = 0.5
-        if self.num_nodes - self.current_nnodes+1 != 1:
-            mfrac = 1./(self.num_nodes - self.current_nnodes+1)
-
-        # if self.__class__.__name__ != "DE_GSM":
-        #    # no "product" structure exists, use initial structure
-        #    iP = 0
-
-        xyz0 = self.nodes[iR].xyz.copy()
-        xyz1 = self.nodes[iN].xyz.copy()
-        com0 = self.nodes[iR].center_of_mass
-        com1 = self.nodes[iN].center_of_mass
-        masses = self.nodes[iR].mass_amu
-
-        # From the old GSM code doesn't work
-        # com1 = mfrac*(com2-com0)
-        # print("com1")
-        # print(com1)
-        # # align centers of mass
-        # xyz1 += com1
-        # Eckart_align(xyz1,xyz2,masses,mfrac)
-
-        # rotate to be in maximal coincidence with 0
-        # assumes iP i.e. 2 is also in maximal coincidence
-        U = rotate.get_rot(xyz0, xyz1)
-        xyz1 = np.dot(xyz1, U)
-
-        # # align
-        # if self.nodes[iP] != None:
-        #    xyz2 = self.nodes[iP].xyz.copy()
-        #    com2 = self.nodes[iP].center_of_mass
-
-        #    if abs(iN-iR) > abs(iN-iP):
-        #        avg_com = mfrac*com2 + (1.-mfrac)*com0
-        #    else:
-        #        avg_com = mfrac*com0 + (1.-mfrac)*com2
-        #    dist = avg_com - com1  #final minus initial
-        # else:
-        #    dist = com0 - com1  #final minus initial
-
-        # print("aligning to com")
-        # print(dist)
-        # xyz1 += dist
-
-        return xyz1
+    # def com_rotate_move(self, iR, iP, iN):
+    #     self.logger.log_print(" aligning com and to Eckart Condition")
+    #
+    #     mfrac = 0.5
+    #     if self.num_nodes - self.current_nnodes+1 != 1:
+    #         mfrac = 1./(self.num_nodes - self.current_nnodes+1)
+    #
+    #     # if self.__class__.__name__ != "DE_GSM":
+    #     #    # no "product" structure exists, use initial structure
+    #     #    iP = 0
+    #
+    #     xyz0 = self.nodes[iR].xyz.copy()
+    #     xyz1 = self.nodes[iN].xyz.copy()
+    #     com0 = self.nodes[iR].center_of_mass
+    #     com1 = self.nodes[iN].center_of_mass
+    #     masses = self.nodes[iR].mass_amu
+    #
+    #     # From the old GSM code doesn't work
+    #     # com1 = mfrac*(com2-com0)
+    #     # print("com1")
+    #     # print(com1)
+    #     # # align centers of mass
+    #     # xyz1 += com1
+    #     # Eckart_align(xyz1,xyz2,masses,mfrac)
+    #
+    #     # rotate to be in maximal coincidence with 0
+    #     # assumes iP i.e. 2 is also in maximal coincidence
+    #     U = rotate.get_rot(xyz0, xyz1)
+    #     xyz1 = np.dot(xyz1, U)
+    #
+    #     # # align
+    #     # if self.nodes[iP] != None:
+    #     #    xyz2 = self.nodes[iP].xyz.copy()
+    #     #    com2 = self.nodes[iP].center_of_mass
+    #
+    #     #    if abs(iN-iR) > abs(iN-iP):
+    #     #        avg_com = mfrac*com2 + (1.-mfrac)*com0
+    #     #    else:
+    #     #        avg_com = mfrac*com0 + (1.-mfrac)*com2
+    #     #    dist = avg_com - com1  #final minus initial
+    #     # else:
+    #     #    dist = com0 - com1  #final minus initial
+    #
+    #     # print("aligning to com")
+    #     # print(dist)
+    #     # xyz1 += dist
+    #
+    #     return xyz1
 
     def find_peaks(self, rtype='opting'):
         '''

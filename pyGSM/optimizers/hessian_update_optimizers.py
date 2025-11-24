@@ -129,8 +129,8 @@ class hessian_update_optimizer(base_optimizer):
                 "{dgdg}",
             ],
             Hdx=Hdx.T,
-            dgtdx=dgtdx,
-            dxHdx=dxHdx,
+            dgtdx=dgtdx[0, 0],
+            dxHdx=dxHdx[0, 0],
             dgdg=dgdg,
             log_level=self.logger.LogLevel.Debug
         )

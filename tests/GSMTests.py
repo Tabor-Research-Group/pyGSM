@@ -49,6 +49,7 @@ class GSMTests(unittest.TestCase):
 
     def test_DEGSM(cls):
         from pyGSM.gsm_runner import GSMRunner
+        from pyGSM.utilities import Devutils as dev
         test_dir = os.path.join(root, "tests", "test_results")
         os.makedirs(test_dir, exist_ok=True)
         os.chdir(test_dir)
@@ -66,7 +67,8 @@ class GSMTests(unittest.TestCase):
             xyzfile=test_data('diels_alder.xyz'),
             EST_Package='aimnet',
             # logger='log.txt',
-            logger=True,
+            # logger=True,
+            logger=dev.Logger(log_level=dev.LogLevel.MoreDebug),
             output_dir='.'
         )
 

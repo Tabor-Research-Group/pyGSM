@@ -323,7 +323,7 @@ class InternalCoordinates(metaclass=abc.ABCMeta):
             if len(ndqs) > 0:
                 if ndq > ndqt:
                     self.logger.log_print(
-                        " Iter: {microiter} Err-dQ (Best) = {ndq:.5e} ({ndqt.5e}) RMSD: {rmsd.5e} Damp: {damp:.5e} (Bad)",
+                        " Iter: {microiter} Err-dQ (Best) = {ndq:.5e} ({ndqt:.5e}) RMSD: {rmsd:.5e} Damp: {damp:.5e} (Bad)",
                         microiter=microiter, ndq=ndq, ndqt=ndqt, rmsd=rmsd, damp=damp,
                         log_level=self.logger.LogLevel.Debug
                     )
@@ -332,7 +332,7 @@ class InternalCoordinates(metaclass=abc.ABCMeta):
                     # xyz2 = xyz1.copy()
                 else:
                     self.logger.log_print(
-                        " Iter: {microiter} Err-dQ (Best) = {ndq:.5e} ({ndqt.5e}) RMSD: {rmsd.5e} Damp: {damp:.5e} (Good)",
+                        " Iter: {microiter} Err-dQ (Best) = {ndq:.5e} ({ndqt:.5e}) RMSD: {rmsd:.5e} Damp: {damp:.5e} (Good)",
                         microiter=microiter, ndq=ndq, ndqt=ndqt, rmsd=rmsd, damp=damp,
                         log_level=self.logger.LogLevel.Debug
                     )
