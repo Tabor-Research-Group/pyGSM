@@ -91,6 +91,21 @@ class Molecule:
             hessian=self._hessian,
             primitive_hessian=self._primitive_hessian
         )
+    def get_opts_for_report(self):
+        base = {
+            k:v
+            for k,v in self.get_state_dict().items()
+            if k not in {'logger', 'comment',
+                         'gradient', 'energy', 'hessian',
+                         'primitive_gradient','primitive_hessian'}
+        }
+        coords = base.pop('coord_obj')
+        base['coord_obj'] = coords.get_opts_for_report()
+        evaluator = base.pop('energy_evaluator', None)
+        if evaluator is not None:
+            base['energy_evaluator'] = evaluator.get_opts_for_report()
+        return base
+
     def modify(self,
                coord_obj=dev.default, energy_evaluator=dev.default,
                xyz=None, atoms=None,

@@ -53,7 +53,7 @@ class File_Options(object):
         clash   : A condition that must be False for the option to be activated.
         msg     : A warning that is printed out if the option is not activated.
         """
-        doc = sub("\.$", "", doc.strip())+"."
+        doc = sub(r"\.$", "", doc.strip())+"."
         self.Documentation[key] = "%-8s " % ("(" + sub("'>", "", sub("<type '", "", str(typ)))+")") + doc
         if key in self.UserOptions:
             val = self.UserOptions[key]

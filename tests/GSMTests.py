@@ -65,7 +65,8 @@ class GSMTests(unittest.TestCase):
         GSMRunner.run_simple(
             xyzfile=test_data('diels_alder.xyz'),
             EST_Package='aimnet',
-            logger='log.txt',
+            # logger='log.txt',
+            logger=True,
             output_dir='.'
         )
 

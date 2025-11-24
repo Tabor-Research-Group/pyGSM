@@ -132,6 +132,11 @@ class base_optimizer(metaclass=abc.ABCMeta):
         self.converged = False
         self.check_only_grad_converged = False
 
+    def get_opts_for_report(self):
+        base = dict({'type':type(self).__name__}, **self.get_state_dict())
+        base.pop('logger')
+        return base
+
     @abc.abstractmethod
     def optimize(self, molecule, refE=0., opt_type='UNCONSTRAINED', opt_steps=3, ictan=None):
         ...

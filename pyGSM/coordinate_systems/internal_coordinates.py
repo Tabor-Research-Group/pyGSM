@@ -84,6 +84,10 @@ class InternalCoordinates(metaclass=abc.ABCMeta):
         return bonds
 
     @abc.abstractmethod
+    def get_opts_for_report(self) -> dict:
+        ...
+
+    @abc.abstractmethod
     def calcDiff(self, xyz2, xyz1):
         ...
 

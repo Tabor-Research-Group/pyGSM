@@ -197,6 +197,12 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             logger=self.logger
         )
 
+    def get_opts_for_report(self) -> dict:
+        return {
+            'primitives':self.Internals,
+            'constraints':self.constraints
+        }
+
     def compute_bmatrix(self, xyz):
         xyz = xyz.reshape(-1, 3)
 

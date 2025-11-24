@@ -3,6 +3,7 @@ from __future__ import print_function
 import abc
 import enum
 import dataclasses
+import pprint
 
 from .. import coordinate_systems as coord_ops
 from ..coordinate_systems import Distance, Angle, Dihedral, OutOfPlane
@@ -162,6 +163,30 @@ class GSM(metaclass=abc.ABCMeta):
     def _optimize_string_for_ts(self, *, max_iters, opt_steps, rtype):
         ...
 
+    def get_opts_for_report(self):
+        return dict(
+            num_nodes=len(self.nodes),
+            tolerances=self.tolerances,
+            nodes=[
+                node.get_opts_for_report()
+                for node in self.nodes
+                if node is not None
+            ],
+            optimizer=[
+                opt.get_opts_for_report()
+                for opt in self.optimizer
+                if opt is not None
+            ][0],
+            fixed_nodes=self.fixed_nodes,
+            driving_coords=self.driving_coords,
+            interp_method=self.interp_method
+        )
+
+    def print_opts_report(self):
+        self.logger.log_print(
+            pprint.pformat(self.get_opts_for_report()).replace("{", "{{").replace("}", "}}")
+        )
+
     # TODO Change rtype to a more meaningful argument name
     def go_gsm(self, max_iters=50, opt_steps=3, *, rtype=None):
         """
@@ -175,6 +200,8 @@ class GSM(metaclass=abc.ABCMeta):
 
         with self.logger.block(tag="Running GSM"):
             self.set_V0()
+
+            self.print_opts_report()
 
             if not self.isRestarted:
                 with self.logger.block(tag="Growing initial string"):
@@ -254,7 +281,7 @@ class GSM(metaclass=abc.ABCMeta):
         )
 
     nodes: list[Molecule] # giving a type hint to pycharm
-    optimizers: list[base_optimizer] # giving a type hint to pycharm
+    optimizer: list[base_optimizer] # giving a type hint to pycharm
     def __init__(
             self,
             *,

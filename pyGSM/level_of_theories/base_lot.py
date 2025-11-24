@@ -82,6 +82,13 @@ class LoT(metaclass=abc.ABCMeta):
         self.do_coupling = calc_grad
         self.aggregation_function = self.resolve_aggregation_function(aggregation_function)
 
+    def get_opts_for_report(self):
+        return {
+            'package':type(self).__name__,
+            'states':self.states,
+            'aggregation_function':self.aggregation_function,
+        }
+
     aggregation_functions = {}
     @classmethod
     def _default_aggregation_functions(cls):

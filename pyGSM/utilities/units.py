@@ -91,5 +91,5 @@ units = {
 }
 for k in list(units.keys()):
     v = units[k]
-    mobj = re.match('(\S+)_per_(\S+)', k)
+    mobj = re.match(r'(\S+)_per_(\S+)', k)
     units['%s_per_%s' % (mobj.group(2), mobj.group(1))] = 1.0 / v
