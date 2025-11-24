@@ -407,7 +407,7 @@ class eigenvector_follow(hessian_update_optimizer):
             if self.converged:
                 self.logger.log_print(" converged", log_level=self.logger.LogLevel.MoreDebug)
                 if ostep % xyzframerate != 0:
-                    geoms.append(molecule.geometry)
+                    geoms.append(molecule.xyz)
                     energies.append(molecule.energy-refE)
                     # manage_xyz.write_xyzs_w_comments('{}/opt_{}.xyz'.format(path, molecule.node_id), geoms, energies, scale=1.)
                 break
