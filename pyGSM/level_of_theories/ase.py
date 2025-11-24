@@ -5,11 +5,10 @@ https://gitlab.com/ase/ase
 Written by Tamas K. Stenczel in 2021
 """
 import importlib
-import numpy as np
 
 from ase import Atoms
 from ase.calculators.calculator import Calculator
-from ..utilities import elements
+from ase import units
 from .base_lot import LoT, LoTError
 
 class Constraint_custom_forces:
@@ -28,7 +27,7 @@ class ASELoT(LoT):
     Warning:
         multiplicity is not implemented, the calculator ignores it
     """
-    energy_units = "kcal/mol"
+    # energy_units = "Hartrees"
     distance_units = "Angstrom"
 
     def __init__(self,
@@ -108,8 +107,8 @@ class ASELoT(LoT):
 
         res = {}
         if 'gradient' in runtypes:
-            res['gradient'] = self.grad_obj(-atoms.get_forces().flatten())
+            res['gradient'] = self.grad_obj(-atoms.get_forces().flatten() / units.Ha)
         if 'energy' in runtypes:
-            res['energy'] = self.energy_obj(atoms.get_potential_energy()[0])
+            res['energy'] = self.energy_obj(atoms.get_potential_energy()[0] / units.Ha)
 
         return res
