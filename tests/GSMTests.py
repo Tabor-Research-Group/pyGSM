@@ -67,8 +67,8 @@ class GSMTests(unittest.TestCase):
             xyzfile=test_data('diels_alder.xyz'),
             EST_Package='aimnet',
             # logger='log.txt',
-            # logger=True,
-            logger=dev.Logger(log_level=dev.LogLevel.MoreDebug),
+            logger=True,
+            # logger=dev.Logger(log_level=dev.LogLevel.MoreDebug),
             output_dir='.'
         )
 

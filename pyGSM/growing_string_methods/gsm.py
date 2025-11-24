@@ -204,6 +204,7 @@ class GSM(metaclass=abc.ABCMeta):
             self.print_opts_report()
 
             if not self.isRestarted:
+                self.preoptimize()
                 with self.logger.block(tag="Growing initial string"):
                     self._handle_initial_growth(max_iters=max_iters, opt_steps=opt_steps)
                     self.done_growing = True
@@ -428,12 +429,18 @@ class GSM(metaclass=abc.ABCMeta):
         return self.tolerances["BDIST_RATIO"]
 
     def preoptimize(self):
-        for prep_node in [
-            0, # reactant
-            self.num_nodes - 1 # product
-        ]:
-            if self.fixed_nodes is None or prep_node not in self.fixed_nodes:
-                self.nodes[prep_node] = self.nodes[prep_node].optimize()
+        with self.logger.block(tag="Pre-optimizing nodes"):
+            for prep_node in [
+                0, # reactant
+                self.num_nodes - 1 # product
+            ]:
+                if self.fixed_nodes is None or prep_node not in self.fixed_nodes:
+                    with self.logger.block(tag="optimizing node {prep_node}", prep_node=prep_node):
+                        self.optimizer[prep_node].optimize(
+                            molecule=self.nodes[prep_node],
+                            refE=self.nodes[prep_node].energy,
+                            opt_steps=1000
+                        )
 
         # if not cfg['reactant_geom_fixed']:
         #     path = os.path.join(os.getcwd(), 'scratch/{:03}/{}/'.format(cfg["ID"], 0))
