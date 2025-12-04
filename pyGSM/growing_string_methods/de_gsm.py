@@ -34,6 +34,8 @@ class DE_GSM(MainGSM):
             target_edges
         )
 
+        nodes = cls.set_consistent_node_dlcs(nodes)
+
         nodes = cls.add_evaluator_to_nodes(nodes, evaluator)
 
         return nodes

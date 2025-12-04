@@ -162,12 +162,21 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             #print(" make prim %.3f" % time_build)
         else:
             if internals is None:
-                internals = []
+                raise ValueError("internals are required if `form_topology=False`")
             if fragments is None:
-                fragments = []
+                fragments = self.topology.get_fragments()
+            if len(fragments) == 0:
+                raise ValueError("no fragments supplied")
             self.fragments = fragments
             if block_info is None:
-                block_info = []
+                internals, block_info = self.reorder_primitives_by_fragment(
+                    fragments,
+                    internals,
+                    hybrid_idx_start_stop=hybrid_idx_start_stop,
+                    logger=self.logger
+                )
+            if len(block_info) == 0:
+                raise ValueError("no blocks supplied for internals")
             self.block_info = block_info
         # Reorder primitives for checking with cc's code in TC.
         # Note that reorderPrimitives() _must_ be updated with each new InternalCoordinate class written.
@@ -182,6 +191,19 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
     def type_classes(self):
         return tuple(ic.type_class for ic in self.Internals)
 
+    def get_state_dict(self):
+        return dict(
+            super().get_state_dict(),
+            bonds=self.topology,
+            internals=deepcopy(self.Internals),
+            fragments=list(self.fragments),
+            hybrid_idx_start_stop=self.hybrid_idx_start_stop,
+            form_topology=False,
+            connect=self.connect,
+            addcart=self.addcart,
+            addtr=self.addtr,
+            logger=self.logger
+        )
     def copy(self):
         return type(self)(
             self.atoms,
@@ -276,6 +298,28 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def union(self, other):
+        new_ints = []
+        # for i in new_ints: # too messy
+        #     if i not in other.Internals:
+        #         if hasattr(i, 'inactive'):
+        #             i.inactive += 1
+        #         else:
+        #             i.inactive = 0
+        #         if i.inactive == 1:
+        #             # logger.info("Deleting:", i)
+        #             new_ints.remove(i)
+        #             Changed = True
+        #     else:
+        #         i.inactive = 0
+        if hasattr(other, 'Internals'):
+            other = other.Internals
+        for i in other:
+            if i not in self.Internals:
+                # logger.info("Adding:  ", i)
+                new_ints.append(i)
+
+        return self.modify(internals=self.Internals + tuple(new_ints))
     def update(self, other):
         Changed = False
         for i in self.Internals:
@@ -476,7 +520,12 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         self.Internals = tuple(newPrims)
 
         if not self.connect:
-            self.reorderPrimsByFrag()
+            self.Internals, self.block_info = self.reorder_primitives_by_fragment(
+                self.fragments,
+                self.Internals,
+                hybrid_idx_start_stop=self.hybrid_idx_start_stop,
+                logger=self.logger
+            )
         else:
             # all atoms are considered one "fragment"
             self.block_info = [(1, self.natoms, len(newPrims), 'P')]
@@ -526,6 +575,52 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
 
         return atom_lines_uniq
 
+    @classmethod
+    def create_block_info(cls, fragments, internals=None, hybrid_idx_start_stop=None, *, logger):
+        if internals is not None:
+            raise NotImplementedError("disabled code path")
+
+        logger.log_print(" Creating block info", log_level=logger.LogLevel.Debug)
+        tmp_block_info = []
+        # get primitive blocks
+        prim_frags = []
+        for n,frag in enumerate(fragments):
+            nodes = frag.L()
+            if internals is None:
+                tmp_block_info.append((nodes[0], nodes[-1] + 1, frag, 'reg'))
+            else:
+                test_nodes = set(nodes)
+                frag_block = []
+                for m,i in enumerate(internals):
+                    if len(set(i.atoms) - test_nodes) == 0:
+                        frag_block.append(m)
+                prim_frags.append(frag_block)
+            # TODO can assert blocks are contiguous here
+        if internals is not None:
+            all_frags = np.concatenate(prim_frags)
+            if len(all_frags) < len(internals):
+                missing_bits = np.setdiff1d(np.arange(len(internals)), all_frags)
+                raise ValueError("primitives {} don't belong to any fragment".format(
+                    [internals[m] for m in missing_bits]
+                ))
+
+        logger.log_print(" number of primitive blocks is {nfrag}", nfrag=len(fragments),
+                         log_level=logger.LogLevel.Debug)
+
+        # get hybrid blocks
+        for tup in hybrid_idx_start_stop:
+            raise NotImplementedError("hybrid index blocks need to be implemented better")
+            # Add primitive Cartesians for each atom in hybrid block
+            sa = tup[0]
+            ea = tup[1]
+            leng = ea - sa
+            for atom in range(sa, ea + 1):
+                tmp_block_info.append((atom, atom + 1, None, 'hyb'))
+
+        # sort the blocks
+        tmp_block_info.sort(key=lambda tup: tup[0])
+
+        return tmp_block_info, internals
 
     @classmethod
     def newMakePrimitives(cls,
@@ -549,26 +644,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         # coordinates in Angstrom
         coords = xyz.flatten()
 
-        logger.log_print(" Creating block info", log_level=logger.LogLevel.Debug)
-        tmp_block_info = []
-        # get primitive blocks
-        for frag in fragments:
-            nodes = frag.L()
-            tmp_block_info.append((nodes[0], nodes[-1]+1, frag, 'reg'))
-            # TODO can assert blocks are contiguous here
-        logger.log_print(" number of primitive blocks is {nfrag}", nfrag=len(fragments), log_level=logger.LogLevel.Debug)
-
-        # get hybrid blocks
-        for tup in hybrid_idx_start_stop:
-            # Add primitive Cartesians for each atom in hybrid block
-            sa = tup[0]
-            ea = tup[1]
-            leng = ea-sa
-            for atom in range(sa, ea+1):
-                tmp_block_info.append((atom, atom+1, None, 'hyb'))
-
-        # sort the blocks
-        tmp_block_info.sort(key=lambda tup: tup[0])
+        tmp_block_info, _ = cls.create_block_info(fragments, hybrid_idx_start_stop=hybrid_idx_start_stop, logger=logger)
         # print("block info")
         # print(tmp_block_info)
         logger.log_print([
@@ -783,15 +859,8 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
 
         return Internals, block_info
 
-    def insert_block_primitives(self, prims, reform_topology):
-        '''
-        The SE-GSM needs to add primitives, we have to do this carefully because of the blocks
-        '''
-        raise NotImplementedError("this wasn't implemented")
-
-        return
-
-    def reorderPrimsByFrag(self):
+    @classmethod
+    def reorder_primitives_by_fragment(cls, fragments, internals, hybrid_idx_start_stop=None, *, logger):
         '''
         Warning this assumes that the fragments aren't intermixed. you shouldn't do that!!!!
         '''
@@ -811,15 +880,16 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
 
         tmp_block_info = []
 
-        self.logger.log_print(" Creating block info")
+        logger.log_print(" Creating block info")
         # get primitive blocks
-        for frag in self.fragments:
+        for frag in fragments:
             nodes = frag.L()
             tmp_block_info.append((nodes[0], nodes[-1]+1, frag, 'reg'))
             # TODO can assert blocks are contiguous here
 
         # get hybrid blocks
-        for tup in self.hybrid_idx_start_stop:
+        for tup in hybrid_idx_start_stop:
+            raise NotImplementedError("hybrid index blocks need to be implemented better")
             # Add primitive Cartesians for each atom in hybrid block
             sa = tup[0]
             ea = tup[1]
@@ -829,19 +899,19 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         # sort the blocks
         tmp_block_info.sort(key=lambda tup: tup[0])
 
-        self.logger.log_print(" Done creating block info,\n Now Ordering Primitives by block")
+        logger.log_print(" Done creating block info,\n Now Ordering Primitives by block")
 
         # Order primitives by block
         # probably faster to just reform the primitives!!!!
 
-        self.block_info = []
+        block_info = []
         sp = 0
 
         for info in tmp_block_info:
             nprims = 0
             if info[-1] == 'reg':
                 # TODO OLD
-                for p in self.Internals:
+                for p in internals:
                     atoms = p.atoms
                     if all([atom in range(info[0], info[1]) for atom in atoms]):
                         newPrims.append(p)
@@ -852,8 +922,11 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                 newPrims.append(slots.CartesianZ(info[0], w=1.0))
                 nprims = 3
 
+            if nprims == 0:
+                raise ValueError(f"block {info} has no associated primitives from {internals}")
+
             ep = sp+nprims
-            self.block_info.append((info[0], info[1], sp, ep))
+            block_info.append((info[0], info[1], sp, ep))
             sp = ep
 
         # print(" block info")
@@ -863,11 +936,8 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         # if len(newPrims) != len(self.Internals):
         #    #print(np.setdiff1d(self.Internals,newPrims))
         #    raise RuntimeError("Not all internal coordinates have been accounted for. You may need to add something to reorderPrimitives()")
-        self.Internals = tuple(newPrims)
-
-        self.logger.log_print(self.Internals)
-        self.clearCache()
-        return
+        internals = tuple(newPrims)
+        return internals, block_info
 
     def guess_hessian(self, coords, bonds=None):
         """

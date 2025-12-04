@@ -103,6 +103,24 @@ class GSM(metaclass=abc.ABCMeta):
             return nodes
 
     @classmethod
+    def set_consistent_node_dlcs(cls, nodes):
+        all_prims = [
+            node.coord_obj.Prims
+            for node in nodes if node is not None
+        ]
+
+        new_prims = all_prims[0]
+        for extra in all_prims[1:]:
+            new_prims = new_prims.union(extra)
+
+        return [
+            mol.modify_coordinate_system(primitives=new_prims)
+                if mol is not None else
+            None
+            for mol in nodes
+        ]
+
+    @classmethod
     def read_isomers_file(cls, isomers_file):
         with open(isomers_file) as f:
             tmp = filter(None, (line.rstrip() for line in f))

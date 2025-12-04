@@ -47,10 +47,12 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
         # print("vecs after build")
         # print(self.Vecs)
 
-    def update_dlc(self, new_xyz, constraints=None):
+    def update_dlc(self, new_xyz=None, constraints=None):
         #TODO: make this not an in-place operation
         if constraints is not None:
             self.constraints = constraints
+        if new_xyz is None:
+            new_xyz = self.xyz
         self.Vecs, self.Internals = self.build_dlc(self.Prims, new_xyz, logger=self.logger, constraints=self.constraints)
         return self.Vecs
 
@@ -166,6 +168,8 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
             # # print("LargeVals %i" % LargeVals)
             tmpvecs.append(Q[:, LargeIdx])
 
+        if len(tmpvecs) == 0:
+            raise ValueError("Wilson G-matrix empty block-by-block")
         vecs = block_matrix(tmpvecs)
         # print(" shape of DLC")
         # print(self.Vecs.shape)

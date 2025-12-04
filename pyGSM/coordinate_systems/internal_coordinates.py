@@ -111,6 +111,7 @@ class InternalCoordinates(metaclass=abc.ABCMeta):
         given by dq_i/dx_j where x is flattened (i.e. x1, y1, z1, x2, y2, z2)
         """
         if use_cache:
+            raise NotImplementedError("caching slower than derivs")
             global CacheWarning
             t0 = time.time()
             xhash = hash(xyz.tostring())

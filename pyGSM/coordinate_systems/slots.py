@@ -66,6 +66,10 @@ class PrimitiveCoordinate(metaclass=abc.ABCMeta):
         self.isPeriodic = isPeriodic
 
     @abc.abstractmethod
+    def atoms(self):
+        ...
+
+    @abc.abstractmethod
     def value(self, coords):
         ...
 
@@ -393,10 +397,10 @@ class Rotator(object):
         relative_a = [a-start_idx for a in self.a]
 
         # NOTE 3/2020 CRA stored_der does not currently work in block-matrix formulism
-        if self.stored_derxyz is None:
-            pass
-        elif np.max(np.abs(xyz-self.stored_derxyz)) < 1e-12:
-            return self.stored_deriv[relative_a]
+        # if self.stored_derxyz is None:
+        #     pass
+        # elif np.max(np.abs(xyz-self.stored_derxyz)) < 1e-12:
+        #     return self.stored_deriv[relative_a]
 
         xsel = xyz  # [relative_a, :]
         # x0 is the full size. . .
@@ -452,8 +456,8 @@ class Rotator(object):
         derivatives = np.zeros((xyz.shape[0], 3, 3), dtype=float)
         for i, a in enumerate(relative_a):
             derivatives[a, :, :] = deriv_raw[i, :, :]
-        self.stored_derxyz = xyz.copy()
-        self.stored_deriv = derivatives
+        # self.stored_derxyz = xyz.copy()
+        # self.stored_deriv = derivatives
 
         return derivatives
 

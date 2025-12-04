@@ -312,28 +312,28 @@ class MainGSM(GSM):
         if not self.done_growing:
             # TODO
 
-            if self.mp_cores == 1:
-                for n in range(1, self.num_nodes-1):
-                    if self.nodes[n] is not None:
-                        self.nodes[n] = self.nodes[n].modify_coordinate_system(
-                            constraints=self.ictan[n]
-                        )
-                        # Vecs = self.newic.modify_.build_dlc(self.nodes[n].xyz, self.ictan[n],
-                        #                                       logger=self.logger
-                        #                                       )
-                        # self.nodes[n].coord_basis = Vecs
+            # if self.mp_cores == 1:
+            for n in range(1, self.num_nodes-1):
+                if self.nodes[n] is not None:
+                    self.nodes[n] = self.nodes[n].modify_coordinate_system(
+                        constraints=self.ictan[n]
+                    )
+                    # Vecs = self.newic.modify_.build_dlc(self.nodes[n].xyz, self.ictan[n],
+                    #                                       logger=self.logger
+                    #                                       )
+                    # self.nodes[n].coord_basis = Vecs
 
-            else:
-                pool = mp.Pool(self.mp_cores)
-                Vecs = pool.map(worker, ((self.newic.coord_obj, "update_dlc", self.nodes[n].xyz, self.ictan[n]) for n in range(1, self.num_nodes-1) if self.nodes[n] is not None))
-                pool.close()
-                pool.join()
-
-                i = 0
-                for n in range(1, self.num_nodes-1):
-                    if self.nodes[n] is not None:
-                        self.nodes[n].coord_basis = Vecs[i]
-                        i += 1
+            # else:
+            #     pool = mp.Pool(self.mp_cores)
+            #     Vecs = pool.map(worker, ((self.newic.coord_obj, "update_dlc", self.nodes[n].xyz, self.ictan[n]) for n in range(1, self.num_nodes-1) if self.nodes[n] is not None))
+            #     pool.close()
+            #     pool.join()
+            #
+            #     i = 0
+            #     for n in range(1, self.num_nodes-1):
+            #         if self.nodes[n] is not None:
+            #             self.nodes[n].coord_basis = Vecs[i]
+            #             i += 1
         else:
             if self.find or self.climb:
                 TSnode = self.TSnode
@@ -649,6 +649,13 @@ class MainGSM(GSM):
             self.ic_reparam(nodes=self.nodes, energies=self.energies, climbing=(self.climb or self.find), ic_reparam_steps=ic_reparam_steps, NUM_CORE=self.mp_cores)
         return
 
+    @abc.abstractmethod
+    def make_move_list(self):
+        ...
+    @abc.abstractmethod
+    def make_tan_list(self):
+        ...
+
     def ic_reparam_g(self, ic_reparam_steps=4, n0=0, reparam_interior=True):  # see line 3863 of gstring.cpp
         """
         Reparameterize during growth phase
@@ -751,37 +758,37 @@ class MainGSM(GSM):
                 move_list = self.make_move_list()
                 tan_list = self.make_tan_list()
 
-                if self.mp_cores > 1:
-                    pool = mp.Pool(self.mp_cores)
-                    Vecs = pool.map(worker, ((self.nodes[0].coord_obj, "update_dlc", self.nodes[n].xyz, self.ictan[ntan]) for n, ntan in zip(move_list, tan_list) if rpmove[n] < 0))
-                    pool.close()
-                    pool.join()
-
-                    i = 0
-                    for n in move_list:
-                        if rpmove[n] < 0:
-                            self.nodes[n].coord_basis = Vecs[i]
-                            i += 1
-
-                    # move the positions
-                    pool = mp.Pool(self.mp_cores)
-                    newXyzs = pool.map(worker, ((self.nodes[n].coord_obj, "newCartesian", self.nodes[n].xyz, rpmove[n]*self.nodes[n].constraints[:, 0]) for n in move_list if rpmove[n] < 0))
-                    pool.close()
-                    pool.join()
-                    i = 0
-                    for n in move_list:
-                        if rpmove[n] < 0:
-                            self.nodes[n].xyz = newXyzs[i]
-                            i += 1
-                else:
-                    for nmove, ntan in zip(move_list, tan_list):
-                        if rpmove[nmove] < 0:
-                            self.logger.log_print('Moving {nmove} along ictan[{ntan}]', nmove=nmove, ntan=ntan,
-                                                  log_level=self.logger.LogLevel.MoreDebug)
-                            self.nodes[nmove].update_coordinate_basis(constraints=self.ictan[ntan])
-                            constraint = self.nodes[nmove].constraints[:, 0]
-                            dq0 = rpmove[nmove]*constraint
-                            self.nodes[nmove].update_xyz(dq0, verbose=True)
+                # if self.mp_cores > 1:
+                #     pool = mp.Pool(self.mp_cores)
+                #     Vecs = pool.map(worker, ((self.nodes[0].coord_obj, "update_dlc", self.nodes[n].xyz, self.ictan[ntan]) for n, ntan in zip(move_list, tan_list) if rpmove[n] < 0))
+                #     pool.close()
+                #     pool.join()
+                #
+                #     i = 0
+                #     for n in move_list:
+                #         if rpmove[n] < 0:
+                #             self.nodes[n].coord_basis = Vecs[i]
+                #             i += 1
+                #
+                #     # move the positions
+                #     pool = mp.Pool(self.mp_cores)
+                #     newXyzs = pool.map(worker, ((self.nodes[n].coord_obj, "newCartesian", self.nodes[n].xyz, rpmove[n]*self.nodes[n].constraints[:, 0]) for n in move_list if rpmove[n] < 0))
+                #     pool.close()
+                #     pool.join()
+                #     i = 0
+                #     for n in move_list:
+                #         if rpmove[n] < 0:
+                #             self.nodes[n].xyz = newXyzs[i]
+                #             i += 1
+                # else:
+                for nmove, ntan in zip(move_list, tan_list):
+                    if rpmove[nmove] < 0:
+                        self.logger.log_print('Moving {nmove} along ictan[{ntan}]', nmove=nmove, ntan=ntan,
+                                              log_level=self.logger.LogLevel.MoreDebug)
+                        self.nodes[nmove].update_coordinate_basis(constraints=self.ictan[ntan])
+                        constraint = self.nodes[nmove].constraints[:, 0]
+                        dq0 = rpmove[nmove]*constraint
+                        self.nodes[nmove].update_xyz(dq0, verbose=True)
 
             self.logger.log_print(
                 " spacings (end ic_reparam, steps: {i}/{ic_reparam_steps}): {spacings_str} disprms: {disprms:1.3}",
