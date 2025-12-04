@@ -210,7 +210,7 @@ class MainGSM(GSM):
                 # Check if allup or alldown
                 energies = np.array(self.energies)
                 if (np.all(energies[1:]+0.5 >= energies[:-1]) or np.all(energies[1:]-0.5 <= energies[:-1])) and (self.climber or self.finder):
-                    self.logger.log_printcool(" There is no TS, turning off TS search")
+                    self.logger.log_print(" There is no TS, turning off TS search")
                     rtype = 0
                     self.climber = self.finder = self.find = self.climb = False
                     self.tolerances['CONV_TOL'] = self.tolerances['CONV_TOL']*5
@@ -1139,7 +1139,7 @@ class MainGSM(GSM):
             if self.endearly_counter >= 3:
                 self.end_early = True
                 self.tscontinue = False
-                self.logger.log_printcool(" THERE IS AN INTERMEDIATE, OPTIMIZE THE INTERMEDIATE AND TRY AGAIN")
+                self.logger.log_print(" THERE IS AN INTERMEDIATE, OPTIMIZE THE INTERMEDIATE AND TRY AGAIN")
                 return True
 
         elif not self.has_intermediate(self.noise):
@@ -1211,7 +1211,7 @@ class MainGSM(GSM):
         start_climb_immediately (boolean) : set climb to True or False
         '''
 
-        self.logger.log_printcool("Restarting GSM from geometries")
+        self.logger.log_print("Restarting GSM from geometries")
         self.growth_direction = NodeAdditionStrategy.Normal
         nstructs = len(input_geoms)
 
@@ -1256,7 +1256,7 @@ class MainGSM(GSM):
                 preformatter=lambda *,vprof,**kw: dict(kw, vprof_str=" ".join(f'{e:7.3f}' for e in vprof))
             )
         if reparametrize:
-            self.logger.log_printcool("Reparametrizing")
+            self.logger.log_print("Reparametrizing")
             self.reparameterize(ic_reparam_steps=8)
             self.xyz_writer('grown_string_{:03}.xyz'.format(self.ID), self.geometries, self.energies, self.gradrmss, self.dEs)
 
