@@ -446,6 +446,7 @@ class GSM(metaclass=abc.ABCMeta):
     def BDIST_RATIO(self):
         return self.tolerances["BDIST_RATIO"]
 
+    pre_optimization_steps = 100
     def preoptimize(self):
         with self.logger.block(tag="Pre-optimizing nodes"):
             for prep_node in [
@@ -456,8 +457,8 @@ class GSM(metaclass=abc.ABCMeta):
                     with self.logger.block(tag="optimizing node {prep_node}", prep_node=prep_node):
                         self.optimizer[prep_node].optimize(
                             molecule=self.nodes[prep_node],
-                            refE=self.nodes[prep_node].energy,
-                            opt_steps=1000
+                            refE=self.nodes[0].energy,
+                            opt_steps=self.pre_optimization_steps
                         )
 
         # if not cfg['reactant_geom_fixed']:
